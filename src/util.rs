@@ -146,6 +146,29 @@ macro_rules! literal {
     );
 }
 
+#[macro_export]
+macro_rules! constrop {
+    ($i:expr,) => (
+        {
+            use nom::*;
+            use nom::simple_errors::Context;
+
+            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+            let look = &$i[0];
+
+            if let Token::BinaryOperator(string) = look {
+                if string.chars().next() == Some(':') {
+                    Ok((&$i[1..], string.clone()))
+                } else {
+                    Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+                }
+            } else {
+              Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+            }
+        }
+    );
+}
+
 macro_rules! assert_ok {
    ($r: expr, $tk: expr) => {
        match &$r {

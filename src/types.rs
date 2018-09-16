@@ -30,11 +30,11 @@ pub enum Type {
 pub enum Pattern {
     Var(String),
     Adt(String, Vec<Pattern>),
-    WildCard,
+    Wildcard,
     Unit,
     Tuple(Vec<Pattern>),
     List(Vec<Pattern>),
-    BinOp(String, Box<Pattern>, Box<Pattern>),
+    Binop(String, Box<Pattern>, Box<Pattern>),
     Record(Vec<Pattern>),
     Literal(Literal),
 }

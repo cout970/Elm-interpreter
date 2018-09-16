@@ -12,6 +12,7 @@ pub enum Token {
     LitFloat(Float),
     LitChar(char),
     LitString(String),
+    Underscore,
     Dot,
     DoubleDot,
     Comma,
@@ -136,6 +137,7 @@ fn basic_binop(input: &[u8]) -> IResult<&[u8], Token> {
     let (o, binop): (&[u8], String) = basic_binop_string(input)?;
 
     let op = match binop.as_bytes() {
+        b"_" => Underscore,
         b"." => Dot,
         b".." => DoubleDot,
         b"=" => Equals,
@@ -170,6 +172,7 @@ named!(quoted_binop<Token>, do_parse!(
 ));
 
 
+named!(underscore<Token>, map!(char!('_'), |_c| Underscore));
 named!(dot<Token>, map!(char!('.'), |_c| Dot));
 named!(double_dot<Token>, map!(tag!(".."), |_c| DoubleDot));
 named!(comma<Token>, map!(char!(','), |_c| Comma));

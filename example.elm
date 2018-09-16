@@ -21,3 +21,7 @@ view model =
     , div [] [ text (String.fromInt model) ]
     , button [ onClick Increment ] [ text "+" ]
     ]
+
+example { x, y } = x + y
+example [ x, y ] = x + y
+example x y = x + y
