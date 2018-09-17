@@ -11,8 +11,8 @@ pub enum Literal {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Ref {
-    VarRef(String),
-    OpRef(String),
+    Name(String),
+    Operand(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -98,7 +98,7 @@ pub enum Expr {
     List(Vec<Expr>),
     Range(Box<Expr>, Box<Expr>),
     Record(Vec<(String, Expr)>),
-    ADT(String),
+    Adt(String),
     RecordMod(Vec<(String, Expr)>),
     QualifiedRef(Vec<String>, String),
     RecordGet(Box<Expr>, String),

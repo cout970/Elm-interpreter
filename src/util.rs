@@ -130,18 +130,19 @@ macro_rules! literal {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
-            let look = &$i[0];
+            if $i.len() == 0 {
+                Err(Err::Incomplete(Needed::Size(1)))
+            } else {
+                let look = &$i[0];
 
-            let lit = match look {
-               LitInt(value) => Literal::Int(*value),
-               LitFloat(value) => Literal::Float(*value),
-               LitChar(value) => Literal::Char(*value),
-               LitString(value) => Literal::String(value.clone()),
-               _ => {return Err(Err::Error(Context::Code($i, ErrorKind::Custom(0)))); }
-            };
-
-            Ok((&$i[1..], lit))
+                match look {
+                   LitInt(value) => Ok((&$i[1..], Literal::Int(*value))),
+                   LitFloat(value) => Ok((&$i[1..], Literal::Float(*value))),
+                   LitChar(value) => Ok((&$i[1..], Literal::Char(*value))),
+                   LitString(value) => Ok((&$i[1..], Literal::String(value.clone()))),
+                   _ => Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+                }
+            }
         }
     );
 }

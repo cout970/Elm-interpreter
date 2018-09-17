@@ -1,6 +1,7 @@
 use *;
 use tokenizer::Token::*;
-use parsers::type_parser::*;
+use parsers::type_parser::read_type;
+use parsers::pattern_parser::read_pattern;
 
 // Definitions
 
@@ -36,7 +37,7 @@ named!(port<Tk, Statement>, do_parse!(
 
 named!(definition<Tk, Statement>, map!(read_definition, |c| Statement::Def(c)));
 
-named!(read_definition<Tk, Definition>, do_parse!(
+named!(pub read_definition<Tk, Definition>, do_parse!(
     t: opt!(read_type_def) >>
     v: read_value_def >>
     (Definition(t, v))
@@ -90,8 +91,6 @@ named!(alias<Tk, Statement>, do_parse!(
     (Statement::Alias(create_vec(a, b), ty))
 ));
 
-//named!(read_type<Tk, Type>, map!(tk!(LeftParen), |_c| Type::Unit));
-named!(read_pattern<Tk, Pattern>, map!(tk!(LeftParen), |_c| Pattern::Unit));
 named!(read_expr<Tk, Expr>, map!(tk!(LeftParen), |_c| Expr::Unit));
 
 #[cfg(test)]
@@ -101,9 +100,21 @@ mod tests {
     use tokenizer::get_all_tokens;
 
     #[test]
-    fn check_empty_module() {
+    fn check_type_alias() {
         let stream = get_all_tokens(b"type alias Html list = ()");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Alias(vec!["Html".to_string(), "list".to_string()], Type::Unit));
+    }
+
+    #[test]
+    fn check_def() {
+        let stream = get_all_tokens(b"my_fun x = ()");
+        let m = top_level_statement(&stream);
+        assert_ok!(m, Statement::Def(
+            Definition(
+                None,
+                ValueDefinition::Name("my_fun".s(), vec![Pattern::Var("x".s())], Expr::Unit)
+            )
+        ));
     }
 }

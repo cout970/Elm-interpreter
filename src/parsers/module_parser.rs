@@ -8,15 +8,15 @@ use util::*;
 
 // Modules
 
-named!(upper_ids<Tk, Vec<String>>, separated_list!(tk!(Dot), upper_id!()));
+named!(pub upper_ids<Tk, Vec<String>>, separated_list!(tk!(Dot), upper_id!()));
 
-named!(read_ref<Tk, Ref>, alt!(
-    map!(id!(), |c| Ref::VarRef(c)) |
+named!(pub read_ref<Tk, Ref>, alt!(
+    map!(id!(), |c| Ref::Name(c)) |
     do_parse!(
         tk!(LeftParen) >>
         op: binop!() >>
         tk!(RightParen) >>
-        (Ref::OpRef(op))
+        (Ref::Operand(op))
     )
 ));
 
@@ -122,7 +122,7 @@ mod tests {
             imports: vec![Import{
                 path: vec!["Html".to_string()],
                 alias: None,
-                exposing: vec![Export::AdtNone("Html".to_string()), Export::AdtRef(Ref::VarRef("text".to_string()))]
+                exposing: vec![Export::AdtNone("Html".to_string()), Export::AdtRef(Ref::Name("text".to_string()))]
             }],
             ..Module::default()
         });
