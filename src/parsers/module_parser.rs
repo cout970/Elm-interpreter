@@ -8,7 +8,7 @@ use util::*;
 
 // Modules
 
-named!(pub upper_ids<Tk, Vec<String>>, separated_list!(tk!(Dot), upper_id!()));
+named!(pub upper_ids<Tk, Vec<String>>, separated_nonempty_list!(tk!(Dot), upper_id!()));
 
 named!(pub read_ref<Tk, Ref>, alt!(
     map!(id!(), |c| Ref::Name(c)) |
@@ -50,15 +50,15 @@ named!(exports<Tk, Vec<Export>>, map!(opt!(do_parse!(
 )), |o| o.unwrap_or(Vec::new())));
 
 named!(module_header<Tk, ModuleHeader>, do_parse!(
-    id!("module") >>
+    tk!(ModuleTk) >>
     mod_id: upper_ids >>
     e: exports >>
-    id!("where") >>
+    tk!(Where) >>
     (ModuleHeader { name: mod_id, exports: e })
 ));
 
 named!(exposing<Tk, Vec<Export>>, do_parse!(
-    id!("exposing") >>
+    tk!(Exposing) >>
     tk!(LeftParen) >>
     e: separated_list!(tk!(Comma), export) >>
     tk!(RightParen) >>
@@ -66,9 +66,9 @@ named!(exposing<Tk, Vec<Export>>, do_parse!(
 ));
 
 named!(import<Tk, Import>, do_parse!(
-    id!("import") >>
+    tk!(ImportTk) >>
     path: upper_ids >>
-    alias: opt!(do_parse!(id!("as") >> n: upper_id!() >> (n))) >>
+    alias: opt!(do_parse!(tk!(As) >> n: upper_id!() >> (n))) >>
     exp: opt!(exposing)  >>
     (Import{ path, alias, exposing: exp.unwrap_or(Vec::new()) })
 ));

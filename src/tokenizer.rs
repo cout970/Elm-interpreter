@@ -12,6 +12,21 @@ pub enum Token {
     LitFloat(Float),
     LitChar(char),
     LitString(String),
+    Let,
+    If,
+    Else,
+    Then,
+    Case,
+    Of,
+    In,
+    ModuleTk,
+    Where,
+    Exposing,
+    ImportTk,
+    As,
+    TypeTk,
+    Port,
+    Alias,
     Underscore,
     Dot,
     DoubleDot,
@@ -45,7 +60,7 @@ named!(id_char<char>, alt!(lower | upper | number | one_of!("_'")));
 named!(read_id<Token>, do_parse!(
     a: lower >>
     b: many0!(id_char) >>
-    (Id(create_vec(a, b).into_iter().collect::<String>()))
+    (from_id(create_vec(a, b).into_iter().collect::<String>()))
 ));
 
 named!(read_upper_id<Token>, do_parse!(
@@ -206,6 +221,27 @@ named!(pub read_token<Token>, do_parse!(
     many0!(newline) >>
     (token)
 ));
+
+fn from_id(id: String) -> Token {
+    match id.as_bytes() {
+        b"let" => Let,
+        b"if" => If,
+        b"else" => Else,
+        b"then" => Then,
+        b"case" => Case,
+        b"of" => Of,
+        b"in" => In,
+        b"module" => ModuleTk,
+        b"where" => Where,
+        b"exposing" => Exposing,
+        b"import" => ImportTk,
+        b"as" => As,
+        b"type" => TypeTk,
+        b"port" => Port,
+        b"alias" => Alias,
+        _ => Id(id)
+    }
+}
 
 pub fn get_all_tokens(stream: &[u8]) -> Vec<Token> {
     let mut tokens = Vec::new();

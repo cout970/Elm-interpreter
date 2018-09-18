@@ -1,6 +1,7 @@
 use *;
 use tokenizer::Token::*;
 use parsers::type_parser::read_type;
+use parsers::expression_parser::read_expr;
 use parsers::pattern_parser::read_pattern;
 
 // Definitions
@@ -13,7 +14,7 @@ named!(pub top_level_statement<Tk, Statement>, alt!(
 ));
 
 named!(adt<Tk, Statement>, do_parse!(
-    id!("type") >>
+    tk!(TypeTk) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
     tk!(Equals) >>
@@ -28,9 +29,9 @@ named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
 ));
 
 named!(port<Tk, Statement>, do_parse!(
-    id!("port") >>
+    tk!(Port) >>
     t: read_type_def >>
-    id!("port") >>
+    tk!(Port) >>
     v: read_value_def >>
     (Statement::Port(t, v))
 ));
@@ -44,7 +45,7 @@ named!(pub read_definition<Tk, Definition>, do_parse!(
 ));
 
 named!(read_type_def<Tk, TypeDefinition>, alt!(
-    do_parse!(n: id!() >> id!(":") >> t: read_type >> (TypeDefinition(n, t))) |
+    do_parse!(n: id!() >> tk!(Colon) >> t: read_type >> (TypeDefinition(n, t))) |
     do_parse!(tk!(LeftParen) >> n: binop!() >> tk!(RightParen) >> t: read_type >> (TypeDefinition(n, t)))
 ));
 
@@ -82,16 +83,14 @@ named!(name_value_def<Tk, ValueDefinition>, do_parse!(
 ));
 
 named!(alias<Tk, Statement>, do_parse!(
-    id!("type") >>
-    id!("alias") >>
+    tk!(TypeTk) >>
+    tk!(Alias) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
     tk!(Equals) >>
     ty: read_type >>
     (Statement::Alias(create_vec(a, b), ty))
 ));
-
-named!(read_expr<Tk, Expr>, map!(tk!(LeftParen), |_c| Expr::Unit));
 
 #[cfg(test)]
 mod tests {
@@ -116,5 +115,12 @@ mod tests {
                 ValueDefinition::Name("my_fun".s(), vec![Pattern::Var("x".s())], Expr::Unit)
             )
         ));
+    }
+
+    #[test]
+    fn check_def2() {
+        let stream = get_all_tokens(b"x = 5");
+        let m = name_value_def(&stream);
+        assert_ok!(m, ValueDefinition::Name("x".s(), vec![], Expr::Literal(Literal::Int(5))));
     }
 }

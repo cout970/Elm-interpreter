@@ -193,6 +193,22 @@ impl StringConversion for str {
     }
 }
 
+// default priorities
+fn get_operator_priority(op: &str) -> i32 {
+    match op {
+        ">>" | "<<" => 9,
+        "^" => 8,
+        "*" | "/" | "//" | "%" | "rem" => 7,
+        "+" | "-" => 6,
+        "++" | "::" => 5,
+        "==" | "/=" | "<" | ">" | "<=" | ">=" => 4,
+        "&&" => 3,
+        "||" => 2,
+        "|>" | "<|" => 0,
+        _ => 10
+    }
+}
+
 pub fn to_string(v: &[u8]) -> String {
     v.into_iter().map(|c| *c as char).collect::<String>()
 }
