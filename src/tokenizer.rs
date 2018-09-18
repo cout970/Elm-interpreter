@@ -12,6 +12,7 @@ pub enum Token {
     LitFloat(Float),
     LitChar(char),
     LitString(String),
+    NewLine,
     Let,
     If,
     Else,
@@ -51,7 +52,8 @@ named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
 
 named!(number<char>, one_of!("0123456789"));
 
-named!(newline<char>, one_of!("\n\r"));
+named!(newline<char>, one_of!("\r\n"));
+named!(line_end<Token>, map!(many1!(newline), |_c| NewLine));
 
 named!(binop_char<char>, one_of!("~!@#$%^&*-+=<>/?\\._"));
 
@@ -133,6 +135,7 @@ named!(ignore_spaces<()>, do_parse!(
     many0!(alt!( char!(' ') | char!('\t') )) >> (())
 ));
 
+// the Token::NewLine gets ignored
 named!(comment_first_char<()>, not!(alt!(newline | binop_char)));
 
 named!(line_comment<()>, do_parse!(
@@ -211,6 +214,7 @@ named!(read_token_forced<Token>, alt!(
     right_braket        |
     left_brace          |
     right_brace         |
+    line_end            |
     eof_marker
 ));
 
@@ -218,7 +222,6 @@ named!(pub read_token<Token>, do_parse!(
     ignore_spaces >>
     many0!(line_comment) >>
     token: read_token_forced >>
-    many0!(newline) >>
     (token)
 ));
 

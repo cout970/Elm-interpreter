@@ -1,4 +1,5 @@
 use *;
+use parsers::module_parser::space;
 use parsers::expression_parser::read_expr;
 use parsers::pattern_parser::read_pattern;
 use parsers::type_parser::read_type;
@@ -19,6 +20,7 @@ named!(adt<Tk, Statement>, do_parse!(
     b: many0!(id!()) >>
     tk!(Equals) >>
     entries: separated_nonempty_list!(tk!(Pipe), adt_def) >>
+    tk!(NewLine) >>
     (Statement::Adt(create_vec(a, b), entries))
 ));
 
@@ -43,8 +45,8 @@ named!(pub read_definition<Tk, Definition>, do_parse!(
 ));
 
 named!(read_type_def<Tk, TypeDefinition>, alt!(
-    do_parse!(n: id!() >> tk!(Colon) >> t: read_type >> (TypeDefinition(n, t))) |
-    do_parse!(tk!(LeftParen) >> n: binop!() >> tk!(RightParen) >> t: read_type >> (TypeDefinition(n, t)))
+    do_parse!(n: id!() >> tk!(Colon) >> t: read_type >> tk!(NewLine) >> (TypeDefinition(n, t))) |
+    do_parse!(tk!(LeftParen) >> n: binop!() >> tk!(RightParen) >> t: read_type >> tk!(NewLine) >> (TypeDefinition(n, t)))
 ));
 
 named!(read_value_def<Tk, ValueDefinition>, alt!(
@@ -87,6 +89,7 @@ named!(alias<Tk, Statement>, do_parse!(
     b: many0!(id!()) >>
     tk!(Equals) >>
     ty: read_type >>
+    tk!(NewLine) >>
     (Statement::Alias(create_vec(a, b), ty))
 ));
 
@@ -98,7 +101,7 @@ mod tests {
 
     #[test]
     fn check_type_alias() {
-        let stream = get_all_tokens(b"type alias Html = MyHtml");
+        let stream = get_all_tokens(b"type alias Html = MyHtml\n");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Alias(
             vec!["Html".s()],
@@ -108,7 +111,7 @@ mod tests {
 
     #[test]
     fn check_adt() {
-        let stream = get_all_tokens(b"type Boolean = True | False");
+        let stream = get_all_tokens(b"type Boolean = True | False\n");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Adt(
             vec!["Boolean".s()],
@@ -118,7 +121,7 @@ mod tests {
 
     #[test]
     fn check_port() {
-        let stream = get_all_tokens(b"port js_function : Int -> Int");
+        let stream = get_all_tokens(b"port js_function : Int -> Int\n");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Port(
             TypeDefinition("js_function".s(),
@@ -132,7 +135,7 @@ mod tests {
 
     #[test]
     fn check_def() {
-        let stream = get_all_tokens(b"my_fun x = ()");
+        let stream = get_all_tokens(b"my_fun x = ()\n");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
             Definition(
@@ -144,14 +147,14 @@ mod tests {
 
     #[test]
     fn check_def2() {
-        let stream = get_all_tokens(b"x = 5");
+        let stream = get_all_tokens(b"x = 5\n");
         let m = name_value_def(&stream);
         assert_ok!(m, ValueDefinition::Name("x".s(), vec![], Expr::Literal(Literal::Int(5))));
     }
 
     #[test]
     fn check_def3() {
-        let stream = get_all_tokens(b"my_fun: Int\nmy_fun = 5");
+        let stream = get_all_tokens(b"my_fun: Int\nmy_fun = 5\n");
         let m = read_type_def(&stream);
         assert_ok!(m, TypeDefinition("my_fun".s(), Type::Tag("Int".s(), vec![]))
 //        Statement::Def(

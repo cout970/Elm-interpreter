@@ -68,4 +68,42 @@ fn print<T: std::fmt::Debug>(r: IResult<&[u8], T>) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use nom::*;
+    use super::*;
+    use tokenizer::get_all_tokens;
 
+    #[test]
+    fn check_snippet_1() {
+        let stream = get_all_tokens(b"\n\
+        module MyModule.MySubModule () where\n\
+        ");
+        let m = read_module(&stream);
+        assert_ok!(m, Module {
+            header: Some(ModuleHeader {
+                name: vec!["MyModule".s(), "MySubModule".s()],
+                exports: vec![]
+            }),
+            ..Module::default()
+        });
+    }
+
+    #[test]
+    fn check_snippet_2() {
+        let stream = get_all_tokens(b"\n\
+        update msg model = \n\
+          case msg of\n\
+            Increment ->\n\
+              model + 1\n\
+        \n\
+            Decrement ->\n\
+              model - 1\n\
+        ");
+        let m = read_module(&stream);
+        assert_ok!(m, Module {
+            statements: vec![],
+            ..Module::default()
+        });
+    }
+}

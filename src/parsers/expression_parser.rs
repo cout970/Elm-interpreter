@@ -1,6 +1,7 @@
 use *;
 use parsers::module_parser::read_ref;
 use parsers::module_parser::upper_ids;
+use parsers::module_parser::space;
 use parsers::pattern_parser::read_pattern;
 use parsers::statement_parser::read_definition;
 use tokenizer::Token::*;
@@ -9,6 +10,13 @@ use types::Expr;
 // Expresions
 
 named!(pub read_expr<Tk, Expr>, do_parse!(
+    space >>
+    e: read_expr_spaceless >>
+    space >>
+    (e)
+));
+
+named!(read_expr_spaceless<Tk, Expr>, do_parse!(
     first: read_expr_app >>
     rest: many0!(tuple!(binop!(), read_expr_app)) >>
     (create_binop_chain(first, rest))
@@ -19,18 +27,6 @@ named!(read_expr_app<Tk, Expr>, do_parse!(
     rest: many0!(read_expr_aux) >>
     (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
 ));
-
-//named!(pub read_expr<Tk, Expr>, do_parse!(
-//    first: read_expr_chain >>
-//    rest: many0!(read_expr_chain) >>
-//    (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
-//));
-
-//named!(read_expr_chain<Tk, Expr>, do_parse!(
-//    first: read_expr_aux >>
-//    rest: many0!(tuple!(binop!(), read_expr_aux)) >>
-//    (create_binop_chain(first, rest))
-//));
 
 named!(read_expr_aux<Tk, Expr>, alt!(
     record_field | read_non_rec_field_expr

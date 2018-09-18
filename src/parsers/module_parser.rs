@@ -8,6 +8,8 @@ use util::*;
 
 // Modules
 
+named!(pub space<Tk, ()>, map!(many0!(tk!(NewLine)), |_c|() ));
+
 named!(pub upper_ids<Tk, Vec<String>>, separated_nonempty_list!(tk!(Dot), upper_id!()));
 
 named!(pub read_ref<Tk, Ref>, alt!(
@@ -21,9 +23,10 @@ named!(pub read_ref<Tk, Ref>, alt!(
 ));
 
 named!(pub read_module<Tk, Module>, do_parse!(
+    space >>
     header: opt!(module_header) >>
-    imports: many0!(import) >>
-    statements: many0!(top_level_statement) >>
+    imports: many0!(do_parse!(space >> t: import >> space >>(t))) >>
+    statements: many0!(do_parse!(space >> t: top_level_statement >> space >>(t))) >>
     (Module { header, imports, statements })
 ));
 
