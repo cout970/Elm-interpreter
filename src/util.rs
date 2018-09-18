@@ -30,8 +30,8 @@ macro_rules! id {
 
             if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
-            if look == &Token::Id($string.to_string()) {
-              Ok((&$i[1..], $string.to_string()))
+            if look == &Token::Id($string.s()) {
+              Ok((&$i[1..], $string.s()))
             } else {
               Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
             }
@@ -64,8 +64,8 @@ macro_rules! upper_id {
 
             if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
-            if look == &Token::UpperId($string.to_string()) {
-              Ok((&$i[1..], $string.to_string()))
+            if look == &Token::UpperId($string.s()) {
+              Ok((&$i[1..], $string.s()))
             } else {
               Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
             }
@@ -98,8 +98,8 @@ macro_rules! binop {
 
             if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
-            if look == &Token::BinaryOperator($string.to_string()) {
-              Ok((&$i[1..], $string.to_string()))
+            if look == &Token::BinaryOperator($string.s()) {
+              Ok((&$i[1..], $string.s()))
             } else {
               Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
             }
@@ -170,6 +170,7 @@ macro_rules! constrop {
     );
 }
 
+#[cfg(test)]
 macro_rules! assert_ok {
    ($r: expr, $tk: expr) => {
        match &$r {
@@ -205,7 +206,7 @@ fn get_operator_priority(op: &str) -> i32 {
         "&&" => 3,
         "||" => 2,
         "|>" | "<|" => 0,
-        _ => 10
+        _ => 1
     }
 }
 

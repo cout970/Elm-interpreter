@@ -40,54 +40,10 @@ pub enum Pattern {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TypeDefinition(pub String, pub Type);
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ValueDefinition {
-    PrefixOp(String, Vec<Pattern>, Expr),
-    InfixOp(Pattern, String, Vec<Pattern>, Expr),
-    Name(String, Vec<Pattern>, Expr),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Definition(
-    pub Option<TypeDefinition>,
-    pub ValueDefinition,
-);
-
-
-#[derive(Debug, PartialEq, Clone, Default)]
-pub struct Module {
-    pub header: Option<ModuleHeader>,
-    pub imports: Vec<Import>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ModuleHeader {
-    pub name: Vec<String>,
-    pub exports: Vec<Export>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Export {
-    Adt(String, Vec<String>),
-    AdtNone(String),
-    AdtAll(String),
-    AdtRef(Ref),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Import {
-    pub path: Vec<String>,
-    pub alias: Option<String>,
-    pub exposing: Vec<Export>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     Alias(Vec<String>, Type),
     Adt(Vec<String>, Vec<(String, Vec<Type>)>),
-    Port(TypeDefinition, ValueDefinition),
+    Port(TypeDefinition),
     Def(Definition),
 }
 
@@ -111,4 +67,49 @@ pub enum Expr {
     OpChain(Vec<Expr>, Vec<String>),
     Literal(Literal),
     Ref(Ref),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TypeDefinition(pub String, pub Type);
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ValueDefinition {
+    PrefixOp(String, Vec<Pattern>, Expr),
+    InfixOp(Pattern, String, Vec<Pattern>, Expr),
+    Name(String, Vec<Pattern>, Expr),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Definition(
+    pub Option<TypeDefinition>,
+    pub ValueDefinition,
+);
+
+
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct Module {
+    pub header: Option<ModuleHeader>,
+    pub imports: Vec<Import>,
+    pub statements: Vec<Statement>
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ModuleHeader {
+    pub name: Vec<String>,
+    pub exports: Vec<Export>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Export {
+    Adt(String, Vec<String>),
+    AdtNone(String),
+    AdtAll(String),
+    AdtRef(Ref),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Import {
+    pub path: Vec<String>,
+    pub alias: Option<String>,
+    pub exposing: Vec<Export>,
 }

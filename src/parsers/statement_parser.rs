@@ -1,8 +1,8 @@
 use *;
-use tokenizer::Token::*;
-use parsers::type_parser::read_type;
 use parsers::expression_parser::read_expr;
 use parsers::pattern_parser::read_pattern;
+use parsers::type_parser::read_type;
+use tokenizer::Token::*;
 
 // Definitions
 
@@ -24,16 +24,14 @@ named!(adt<Tk, Statement>, do_parse!(
 
 named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
     n: upper_id!() >>
-    ty: many1!(read_type) >>
+    ty: many0!(read_type) >>
     ((n, ty))
 ));
 
 named!(port<Tk, Statement>, do_parse!(
     tk!(Port) >>
     t: read_type_def >>
-    tk!(Port) >>
-    v: read_value_def >>
-    (Statement::Port(t, v))
+    (Statement::Port(t))
 ));
 
 named!(definition<Tk, Statement>, map!(read_definition, |c| Statement::Def(c)));
@@ -100,9 +98,36 @@ mod tests {
 
     #[test]
     fn check_type_alias() {
-        let stream = get_all_tokens(b"type alias Html list = ()");
+        let stream = get_all_tokens(b"type alias Html = MyHtml");
         let m = top_level_statement(&stream);
-        assert_ok!(m, Statement::Alias(vec!["Html".to_string(), "list".to_string()], Type::Unit));
+        assert_ok!(m, Statement::Alias(
+            vec!["Html".s()],
+            Type::Tag("MyHtml".s(), vec![])
+        ));
+    }
+
+    #[test]
+    fn check_adt() {
+        let stream = get_all_tokens(b"type Boolean = True | False");
+        let m = top_level_statement(&stream);
+        assert_ok!(m, Statement::Adt(
+            vec!["Boolean".s()],
+            vec![("True".s(), vec![]), ("False".s(), vec![])],
+        ));
+    }
+
+    #[test]
+    fn check_port() {
+        let stream = get_all_tokens(b"port js_function : Int -> Int");
+        let m = top_level_statement(&stream);
+        assert_ok!(m, Statement::Port(
+            TypeDefinition("js_function".s(),
+                Type::Fun(
+                    Box::new(Type::Tag("Int".s(), vec![])),
+                    Box::new(Type::Tag("Int".s(), vec![])),
+                )
+            )
+        ));
     }
 
     #[test]
@@ -122,5 +147,19 @@ mod tests {
         let stream = get_all_tokens(b"x = 5");
         let m = name_value_def(&stream);
         assert_ok!(m, ValueDefinition::Name("x".s(), vec![], Expr::Literal(Literal::Int(5))));
+    }
+
+    #[test]
+    fn check_def3() {
+        let stream = get_all_tokens(b"my_fun: Int\nmy_fun = 5");
+        let m = read_type_def(&stream);
+        assert_ok!(m, TypeDefinition("my_fun".s(), Type::Tag("Int".s(), vec![]))
+//        Statement::Def(
+//            Definition(
+//                Some(TypeDefinition("my_fun".s(), Type::Tag("Int".s(), vec![]))),
+//                ValueDefinition::Name("my_fun".s(), vec![], Expr::Literal(Literal::Int(5)))
+//            )
+//        )
+        );
     }
 }

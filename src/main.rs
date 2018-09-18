@@ -37,7 +37,7 @@ fn main() {
 
     if let Ok((rest, module)) = result {
         println!("Remaining: {:?}\n", rest);
-        println!("Output: {:?}", module);
+        println!("Output: \n{:#?}", module);
     } else {
         println!("{:?}", result);
     }

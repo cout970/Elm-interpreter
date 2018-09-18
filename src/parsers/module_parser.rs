@@ -20,7 +20,14 @@ named!(pub read_ref<Tk, Ref>, alt!(
     )
 ));
 
-named!(adt_export<Tk, String>, alt!(id!() | map!(tk!(DoubleDot), |_c| "..".to_string())) );
+named!(pub read_module<Tk, Module>, do_parse!(
+    header: opt!(module_header) >>
+    imports: many0!(import) >>
+    statements: many0!(top_level_statement) >>
+    (Module { header, imports, statements })
+));
+
+named!(adt_export<Tk, String>, alt!(id!() | map!(tk!(DoubleDot), |_c| "..".s())) );
 
 named!(export<Tk, Export>, alt!(
     map!(read_ref, |c| Export::AdtRef(c)) |
@@ -73,13 +80,6 @@ named!(import<Tk, Import>, do_parse!(
     (Import{ path, alias, exposing: exp.unwrap_or(Vec::new()) })
 ));
 
-named!(pub read_module<Tk, Module>, do_parse!(
-    header: opt!(module_header) >>
-    imports: many0!(import) >>
-    many0!(top_level_statement) >>
-    (Module { header, imports })
-));
-
 #[cfg(test)]
 mod tests {
     use nom::*;
@@ -120,9 +120,9 @@ mod tests {
         let m = read_module(&stream);
         assert_ok!(m, Module {
             imports: vec![Import{
-                path: vec!["Html".to_string()],
+                path: vec!["Html".s()],
                 alias: None,
-                exposing: vec![Export::AdtNone("Html".to_string()), Export::AdtRef(Ref::Name("text".to_string()))]
+                exposing: vec![Export::AdtNone("Html".s()), Export::AdtRef(Ref::Name("text".s()))]
             }],
             ..Module::default()
         });

@@ -151,7 +151,7 @@ Exposing (* NoExposing *) = ""
 
 TopLevelStatement (* AliasDef *) = "type", "alias", UPPERID, {ID}, "=" Type
                   (* ADTDef   *) | "type", UPPERID, {ID}, "=", ADTDef, {"|", ADTDef}
-                  (* Port     *) | "port", TypeDef, "port", ValueDef
+                  (* Port     *) | "port", TypeDef
                                  | Def
 
 ADTDef (* ADTCons *) = UPPERID, Type, {Type}

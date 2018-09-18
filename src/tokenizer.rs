@@ -277,7 +277,7 @@ mod tests {
     fn check_line_string() {
         assert_ok!(
             read_line_string("\"Hello World\"".as_bytes()),
-            LitString("Hello World".to_string())
+            LitString("Hello World".s())
         );
     }
 
@@ -285,7 +285,7 @@ mod tests {
     fn check_multiline_string() {
         assert_ok!(
             read_multiline_string(b"\"\"\"Hello\nWorld\"\"\""),
-            LitString("Hello\nWorld".to_string())
+            LitString("Hello\nWorld".s())
         );
     }
 
@@ -329,16 +329,16 @@ mod tests {
     #[test]
     fn check_binop() {
         assert_ok!(read_binop(b"= "), Equals);
-        assert_ok!(read_binop(b"== "), BinaryOperator("==".to_string()));
-        assert_ok!(read_binop(b"=== "), BinaryOperator("===".to_string()));
-        assert_ok!(read_binop(b"- "), BinaryOperator("-".to_string()));
-        assert_ok!(read_binop(b"-- "), BinaryOperator("--".to_string()));
-        assert_ok!(read_binop(b"--- "), BinaryOperator("---".to_string()));
+        assert_ok!(read_binop(b"== "), BinaryOperator("==".s()));
+        assert_ok!(read_binop(b"=== "), BinaryOperator("===".s()));
+        assert_ok!(read_binop(b"- "), BinaryOperator("-".s()));
+        assert_ok!(read_binop(b"-- "), BinaryOperator("--".s()));
+        assert_ok!(read_binop(b"--- "), BinaryOperator("---".s()));
         assert_ok!(read_binop(b". "), Dot);
         assert_ok!(read_binop(b".. "), DoubleDot);
-        assert_ok!(read_binop(b"... "), BinaryOperator("...".to_string()));
+        assert_ok!(read_binop(b"... "), BinaryOperator("...".s()));
         assert_ok!(read_binop(b"-> "), RightArrow);
         assert_ok!(read_binop(b"<- "), LeftArrow);
-        assert_ok!(read_binop(b"<-- "), BinaryOperator("<--".to_string()));
+        assert_ok!(read_binop(b"<-- "), BinaryOperator("<--".s()));
     }
 }
