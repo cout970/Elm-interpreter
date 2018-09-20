@@ -12,7 +12,8 @@ pub enum Token {
     LitFloat(Float),
     LitChar(char),
     LitString(String),
-    NewLine,
+    IndentSeparation,
+    LineStart,
     Let,
     If,
     Else,
@@ -46,6 +47,45 @@ pub enum Token {
     Eof,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+struct Input<'a> {
+    stream: &'a [u8],
+    line: u32,
+    column: u32
+}
+
+impl<'a> Input<'a> {
+    fn new(stream: &'a [u8]) -> Self {
+        Input {
+            stream,
+            line: 0,
+            column: 0
+        }
+    }
+
+    fn advance(&self, n: usize) -> Input<'a> {
+        let skipped: &[u8] = &self.stream[0..n];
+
+        let mut line = self.line;
+        let mut column = self.column;
+
+        for c in skipped {
+            if *c as char == '\n' {
+                line += 1;
+                column = 0;
+            } else {
+                column += 1;
+            }
+        }
+
+        Input {
+            stream: &self.stream[n..],
+            line,
+            column
+        }
+    }
+}
+
 named!(lower<char>, one_of!("abcdefghijklmnopqrstuvwxyz"));
 
 named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
@@ -53,7 +93,7 @@ named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
 named!(number<char>, one_of!("0123456789"));
 
 named!(newline<char>, one_of!("\r\n"));
-named!(line_end<Token>, map!(many1!(newline), |_c| NewLine));
+named!(indentation_separation<Token>, map!(many1!(newline), |_c| IndentSeparation));
 
 named!(binop_char<char>, one_of!("~!@#$%^&*-+=<>/?\\._"));
 
@@ -72,8 +112,8 @@ named!(read_upper_id<Token>, do_parse!(
 ));
 
 named!(read_literal<Token>, alt!(
-    read_int    |
     read_float  |
+    read_int    |
     read_string |
     read_char
 ));
@@ -132,7 +172,7 @@ named!(right_brace<Token>, map!(char!('}'), |_c| RightBrace));
 named!(colon<Token>, map!(char!(':'), |_c| Colon));
 
 named!(ignore_spaces<()>, do_parse!(
-    many0!(alt!( char!(' ') | char!('\t') )) >> (())
+    many0!(alt!(char!(' ') | char!('\t'))) >> (())
 ));
 
 // the Token::NewLine gets ignored
@@ -153,17 +193,7 @@ named!(basic_binop_string<String>, map!(
 
 fn basic_binop(input: &[u8]) -> IResult<&[u8], Token> {
     let (o, binop): (&[u8], String) = basic_binop_string(input)?;
-
-    let op = match binop.as_bytes() {
-        b"_" => Underscore,
-        b"." => Dot,
-        b".." => DoubleDot,
-        b"=" => Equals,
-        b"<-" => LeftArrow,
-        b"->" => RightArrow,
-        _ => BinaryOperator(binop)
-    };
-
+    let op = from_binop(binop);
     Ok((o, op))
 }
 
@@ -201,29 +231,30 @@ named!(right_arrow<Token>, map!(tag!("->"), |_c| RightArrow));
 named!(eof_marker<Token>, alt!(map!(eof!(), |_c| Eof) | map!(char!('\0'), |_c| Eof)));
 
 named!(read_token_forced<Token>, alt!(
-    read_binop          |
-    colon               |
-    comma               |
-    pipe                |
-    read_id             |
-    read_upper_id       |
-    read_literal        |
-    left_paren          |
-    right_paren         |
-    left_braket         |
-    right_braket        |
-    left_brace          |
-    right_brace         |
-    line_end            |
-    eof_marker
+    read_binop
+    | colon
+    | comma
+    | pipe
+    | read_id
+    | read_upper_id
+    | read_literal
+    | left_paren
+    | right_paren
+    | left_braket
+    | right_braket
+    | left_brace
+    | right_brace
+    | eof_marker
 ));
 
-named!(pub read_token<Token>, do_parse!(
-    ignore_spaces >>
-    many0!(line_comment) >>
-    token: read_token_forced >>
-    (token)
-));
+//named!(read_token<Token>, do_parse!(
+//    ignore_spaces >>
+//    many0!(line_comment) >>
+//    token: read_token_forced >>
+//    many0!(newline) >>
+//    (token)
+//));
+
 
 fn from_id(id: String) -> Token {
     match id.as_bytes() {
@@ -246,21 +277,90 @@ fn from_id(id: String) -> Token {
     }
 }
 
+fn from_binop(id: String) -> Token {
+    match id.as_bytes() {
+        b"_" => Underscore,
+        b"." => Dot,
+        b".." => DoubleDot,
+        b"=" => Equals,
+        b"<-" => LeftArrow,
+        b"->" => RightArrow,
+        _ => BinaryOperator(id)
+    }
+}
+
+fn map_result(input: &[u8], res: IResult<&[u8], Token>) -> Option<(Token, usize)> {
+    match res {
+        Ok((rest, ret)) => {
+            Some((ret, input.len() - rest.len()))
+        }
+        _ => None
+    }
+}
+
+fn read_token<'a>(i: Input) -> IResult<Input, Token> {
+    use nom::simple_errors::Context;
+
+    if i.stream.len() == 0 {
+        return Err(Err::Incomplete(Needed::Size(1)));
+    }
+
+//    let mut i = i;
+    let mut ptr = 0;
+    let mut new_line = false;
+
+    while i.stream[ptr] == b' ' || i.stream[ptr] == b'\n' {
+        new_line |= i.stream[ptr] == b'\n';
+        ptr += 1;
+    }
+
+    if new_line {
+        let mut indentation = 0;
+
+        for j in 0..ptr {
+            let j = ptr - j - 1;
+            if i.stream[j] == b'\n' {
+                break;
+            }
+            indentation += 1;
+        }
+
+        if indentation == 0 {
+            return Ok((i.advance(ptr), LineStart));
+        }
+    }
+
+    let (tk, len) = {
+        let rest = &i.stream[ptr..];
+
+        let opt_tk = map_result(rest, read_token_forced(rest));
+
+        match opt_tk {
+            Some(pair) => pair,
+            _ => return Err(Err::Failure(
+                Context::Code(i, ErrorKind::Custom(0))
+            ))
+        }
+    };
+
+    Ok((i.advance(ptr + len), tk))
+}
+
 pub fn get_all_tokens(stream: &[u8]) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut stream: Vec<u8> = stream.iter().map(|c| c.to_owned()).collect();
     stream.push('\0' as u8);
     stream.push('\0' as u8);
 
-    let mut ptr: &[u8] = &stream;
+    let mut input: Input = Input::new(&stream);
     loop {
-        let res: IResult<&[u8], Token> = read_token(ptr);
+        let res = read_token(input);
 
         match res {
             Ok((rem, token)) => {
                 tokens.push(token.clone());
                 if token == Token::Eof { break; }
-                ptr = rem;
+                input = rem;
             }
             Err(_) => {
                 panic!("\n{:?}\n", res);
@@ -331,17 +431,54 @@ mod tests {
 
     #[test]
     fn check_binop() {
-        assert_ok!(read_binop(b"= "), Equals);
-        assert_ok!(read_binop(b"== "), BinaryOperator("==".s()));
-        assert_ok!(read_binop(b"=== "), BinaryOperator("===".s()));
-        assert_ok!(read_binop(b"- "), BinaryOperator("-".s()));
-        assert_ok!(read_binop(b"-- "), BinaryOperator("--".s()));
-        assert_ok!(read_binop(b"--- "), BinaryOperator("---".s()));
-        assert_ok!(read_binop(b". "), Dot);
-        assert_ok!(read_binop(b".. "), DoubleDot);
-        assert_ok!(read_binop(b"... "), BinaryOperator("...".s()));
-        assert_ok!(read_binop(b"-> "), RightArrow);
-        assert_ok!(read_binop(b"<- "), LeftArrow);
-        assert_ok!(read_binop(b"<-- "), BinaryOperator("<--".s()));
+        assert_ok!(read_token_forced(b"= "), Equals);
+        assert_ok!(read_token_forced(b"== "), BinaryOperator("==".s()));
+        assert_ok!(read_token_forced(b"=== "), BinaryOperator("===".s()));
+        assert_ok!(read_token_forced(b"- "), BinaryOperator("-".s()));
+        assert_ok!(read_token_forced(b"-- "), BinaryOperator("--".s()));
+        assert_ok!(read_token_forced(b"--- "), BinaryOperator("---".s()));
+        assert_ok!(read_token_forced(b". "), Dot);
+        assert_ok!(read_token_forced(b".. "), DoubleDot);
+        assert_ok!(read_token_forced(b"... "), BinaryOperator("...".s()));
+        assert_ok!(read_token_forced(b"-> "), RightArrow);
+        assert_ok!(read_token_forced(b"<- "), LeftArrow);
+        assert_ok!(read_token_forced(b"<-- "), BinaryOperator("<--".s()));
+    }
+
+    #[test]
+    fn check_tokens() {
+        let code = b"identifier1234,123.45";
+        let tokens = get_all_tokens(code);
+        assert_eq!(tokens, vec![Id("identifier1234".s()), Comma, LitFloat(123.45), Eof]);
+    }
+
+    #[test]
+    fn check_identifiers() {
+        let code = b"i, _a, b123, cBAD, aghjh, get_something";
+        let tokens = get_all_tokens(code);
+        assert_eq!(tokens, vec![
+            Id("i".s()), Comma,
+            Underscore,
+            Id("a".s()), Comma,
+            Id("b123".s()), Comma,
+            Id("cBAD".s()), Comma,
+            Id("aghjh".s()), Comma,
+            Id("get_something".s()),
+            Eof
+        ]);
+    }
+
+    #[test]
+    fn check_indentation_token() {
+        let code = b"case i of\n  1\n  2\nmy_func";
+        let tokens = get_all_tokens(code);
+        assert_eq!(tokens, vec![
+            Case, Id("i".s()), Of,
+            LitInt(1),
+            LitInt(2),
+            LineStart,
+            Id("my_func".s()),
+            Eof
+        ]);
     }
 }

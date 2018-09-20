@@ -1,18 +1,10 @@
 use *;
-use parsers::module_parser::space;
 use tokenizer::Token;
 use tokenizer::Token::*;
 use types::*;
 use util::create_vec;
 
 named!(pub read_pattern<Tk, Pattern>, do_parse!(
-    space >>
-    p: read_pattern_spaceless >>
-    space >>
-    (p)
-));
-
-named!(read_pattern_spaceless<Tk, Pattern>, do_parse!(
     a: binop_less_pattern >>
     b: many0!(do_parse!(c: constrop!() >> p: binop_less_pattern >> ((c, p)))) >>
     (create_binop_pattern(a, b))
