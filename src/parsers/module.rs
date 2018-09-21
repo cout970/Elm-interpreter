@@ -1,6 +1,6 @@
 use *;
 use nom::*;
-use parsers::statement_parser::*;
+use parsers::statement::*;
 use tokenizer::Token;
 use tokenizer::Token::*;
 use types::Module;
@@ -11,13 +11,13 @@ use util::*;
 
 named!(pub upper_ids<Tk, Vec<String>>, separated_nonempty_list!(tk!(Dot), upper_id!()));
 
-named!(pub read_ref<Tk, Ref>, alt!(
-    map!(id!(), |c| Ref::Name(c)) |
+named!(pub read_ref<Tk, String>, alt!(
+    id!() |
     do_parse!(
         tk!(LeftParen) >>
         op: binop!() >>
         tk!(RightParen) >>
-        (Ref::Operand(op))
+        (op)
     )
 ));
 
@@ -125,7 +125,7 @@ mod tests {
             imports: vec![Import{
                 path: vec!["Html".s()],
                 alias: None,
-                exposing: vec![Export::AdtNone("Html".s()), Export::AdtRef(Ref::Name("text".s()))]
+                exposing: vec![Export::AdtNone("Html".s()), Export::AdtRef("text".s())]
             }],
             ..Module::default()
         });

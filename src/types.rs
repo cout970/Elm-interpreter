@@ -9,11 +9,11 @@ pub enum Literal {
     Char(char),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Ref {
-    Name(String),
-    Operand(String),
-}
+//#[derive(Debug, PartialEq, Clone)]
+//pub enum Ref {
+//    Name(String),
+//    Operand(String),
+//}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
@@ -66,7 +66,7 @@ pub enum Expr {
     Let(Vec<Definition>, Box<Expr>),
     OpChain(Vec<Expr>, Vec<String>),
     Literal(Literal),
-    Ref(Ref),
+    Ref(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -104,7 +104,7 @@ pub enum Export {
     Adt(String, Vec<String>),
     AdtNone(String),
     AdtAll(String),
-    AdtRef(Ref),
+    AdtRef(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]

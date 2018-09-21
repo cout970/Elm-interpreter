@@ -1,8 +1,8 @@
 use *;
-use parsers::module_parser::read_ref;
-use parsers::module_parser::upper_ids;
-use parsers::pattern_parser::read_pattern;
-use parsers::statement_parser::read_definition;
+use parsers::module::read_ref;
+use parsers::module::upper_ids;
+use parsers::pattern::read_pattern;
+use parsers::statement::read_definition;
 use tokenizer::Token::*;
 use types::Expr;
 
@@ -197,7 +197,7 @@ mod tests {
     fn check_parens() {
         let stream = get_all_tokens(b"(a)");
         let m = read_expr(&stream);
-        assert_ok!(m, Expr::Ref(Ref::Name("a".s())));
+        assert_ok!(m, Expr::Ref("a".s()));
     }
 
     #[test]
@@ -205,8 +205,8 @@ mod tests {
         let stream = get_all_tokens(b"(a, b)");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Tuple(vec![
-            Expr::Ref(Ref::Name("a".s())),
-            Expr::Ref(Ref::Name("b".s()))])
+            Expr::Ref("a".s()),
+            Expr::Ref("b".s())])
         );
     }
 
@@ -215,8 +215,8 @@ mod tests {
         let stream = get_all_tokens(b"[a, b]");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::List(vec![
-            Expr::Ref(Ref::Name("a".s())),
-            Expr::Ref(Ref::Name("b".s()))])
+            Expr::Ref("a".s()),
+            Expr::Ref("b".s())])
         );
     }
 
@@ -232,8 +232,8 @@ mod tests {
         let stream = get_all_tokens(b"[a..b]");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Range(
-            Box::new(Expr::Ref(Ref::Name("a".s()))),
-            Box::new(Expr::Ref(Ref::Name("b".s())))
+            Box::new(Expr::Ref("a".s())),
+            Box::new(Expr::Ref("b".s()))
         ));
     }
 
@@ -252,9 +252,9 @@ mod tests {
         let stream = get_all_tokens(b"if a then b else c");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::If(
-            Box::new(Expr::Ref(Ref::Name("a".s()))),
-            Box::new(Expr::Ref(Ref::Name("b".s()))),
-            Box::new(Expr::Ref(Ref::Name("c".s()))),
+            Box::new(Expr::Ref("a".s())),
+            Box::new(Expr::Ref("b".s())),
+            Box::new(Expr::Ref("c".s())),
         ));
     }
 
@@ -264,7 +264,7 @@ mod tests {
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Lambda(
             vec![Pattern::Var("x".s())],
-            Box::new(Expr::Ref(Ref::Name("x".s()))),
+            Box::new(Expr::Ref("x".s())),
         ));
     }
 
@@ -273,7 +273,7 @@ mod tests {
         let stream = get_all_tokens(b"case x of [] -> 0");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Case(
-            Box::new(Expr::Ref(Ref::Name("x".s()))),
+            Box::new(Expr::Ref("x".s())),
             vec![(
                 Pattern::List(vec![]),
                 Expr::Literal(Literal::Int(0))
@@ -378,7 +378,7 @@ mod tests {
         let stream = get_all_tokens(b"my_fun 1");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Application(
-            Box::new(Expr::Ref(Ref::Name("my_fun".s()))),
+            Box::new(Expr::Ref("my_fun".s())),
             Box::new(Expr::Literal(Literal::Int(1)))
         ));
     }
@@ -389,7 +389,7 @@ mod tests {
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Application(
             Box::new(Expr::Application(
-                Box::new(Expr::Ref(Ref::Name("my_fun".s()))),
+                Box::new(Expr::Ref("my_fun".s())),
                 Box::new(Expr::Literal(Literal::Int(1)))
             )),
             Box::new(Expr::Literal(Literal::Int(2)))
@@ -404,7 +404,7 @@ mod tests {
             vec![
                 Expr::Application(
                     Box::new(Expr::Application(
-                        Box::new(Expr::Ref(Ref::Name("my_fun".s()))),
+                        Box::new(Expr::Ref("my_fun".s())),
                         Box::new(Expr::Literal(Literal::Int(1)))
                     )),
                     Box::new(Expr::Literal(Literal::Int(2)))

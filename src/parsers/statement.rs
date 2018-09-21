@@ -1,7 +1,7 @@
 use *;
-use parsers::expression_parser::read_expr;
-use parsers::pattern_parser::read_pattern;
-use parsers::type_parser::read_type;
+use parsers::expression::read_expr;
+use parsers::pattern::read_pattern;
+use parsers::types::read_type;
 use tokenizer::Token::*;
 
 // Definitions
@@ -14,7 +14,7 @@ named!(pub top_level_statement<Tk, Statement>, alt!(
 ));
 
 named!(adt<Tk, Statement>, do_parse!(
-    tk!(LineStart) >>
+    opt!(tk!(LineStart)) >>
     tk!(TypeTk) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
@@ -30,7 +30,7 @@ named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
 ));
 
 named!(port<Tk, Statement>, do_parse!(
-    tk!(LineStart) >>
+    opt!(tk!(LineStart)) >>
     tk!(Port) >>
     t: read_type_def >>
     (Statement::Port(t))
@@ -47,7 +47,7 @@ named!(pub read_definition<Tk, Definition>, do_parse!(
 
 named!(read_type_def<Tk, TypeDefinition>, alt!(
     do_parse!(n: id!() >> tk!(Colon) >> t: read_type >> (TypeDefinition(n, t))) |
-    do_parse!(tk!(LeftParen) >> n: binop!() >> tk!(RightParen) >> t: read_type >> (TypeDefinition(n, t)))
+    do_parse!(tk!(LeftParen) >> n: binop!() >> tk!(RightParen) >> tk!(Colon) >> t: read_type >> (TypeDefinition(n, t)))
 ));
 
 named!(read_value_def<Tk, ValueDefinition>, alt!(
@@ -57,7 +57,7 @@ named!(read_value_def<Tk, ValueDefinition>, alt!(
 ));
 
 named!(prefix_value_def<Tk, ValueDefinition>, do_parse!(
-    tk!(LineStart) >>
+    opt!(tk!(LineStart)) >>
     tk!(LeftParen) >>
     b: binop!() >>
     tk!(RightParen) >>

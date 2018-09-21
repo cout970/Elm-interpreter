@@ -7,7 +7,7 @@ extern crate pretty_assertions;
 
 use nom::*;
 use nom::simple_errors::Context;
-use parsers::module_parser::*;
+use parsers::module::*;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -15,6 +15,11 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
+use std::io::stdin;
+use parsers::statement::top_level_statement;
+use parsers::expression::read_expr;
+use std::io::stdout;
+use std::io::BufRead;
 
 mod types;
 #[macro_use]
@@ -30,16 +35,40 @@ fn load_file() -> Vec<u8> {
     data
 }
 
-fn main() {
-    let file = load_file();
-    let tokens = get_all_tokens(&file);
-    let result = read_module(&tokens);
+fn use_file() -> bool { false }
 
-    if let Ok((rest, module)) = result {
-        println!("Remaining: {:?}\n", rest);
-        println!("Output: \n{:#?}", module);
+fn main() {
+    if use_file() {
+        let file = load_file();
+        let tokens = get_all_tokens(&file);
+        let result = read_module(&tokens);
+
+        if let Ok((rest, module)) = result {
+            println!("Remaining: {:?}\n", rest);
+            println!("Output: \n{:#?}", module);
+        } else {
+            println!("{:?}", result);
+        }
     } else {
-        println!("{:?}", result);
+        let mut input = String::new();
+
+        print!("> ");
+        stdout().flush();
+        let stdin = stdin();
+
+        for line in stdin.lock().lines() {
+            let tokens = get_all_tokens(&line.unwrap().as_bytes());
+
+            let result = top_level_statement(&tokens);
+
+            if let Ok((rest, module)) = result {
+                println!("Output: \n{:#?}", module);
+            } else {
+                println!("Error: {:?}", result);
+            }
+
+            println!();
+        }
     }
 }
 
