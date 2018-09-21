@@ -2,6 +2,7 @@ use *;
 use parsers::module::read_ref;
 use parsers::module::upper_ids;
 use parsers::pattern::read_pattern;
+use parsers::spaces;
 use parsers::statement::read_definition;
 use tokenizer::Token::*;
 use types::Expr;
@@ -9,14 +10,28 @@ use types::Expr;
 // Expresions
 
 named!(pub read_expr<Tk, Expr>, do_parse!(
+    spaces >>
+    e: read_expr_spaceless >>
+    (e)
+));
+
+named!(read_expr_spaceless<Tk, Expr>, do_parse!(
     first: read_expr_app >>
-    rest: many0!(tuple!(binop!(), read_expr_app)) >>
+    rest: many0!(binop_item) >>
     (create_binop_chain(first, rest))
+));
+
+named!(binop_item<Tk, (String, Expr)>, do_parse!(
+    spaces >>
+    op: binop!() >>
+    spaces >>
+    ex: read_expr_app >>
+    ((op, ex))
 ));
 
 named!(read_expr_app<Tk, Expr>, do_parse!(
     first: read_expr_aux >>
-    rest: many0!(read_expr_aux) >>
+    rest: many0!(preceded!(spaces, read_expr_aux)) >>
     (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
 ));
 
@@ -25,23 +40,23 @@ named!(read_expr_aux<Tk, Expr>, alt!(
 ));
 
 named!(read_non_rec_field_expr<Tk, Expr>, alt!(
-    unit            |
-    tuple           |
-    unit_tuple      |
-    list            |
-    range           |
-    qualified_ref   |
-    adt             |
-    read_if         |
-    read_lambda     |
-    read_case       |
-    read_let        |
-    record          |
-    record_update   |
-    record_access   |
-    map!(literal!(), |c| Expr::Literal(c)) |
-    map!(read_ref,   |c| Expr::Ref(c))     |
-    delimited!(tk!(LeftParen), read_expr, tk!(RightParen))
+    unit
+    | tuple
+    | unit_tuple
+    | list
+    | range
+    | qualified_ref
+    | adt
+    | read_if
+    | read_lambda
+    | read_case
+    | read_let
+    | record
+    | record_update
+    | record_access
+    | map!(literal!(), |c| Expr::Literal(c))
+    | map!(read_ref,   |c| Expr::Ref(c))
+    | delimited!(tk!(LeftParen), read_expr, tk!(RightParen))
 ));
 
 named!(unit<Tk, Expr>, do_parse!(
@@ -52,21 +67,29 @@ named!(tuple<Tk, Expr>, do_parse!(
     tk!(LeftParen) >>
     a: read_expr >>
     tk!(Comma) >>
-    list: separated_nonempty_list!(tk!(Comma), read_expr) >>
+    list: separated_nonempty_list!(comma_separator, read_expr) >>
     tk!(RightParen) >>
     (Expr::Tuple(create_vec(a, list)))
 ));
 
 named!(unit_tuple<Tk, Expr>, do_parse!(
     tk!(LeftParen) >>
-    list: many1!(tk!(Comma)) >>
+    list: many1!(comma_separator) >>
     tk!(RightParen) >>
     (Expr::Tuple(create_vec(Expr::Unit, list.into_iter().map(|_c| Expr::Unit).collect())))
 ));
 
+named!(comma_separator<Tk, ()>, do_parse!(
+    spaces >>
+    tk!(Comma) >>
+    spaces >>
+    (())
+));
+
 named!(list<Tk, Expr>, do_parse!(
     tk!(LeftBracket) >>
-    list: separated_list!(tk!(Comma), read_expr) >>
+    list: separated_list!(comma_separator, read_expr) >>
+    spaces >>
     tk!(RightBracket) >>
     (Expr::List(list))
 ));
@@ -118,8 +141,17 @@ named!(read_case<Tk, Expr>, do_parse!(
     tk!(Case) >>
     e: read_expr >>
     tk!(Of) >>
-    b: many1!(do_parse!(p: read_pattern >> tk!(RightArrow) >> ex: read_expr >> ((p, ex)))) >>
-    (Expr::Case(Box::new(e), b))
+    count: indent!() >>
+    first: case_branch >>
+    rest: many0!(do_parse!(indent!(count) >> b: case_branch >> (b))) >>
+    (Expr::Case(Box::new(e), create_vec(first, rest)))
+));
+
+named!(case_branch<Tk, (Pattern, Expr)>, do_parse!(
+    p: read_pattern >>
+    tk!(RightArrow) >>
+    ex: read_expr >>
+    ((p, ex))
 ));
 
 named!(read_let<Tk, Expr>, do_parse!(
@@ -185,6 +217,7 @@ mod tests {
     use nom::*;
     use super::*;
     use tokenizer::get_all_tokens;
+    use util::Tk;
 
     #[test]
     fn check_unit() {
@@ -270,13 +303,18 @@ mod tests {
 
     #[test]
     fn check_case() {
-        let stream = get_all_tokens(b"case x of [] -> 0");
+        let stream = get_all_tokens(b"case x of\n  [] -> 0\n  _ -> 1");
+        println!("{:#?}", stream);
+
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Case(
             Box::new(Expr::Ref("x".s())),
             vec![(
                 Pattern::List(vec![]),
                 Expr::Literal(Literal::Int(0))
+            ),(
+                Pattern::Wildcard,
+                Expr::Literal(Literal::Int(1))
             )]
         ));
     }
@@ -413,5 +451,20 @@ mod tests {
             ],
             vec!["+".s()]
         ));
+    }
+
+    #[test]
+    fn check_multiline_expr() {
+        let stream = get_all_tokens(b"my_fun []\n  []");
+        let m = read_expr(&stream);
+        assert_ok!(m,
+        Expr::Application(
+            Box::new(Expr::Application(
+                Box::new(Expr::Ref("my_fun".s())),
+                Box::new(Expr::List(vec![]))
+            )),
+            Box::new(Expr::List(vec![]))
+        )
+        );
     }
 }

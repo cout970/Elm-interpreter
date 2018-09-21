@@ -1,4 +1,5 @@
 use *;
+use parsers::spaces;
 use parsers::expression::read_expr;
 use parsers::pattern::read_pattern;
 use parsers::types::read_type;
@@ -6,7 +7,13 @@ use tokenizer::Token::*;
 
 // Definitions
 
-named!(pub top_level_statement<Tk, Statement>, alt!(
+named!(pub top_level_statement<Tk, Statement>, do_parse!(
+    tk!(LineStart) >>
+    s: statement_item >>
+    (s)
+));
+
+named!(statement_item<Tk, Statement>, alt!(
     alias |
     adt   |
     port  |
@@ -14,40 +21,54 @@ named!(pub top_level_statement<Tk, Statement>, alt!(
 ));
 
 named!(adt<Tk, Statement>, do_parse!(
-    opt!(tk!(LineStart)) >>
     tk!(TypeTk) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
+    spaces >>
     tk!(Equals) >>
-    entries: separated_nonempty_list!(tk!(Pipe), adt_def) >>
+    entries: separated_nonempty_list!(pipe_separator, adt_def) >>
     (Statement::Adt(create_vec(a, b), entries))
 ));
 
+named!(pipe_separator<Tk, ()>, do_parse!(
+    spaces >>
+    tk!(Pipe) >>
+    (())
+));
+
 named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
+    spaces >>
     n: upper_id!() >>
     ty: many0!(read_type) >>
     ((n, ty))
 ));
 
 named!(port<Tk, Statement>, do_parse!(
-    opt!(tk!(LineStart)) >>
     tk!(Port) >>
     t: read_type_def >>
     (Statement::Port(t))
 ));
 
-named!(definition<Tk, Statement>, map!(read_definition, |c| Statement::Def(c)));
+named!(definition<Tk, Statement>, map!(
+    read_definition, |c| Statement::Def(c)
+));
 
 named!(pub read_definition<Tk, Definition>, do_parse!(
-    opt!(tk!(LineStart)) >>
     t: opt!(read_type_def) >>
     v: read_value_def >>
     (Definition(t, v))
 ));
 
-named!(read_type_def<Tk, TypeDefinition>, alt!(
-    do_parse!(n: id!() >> tk!(Colon) >> t: read_type >> (TypeDefinition(n, t))) |
-    do_parse!(tk!(LeftParen) >> n: binop!() >> tk!(RightParen) >> tk!(Colon) >> t: read_type >> (TypeDefinition(n, t)))
+named!(read_type_def<Tk, TypeDefinition>, do_parse!(
+    name: read_type_def_name >>
+    tk!(Colon) >>
+    ty: read_type >>
+    opt!(tk!(LineStart)) >>
+    (TypeDefinition(name, ty))
+));
+
+named!(read_type_def_name<Tk, String>, alt!(
+    id!() | delimited!(tk!(LeftParen), binop!(), tk!(RightParen))
 ));
 
 named!(read_value_def<Tk, ValueDefinition>, alt!(
@@ -57,42 +78,43 @@ named!(read_value_def<Tk, ValueDefinition>, alt!(
 ));
 
 named!(prefix_value_def<Tk, ValueDefinition>, do_parse!(
-    opt!(tk!(LineStart)) >>
     tk!(LeftParen) >>
     b: binop!() >>
     tk!(RightParen) >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
+    spaces >>
     e: read_expr >>
     (ValueDefinition::PrefixOp(b, p, e))
 ));
 
 named!(infix_value_def<Tk, ValueDefinition>, do_parse!(
-    opt!(tk!(LineStart)) >>
     a: read_pattern >>
     b: binop!() >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
+    spaces >>
     e: read_expr >>
     (ValueDefinition::InfixOp(a, b, p, e))
 ));
 
 named!(name_value_def<Tk, ValueDefinition>, do_parse!(
-    opt!(tk!(LineStart)) >>
     a: id!() >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
+    spaces >>
     e: read_expr >>
     (ValueDefinition::Name(a, p, e))
 ));
 
 named!(alias<Tk, Statement>, do_parse!(
-    opt!(tk!(LineStart)) >>
     tk!(TypeTk) >>
     tk!(Alias) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
+    spaces >>
     tk!(Equals) >>
+    spaces >>
     ty: read_type >>
     (Statement::Alias(create_vec(a, b), ty))
 ));
@@ -152,8 +174,13 @@ mod tests {
     #[test]
     fn check_def2() {
         let stream = get_all_tokens(b"\nx = 5");
-        let m = name_value_def(&stream);
-        assert_ok!(m, ValueDefinition::Name("x".s(), vec![], Expr::Literal(Literal::Int(5))));
+        let m = top_level_statement(&stream);
+        assert_ok!(m, Statement::Def(
+            Definition(
+                None,
+                ValueDefinition::Name("x".s(), vec![], Expr::Literal(Literal::Int(5)))
+            )
+        ));
     }
 
     #[test]

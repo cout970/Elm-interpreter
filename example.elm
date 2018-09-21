@@ -2,18 +2,30 @@ import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 
-main =
-  Browser.sandbox { init = 0, update = update, view = view }
-
-type Msg = Increment | Decrement
-
+update : Msg -> Model -> Model
 update msg model =
   case msg of
     Increment ->
-        model + 1
+      example 1
+        case msg of
+            Increment ->
+              example 1
+             2
+
+            Decrement ->
+                model - 1
 
     Decrement ->
         model - 1
+
+main =
+  Browser.sandbox { init = 0, update = update, view = view }
+
+type alias Model = Int
+
+type Msg
+    = Increment
+    | Decrement
 
 view model =
   div []

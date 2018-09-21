@@ -7,19 +7,19 @@ extern crate pretty_assertions;
 
 use nom::*;
 use nom::simple_errors::Context;
+use parsers::expression::read_expr;
 use parsers::module::*;
+use parsers::statement::top_level_statement;
 use std::fs::File;
 use std::io;
+use std::io::BufRead;
 use std::io::Read;
+use std::io::stdin;
+use std::io::stdout;
 use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
-use std::io::stdin;
-use parsers::statement::top_level_statement;
-use parsers::expression::read_expr;
-use std::io::stdout;
-use std::io::BufRead;
 
 mod types;
 #[macro_use]
@@ -35,12 +35,14 @@ fn load_file() -> Vec<u8> {
     data
 }
 
-fn use_file() -> bool { false }
+fn use_file() -> bool { true }
 
 fn main() {
     if use_file() {
         let file = load_file();
         let tokens = get_all_tokens(&file);
+//        println!("Tokens: \n{:#?}\n", tokens);
+
         let result = read_module(&tokens);
 
         if let Ok((rest, module)) = result {
@@ -50,8 +52,6 @@ fn main() {
             println!("{:?}", result);
         }
     } else {
-        let mut input = String::new();
-
         print!("> ");
         stdout().flush();
         let stdin = stdin();
@@ -61,7 +61,7 @@ fn main() {
 
             let result = top_level_statement(&tokens);
 
-            if let Ok((rest, module)) = result {
+            if let Ok((_, module)) = result {
                 println!("Output: \n{:#?}", module);
             } else {
                 println!("Error: {:?}", result);

@@ -12,7 +12,7 @@ pub enum Token {
     LitFloat(Float),
     LitChar(char),
     LitString(String),
-    IndentSeparation,
+    Indent(u32),
     LineStart,
     Let,
     If,
@@ -51,7 +51,7 @@ pub enum Token {
 struct Input<'a> {
     stream: &'a [u8],
     line: u32,
-    column: u32
+    column: u32,
 }
 
 impl<'a> Input<'a> {
@@ -59,7 +59,7 @@ impl<'a> Input<'a> {
         Input {
             stream,
             line: 0,
-            column: 0
+            column: 0,
         }
     }
 
@@ -81,7 +81,7 @@ impl<'a> Input<'a> {
         Input {
             stream: &self.stream[n..],
             line,
-            column
+            column,
         }
     }
 }
@@ -93,7 +93,6 @@ named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
 named!(number<char>, one_of!("0123456789"));
 
 named!(newline<char>, one_of!("\r\n"));
-named!(indentation_separation<Token>, map!(many1!(newline), |_c| IndentSeparation));
 
 named!(binop_char<char>, one_of!("~!@#$%^&*-+=<>/?\\._"));
 
@@ -247,15 +246,6 @@ named!(read_token_forced<Token>, alt!(
     | eof_marker
 ));
 
-//named!(read_token<Token>, do_parse!(
-//    ignore_spaces >>
-//    many0!(line_comment) >>
-//    token: read_token_forced >>
-//    many0!(newline) >>
-//    (token)
-//));
-
-
 fn from_id(id: String) -> Token {
     match id.as_bytes() {
         b"let" => Let,
@@ -327,6 +317,8 @@ fn read_token<'a>(i: Input) -> IResult<Input, Token> {
 
         if indentation == 0 {
             return Ok((i.advance(ptr), LineStart));
+        } else {
+            return Ok((i.advance(ptr), Indent(indentation)));
         }
     }
 
@@ -474,8 +466,8 @@ mod tests {
         let tokens = get_all_tokens(code);
         assert_eq!(tokens, vec![
             Case, Id("i".s()), Of,
-            LitInt(1),
-            LitInt(2),
+            Indent(2), LitInt(1),
+            Indent(2), LitInt(2),
             LineStart,
             Id("my_func".s()),
             Eof

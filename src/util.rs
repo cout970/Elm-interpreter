@@ -124,6 +124,41 @@ macro_rules! binop {
 }
 
 #[macro_export]
+macro_rules! indent {
+    ($i:expr, $count: expr) => (
+    {
+        use nom::*;
+        use nom::simple_errors::Context;
+
+        if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+        let look = &$i[0];
+
+        if look == &Token::Indent($count) {
+            Ok((&$i[1..], ()))
+        } else {
+            Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+        }
+    }
+    );
+
+    ($i:expr,) => (
+    {
+        use nom::*;
+        use nom::simple_errors::Context;
+
+        if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+        let look = &$i[0];
+
+        if let Token::Indent(count) = look {
+            Ok((&$i[1..], *count))
+        } else {
+            Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+        }
+    }
+    );
+}
+
+#[macro_export]
 macro_rules! literal {
     ($i:expr,) => (
         {
