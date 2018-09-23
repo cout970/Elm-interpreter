@@ -14,6 +14,7 @@ pub enum Token {
     LitString(String),
     Indent(u32),
     LineStart,
+    BackSlash,
     Let,
     If,
     Else,
@@ -47,45 +48,6 @@ pub enum Token {
     Eof,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-struct Input<'a> {
-    stream: &'a [u8],
-    line: u32,
-    column: u32,
-}
-
-impl<'a> Input<'a> {
-    fn new(stream: &'a [u8]) -> Self {
-        Input {
-            stream,
-            line: 0,
-            column: 0,
-        }
-    }
-
-    fn advance(&self, n: usize) -> Input<'a> {
-        let skipped: &[u8] = &self.stream[0..n];
-
-        let mut line = self.line;
-        let mut column = self.column;
-
-        for c in skipped {
-            if *c as char == '\n' {
-                line += 1;
-                column = 0;
-            } else {
-                column += 1;
-            }
-        }
-
-        Input {
-            stream: &self.stream[n..],
-            line,
-            column,
-        }
-    }
-}
-
 named!(lower<char>, one_of!("abcdefghijklmnopqrstuvwxyz"));
 
 named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
@@ -94,7 +56,7 @@ named!(number<char>, one_of!("0123456789"));
 
 named!(newline<char>, one_of!("\r\n"));
 
-named!(binop_char<char>, one_of!("~!@#$%^&*-+=<>/?\\._"));
+named!(binop_char<char>, one_of!(":~!@#$%^&*-+=<>/?\\._"));
 
 named!(id_char<char>, alt!(lower | upper | number | one_of!("_'")));
 
@@ -190,34 +152,11 @@ named!(basic_binop_string<String>, map!(
     |v| v.into_iter().collect::<String>()
 ));
 
-fn basic_binop(input: &[u8]) -> IResult<&[u8], Token> {
+fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
     let (o, binop): (&[u8], String) = basic_binop_string(input)?;
     let op = from_binop(binop);
     Ok((o, op))
 }
-
-named!(constr_op<Token>, do_parse!(
-    a: char!(':') >>
-    b: many1!(alt!(binop_char | char!(':'))) >>
-    (BinaryOperator(create_vec(a, b).into_iter().collect::<String>()))
-));
-
-// note this must go after ".","=","->","<-", "--"
-named!(read_binop<Token>, alt!(
-    basic_binop |
-    constr_op
-));
-
-named!(quoted_binop<Token>, do_parse!(
-    char!('`') >>
-    a: alt!(
-        do_parse!(a: lower >> b: many0!(id_char) >> (create_vec(a, b).into_iter().collect::<String>())) |
-        do_parse!(a: upper >> b: many0!(id_char) >> (create_vec(a, b).into_iter().collect::<String>()))
-    ) >>
-    char!('`') >>
-    (BinaryOperator(a))
-));
-
 
 named!(underscore<Token>, map!(char!('_'), |_c| Underscore));
 named!(dot<Token>, map!(char!('.'), |_c| Dot));
@@ -231,7 +170,6 @@ named!(eof_marker<Token>, alt!(map!(eof!(), |_c| Eof) | map!(char!('\0'), |_c| E
 
 named!(read_token_forced<Token>, alt!(
     read_binop
-    | colon
     | comma
     | pipe
     | read_id
@@ -270,11 +208,13 @@ fn from_id(id: String) -> Token {
 fn from_binop(id: String) -> Token {
     match id.as_bytes() {
         b"_" => Underscore,
+        b":" => Colon,
         b"." => Dot,
         b".." => DoubleDot,
         b"=" => Equals,
         b"<-" => LeftArrow,
         b"->" => RightArrow,
+        b"\\" => BackSlash,
         _ => BinaryOperator(id)
     }
 }
@@ -295,7 +235,6 @@ fn read_token<'a>(i: Input) -> IResult<Input, Token> {
         return Err(Err::Incomplete(Needed::Size(1)));
     }
 
-//    let mut i = i;
     let mut ptr = 0;
     let mut new_line = false;
 
@@ -361,6 +300,45 @@ pub fn get_all_tokens(stream: &[u8]) -> Vec<Token> {
     }
 
     tokens
+}
+
+#[derive(PartialEq, Debug, Clone)]
+struct Input<'a> {
+    stream: &'a [u8],
+    line: u32,
+    column: u32,
+}
+
+impl<'a> Input<'a> {
+    fn new(stream: &'a [u8]) -> Self {
+        Input {
+            stream,
+            line: 0,
+            column: 0,
+        }
+    }
+
+    fn advance(&self, n: usize) -> Input<'a> {
+        let skipped: &[u8] = &self.stream[0..n];
+
+        let mut line = self.line;
+        let mut column = self.column;
+
+        for c in skipped {
+            if *c as char == '\n' {
+                line += 1;
+                column = 0;
+            } else {
+                column += 1;
+            }
+        }
+
+        Input {
+            stream: &self.stream[n..],
+            line,
+            column,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -185,7 +185,7 @@ named!(read_if<Tk, Expr>, do_parse!(
 ));
 
 named!(read_lambda<Tk, Expr>, do_parse!(
-    binop!("\\") >>
+    tk!(BackSlash) >>
     p: many1!(read_pattern) >>
     tk!(RightArrow) >>
     expr: read_expr >>

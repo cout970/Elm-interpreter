@@ -143,10 +143,10 @@ mod tests {
 
     #[test]
     fn check_binop() {
-        let stream = get_all_tokens(b"a :+ b");
+        let stream = get_all_tokens(b"a :: b");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Binop(
-            ":+".s(),
+            "::".s(),
             Box::new(Pattern::Var("a".s())),
             Box::new(Pattern::Var("b".s()))
         ));
