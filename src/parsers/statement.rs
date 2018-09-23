@@ -1,7 +1,7 @@
 use *;
-use parsers::spaces;
 use parsers::expression::read_expr;
 use parsers::pattern::read_pattern;
+use parsers::spaces;
 use parsers::types::read_type;
 use tokenizer::Token::*;
 
@@ -192,6 +192,43 @@ mod tests {
                 Definition(
                     Some(TypeDefinition("my_fun".s(), Type::Tag("Int".s(), vec![]))),
                     ValueDefinition::Name("my_fun".s(), vec![], Expr::Literal(Literal::Int(5)))
+                )
+            )
+        );
+    }
+
+//    #[test]
+    fn check_def4() {
+        let stream = get_all_tokens(b"\n\
+update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
+        ");
+        let m = top_level_statement(&stream);
+        assert_ok!(m,
+            Statement::Def(
+                Definition(
+                    None,
+                    ValueDefinition::Name("update".s(),
+                        vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
+                        Expr::Case(
+                            Box::new(Expr::Ref("msg".s())),
+                            vec![
+                                (
+                                    Pattern::Adt("Increment".s(), vec![]),
+                                    Expr::OpChain(
+                                        vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                        vec!["+".s()]
+                                    )
+                                ),
+                                (
+                                    Pattern::Adt("Decrement".s(), vec![]),
+                                    Expr::OpChain(
+                                        vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                        vec!["-".s()]
+                                    )
+                                )
+                            ]
+                        )
+                    )
                 )
             )
         );

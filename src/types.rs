@@ -9,12 +9,6 @@ pub enum Literal {
     Char(char),
 }
 
-//#[derive(Debug, PartialEq, Clone)]
-//pub enum Ref {
-//    Name(String),
-//    Operand(String),
-//}
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Var(String),

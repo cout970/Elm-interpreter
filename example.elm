@@ -6,15 +6,7 @@ update : Msg -> Model -> Model
 update msg model =
   case msg of
     Increment ->
-      example 1
-        case msg of
-            Increment ->
-              example 1
-             2
-
-            Decrement ->
-                model - 1
-
+        model + 1
     Decrement ->
         model - 1
 

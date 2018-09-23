@@ -6,58 +6,113 @@ use parsers::spaces;
 use parsers::statement::read_definition;
 use tokenizer::Token::*;
 use types::Expr;
+use util::Tk;
 
 // Expresions
 
-named!(pub read_expr<Tk, Expr>, do_parse!(
-    spaces >>
-    e: read_expr_spaceless >>
-    (e)
-));
+struct ExprParser {
+    indent: Vec<usize>
+}
 
-named!(read_expr_spaceless<Tk, Expr>, do_parse!(
-    first: read_expr_app >>
-    rest: many0!(binop_item) >>
-    (create_binop_chain(first, rest))
-));
+impl ExprParser {
 
-named!(binop_item<Tk, (String, Expr)>, do_parse!(
-    spaces >>
-    op: binop!() >>
-    spaces >>
-    ex: read_expr_app >>
-    ((op, ex))
-));
+    pub fn new() -> Self {
+        ExprParser { indent: vec![] }
+    }
 
-named!(read_expr_app<Tk, Expr>, do_parse!(
-    first: read_expr_aux >>
-    rest: many0!(preceded!(spaces, read_expr_aux)) >>
-    (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
-));
+    fn push(self, n: usize) -> Self {
+        let mut indent = self.indent;
+        indent.push(n);
 
-named!(read_expr_aux<Tk, Expr>, alt!(
-    record_field | read_non_rec_field_expr
-));
+        ExprParser { indent }
+    }
 
-named!(read_non_rec_field_expr<Tk, Expr>, alt!(
-    unit
-    | tuple
-    | unit_tuple
-    | list
-    | range
-    | qualified_ref
-    | adt
-    | read_if
-    | read_lambda
-    | read_case
-    | read_let
-    | record
-    | record_update
-    | record_access
-    | map!(literal!(), |c| Expr::Literal(c))
-    | map!(read_ref,   |c| Expr::Ref(c))
-    | delimited!(tk!(LeftParen), read_expr, tk!(RightParen))
-));
+
+    method!(spaces<ExprParser, Tk, ()>, self, do_parse!(
+        many0!(indent_except!(self.indent)) >> (())
+    ));
+
+    method!(read_expr<ExprParser, Tk, Expr>, mut self, do_parse!(
+        call_m!(self.spaces) >>
+        e: call_m!(self.read_expr_spaceless) >>
+        (e)
+    ));
+
+    method!(read_expr_spaceless<ExprParser, Tk, Expr>, mut self, do_parse!(
+        first: call_m!(self.read_expr_app) >>
+        rest: many0!(call_m!(self.binop_item)) >>
+        (create_binop_chain(first, rest))
+    ));
+
+    method!(binop_item<ExprParser, Tk, (String, Expr)>, mut self, do_parse!(
+        call_m!(self.spaces) >>
+        op: binop!() >>
+        call_m!(self.spaces) >>
+        ex: call_m!(self.read_expr_app) >>
+        ((op, ex))
+    ));
+
+    method!(read_expr_app<ExprParser, Tk, Expr>, mut self, do_parse!(
+        first: call_m!(self.read_expr_aux) >>
+        rest: many0!(do_parse!(call_m!(self.spaces) >> e: call_m!(self.read_expr_aux) >> (e))) >>
+        (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
+    ));
+
+    method!(read_expr_aux<ExprParser, Tk, Expr>, mut self, alt!(
+        call_m!(self.record_field) | call_m!(self.read_non_rec_field_expr)
+    ));
+
+    method!(record_field<ExprParser, Tk, Expr>, mut self, do_parse!(
+        e: call_m!(self.read_non_rec_field_expr) >>
+        tk!(Dot) >>
+        id: id!() >>
+        (Expr::RecordField(Box::new(e), id))
+    ));
+
+    method!(read_non_rec_field_expr<ExprParser, Tk, Expr>, mut self, alt!(
+        unit
+        | tuple
+        | unit_tuple
+        | list
+        | range
+        | qualified_ref
+        | adt
+        | read_if
+        | read_lambda
+        | call_m!(self.read_case)
+        | read_let
+        | record
+        | record_update
+        | record_access
+        | map!(literal!(), |c| Expr::Literal(c))
+        | map!(read_ref,   |c| Expr::Ref(c))
+        | delimited!(tk!(LeftParen), read_expr, tk!(RightParen))
+    ));
+
+    method!(read_case<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(Case) >>
+        e: call_m!(self.read_expr) >>
+        tk!(Of) >>
+        count: do_parse!(s: indent!() >> ({self = self.push(s as usize); s})) >>
+        first: call_m!(self.case_branch) >>
+        rest: many0!(do_parse!(indent!(count) >> b: call_m!(self.case_branch) >> (b))) >>
+        (Expr::Case(Box::new(e), create_vec(first, rest)))
+    ));
+
+    method!(case_branch<ExprParser, Tk, (Pattern, Expr)>, mut self, do_parse!(
+        p: read_pattern >>
+        tk!(RightArrow) >>
+        ex: call_m!(self.read_expr) >>
+        ((p, ex))
+    ));
+}
+
+// independent methods
+
+pub fn read_expr(i: Tk) -> IResult<Tk, Expr> {
+    let (_, m) = ExprParser::new().read_expr(i);
+    m
+}
 
 named!(unit<Tk, Expr>, do_parse!(
     tk!(LeftParen) >> tk!(RightParen) >> (Expr::Unit)
@@ -182,13 +237,6 @@ named!(record_access<Tk, Expr>, do_parse!(
     (Expr::RecordAccess(id))
 ));
 
-named!(record_field<Tk, Expr>, do_parse!(
-    e: read_non_rec_field_expr >>
-    tk!(Dot) >>
-    id: id!() >>
-    (Expr::RecordField(Box::new(e), id))
-));
-
 named!(qualified_ref<Tk, Expr>, do_parse!(
     e: upper_ids >>
     tk!(Dot) >>
@@ -221,8 +269,9 @@ mod tests {
 
     #[test]
     fn check_unit() {
+        let p = ExprParser::new();
         let stream = get_all_tokens(b"()");
-        let m = read_expr(&stream);
+        let (_, m) = p.read_expr(&stream);
         assert_ok!(m, Expr::Unit);
     }
 
@@ -465,6 +514,34 @@ mod tests {
             )),
             Box::new(Expr::List(vec![]))
         )
+        );
+    }
+
+    #[test]
+    fn check_case_indentation() {
+        let stream = get_all_tokens(b"\
+case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
+        ");
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::Case(
+                Box::new(Expr::Ref("msg".s())),
+                vec![
+                    (
+                        Pattern::Adt("Increment".s(), vec![]),
+                        Expr::OpChain(
+                            vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                            vec!["+".s()]
+                        )
+                    ),
+                    (
+                        Pattern::Adt("Decrement".s(), vec![]),
+                        Expr::OpChain(
+                            vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                            vec!["-".s()]
+                        )
+                    )
+                ]
+            )
         );
     }
 }

@@ -7,7 +7,6 @@ extern crate pretty_assertions;
 
 use nom::*;
 use nom::simple_errors::Context;
-use parsers::expression::read_expr;
 use parsers::module::*;
 use parsers::statement::top_level_statement;
 use std::fs::File;
@@ -53,7 +52,7 @@ fn main() {
         }
     } else {
         print!("> ");
-        stdout().flush();
+        stdout().flush().unwrap();
         let stdin = stdin();
 
         for line in stdin.lock().lines() {
@@ -71,68 +70,3 @@ fn main() {
         }
     }
 }
-
-fn print<T: std::fmt::Debug>(r: IResult<&[u8], T>) {
-    match r {
-        Ok((str, t)) => {
-            println!("{:?}, rest: '{}'", t, to_string(str));
-        }
-        Err(e) => {
-            match e {
-                Err::Error(ctx) => {
-                    match ctx {
-                        Context::Code(c, ..) => {
-                            println!("Erro, rest: {:?}", to_string(c));
-                        }
-                    }
-                }
-                Err::Incomplete(needed) => {
-                    println!("Inco: {:?}", needed);
-                }
-                Err::Failure(ctx) => {
-                    println!("Fail: {:?}", ctx);
-                }
-            }
-        }
-    }
-}
-
-//#[cfg(test)]
-//mod tests {
-//    use nom::*;
-//    use super::*;
-//    use tokenizer::get_all_tokens;
-//
-////    #[test]
-//    fn check_snippet_1() {
-//        let stream = get_all_tokens(b"\n\
-//        module MyModule.MySubModule () where\n\
-//        ");
-//        let m = read_module(&stream);
-//        assert_ok!(m, Module {
-//            header: Some(ModuleHeader {
-//                name: vec!["MyModule".s(), "MySubModule".s()],
-//                exports: vec![]
-//            }),
-//            ..Module::default()
-//        });
-//    }
-//
-////    #[test]
-//    fn check_snippet_2() {
-//        let stream = get_all_tokens(b"\n\
-//        update msg model = \n\
-//          case msg of\n\
-//            Increment ->\n\
-//              model + 1\n\
-//        \n\
-//            Decrement ->\n\
-//              model - 1\n\
-//        ");
-//        let m = read_module(&stream);
-//        assert_ok!(m, Module {
-//            statements: vec![],
-//            ..Module::default()
-//        });
-//    }
-//}

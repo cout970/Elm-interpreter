@@ -3,6 +3,8 @@ use types::*;
 
 pub type Tk<'a> = &'a [Token];
 
+
+// TODO remove return from macros
 #[macro_export]
 macro_rules! tk {
     ($i:expr, $token: expr) => (
@@ -10,7 +12,7 @@ macro_rules! tk {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+            // if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
             if look == &$token {
               Ok((&$i[1..], look.clone()))
@@ -28,7 +30,7 @@ macro_rules! id {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+            // if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
             if look == &Token::Id($string.s()) {
               Ok((&$i[1..], $string.s()))
@@ -43,7 +45,7 @@ macro_rules! id {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//            if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
 
             if let Token::Id(str) = look {
@@ -62,7 +64,7 @@ macro_rules! upper_id {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//            if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
             if look == &Token::UpperId($string.s()) {
               Ok((&$i[1..], $string.s()))
@@ -77,7 +79,7 @@ macro_rules! upper_id {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//            if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
 
             if let Token::UpperId(str) = look {
@@ -96,7 +98,7 @@ macro_rules! binop {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//            if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
             if look == &Token::BinaryOperator($string.s()) {
               Ok((&$i[1..], $string.s()))
@@ -111,7 +113,7 @@ macro_rules! binop {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//            if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
 
             if let Token::BinaryOperator(str) = look {
@@ -130,7 +132,7 @@ macro_rules! indent {
         use nom::*;
         use nom::simple_errors::Context;
 
-        if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//        if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
         let look = &$i[0];
 
         if look == &Token::Indent($count) {
@@ -146,13 +148,38 @@ macro_rules! indent {
         use nom::*;
         use nom::simple_errors::Context;
 
-        if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//        if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
         let look = &$i[0];
 
         if let Token::Indent(count) = look {
             Ok((&$i[1..], *count))
         } else {
             Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+        }
+    }
+    );
+}
+
+macro_rules! indent_except {
+    ($i:expr, $levels: expr) => (
+    {
+        use nom::*;
+        use nom::simple_errors::Context;
+
+        if $i.len() > 0 {
+            let look = &$i[0];
+
+            if let Token::Indent(count) = look {
+                if $levels.contains( &(*count as usize)) {
+                    Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+                } else {
+                    Ok((&$i[1..], * count))
+                }
+            } else {
+                Err(Err::Error(Context::Code( $i, ErrorKind::Custom(0))))
+            }
+        } else {
+            Err(Err::Incomplete(Needed::Size(1)))
         }
     }
     );
@@ -189,7 +216,7 @@ macro_rules! constrop {
             use nom::*;
             use nom::simple_errors::Context;
 
-            if $i.len() == 0 { return Err(Err::Incomplete(Needed::Size(1))); }
+//            if $i.len() == 0 { Err(Err::Incomplete(Needed::Size(1))); }
             let look = &$i[0];
 
             if let Token::BinaryOperator(string) = look {
