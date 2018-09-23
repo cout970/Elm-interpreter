@@ -4,13 +4,7 @@ use tokenizer::Token::*;
 use types::*;
 use util::create_vec;
 
-named!(pub read_pattern<Tk, Pattern>, do_parse!(
-    a: binop_less_pattern >>
-    b: many0!(do_parse!(c: constrop!() >> p: binop_less_pattern >> ((c, p)))) >>
-    (create_binop_pattern(a, b))
-));
-
-named!(binop_less_pattern<Tk, Pattern>, alt!(
+named!(pub read_pattern<Tk, Pattern>,  alt!(
     wildcard |
     variable |
     adt      |
@@ -59,12 +53,6 @@ named!(record<Tk, Pattern>, do_parse!(
 ));
 
 named!(literal<Tk, Pattern>, map!(literal!(), |l| Pattern::Literal(l)));
-
-fn create_binop_pattern(a: Pattern, b: Vec<(String, Pattern)>) -> Pattern {
-    b.into_iter().fold(a, |acc, (c, p)|
-        Pattern::Binop(c, Box::new(acc), Box::new(p)),
-    )
-}
 
 #[cfg(test)]
 mod tests {
@@ -139,16 +127,5 @@ mod tests {
         assert_ok!(m, Pattern::Record(vec![
             Pattern::Var("a".s()), Pattern::Var("b".s())
         ]));
-    }
-
-    #[test]
-    fn check_binop() {
-        let stream = get_all_tokens(b"a :: b");
-        let m = read_pattern(&stream);
-        assert_ok!(m, Pattern::Binop(
-            "::".s(),
-            Box::new(Pattern::Var("a".s())),
-            Box::new(Pattern::Var("b".s()))
-        ));
     }
 }
