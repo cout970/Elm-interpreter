@@ -1,7 +1,6 @@
 use *;
 use parsers::expression::read_expr;
 use parsers::pattern::read_pattern;
-use parsers::spaces;
 use parsers::types::read_type;
 use tokenizer::Token::*;
 
@@ -14,30 +13,30 @@ named!(pub top_level_statement<Tk, Statement>, do_parse!(
 ));
 
 named!(statement_item<Tk, Statement>, alt!(
-    alias |
-    adt   |
-    port  |
-    definition
+    alias
+    | adt
+    | port
+    | definition
 ));
 
 named!(adt<Tk, Statement>, do_parse!(
     tk!(TypeTk) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
-    spaces >>
+    many0!(indent!()) >>
     tk!(Equals) >>
     entries: separated_nonempty_list!(pipe_separator, adt_def) >>
     (Statement::Adt(create_vec(a, b), entries))
 ));
 
 named!(pipe_separator<Tk, ()>, do_parse!(
-    spaces >>
+    many0!(indent!()) >>
     tk!(Pipe) >>
     (())
 ));
 
 named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
-    spaces >>
+    many0!(indent!()) >>
     n: upper_id!() >>
     ty: many0!(read_type) >>
     ((n, ty))
@@ -83,7 +82,7 @@ named!(prefix_value_def<Tk, ValueDefinition>, do_parse!(
     tk!(RightParen) >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
-    spaces >>
+    many0!(indent!()) >>
     e: read_expr >>
     (ValueDefinition::PrefixOp(b, p, e))
 ));
@@ -93,7 +92,7 @@ named!(infix_value_def<Tk, ValueDefinition>, do_parse!(
     b: binop!() >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
-    spaces >>
+    many0!(indent!()) >>
     e: read_expr >>
     (ValueDefinition::InfixOp(a, b, p, e))
 ));
@@ -102,7 +101,7 @@ named!(name_value_def<Tk, ValueDefinition>, do_parse!(
     a: id!() >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
-    spaces >>
+    many0!(indent!()) >>
     e: read_expr >>
     (ValueDefinition::Name(a, p, e))
 ));
@@ -112,9 +111,9 @@ named!(alias<Tk, Statement>, do_parse!(
     tk!(Alias) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
-    spaces >>
+    many0!(indent!()) >>
     tk!(Equals) >>
-    spaces >>
+    many0!(indent!()) >>
     ty: read_type >>
     (Statement::Alias(create_vec(a, b), ty))
 ));
@@ -197,7 +196,7 @@ mod tests {
         );
     }
 
-//    #[test]
+    //    #[test]
     fn check_def4() {
         let stream = get_all_tokens(b"\n\
 update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\

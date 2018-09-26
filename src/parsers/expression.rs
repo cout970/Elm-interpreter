@@ -2,7 +2,6 @@ use *;
 use parsers::module::read_ref;
 use parsers::module::upper_ids;
 use parsers::pattern::read_pattern;
-use parsers::spaces;
 use parsers::statement::read_definition;
 use tokenizer::Token::*;
 use types::Expr;
@@ -15,7 +14,6 @@ struct ExprParser {
 }
 
 impl ExprParser {
-
     pub fn new() -> Self {
         ExprParser { indent: vec![] }
     }
@@ -26,7 +24,6 @@ impl ExprParser {
 
         ExprParser { indent }
     }
-
 
     method!(spaces<ExprParser, Tk, ()>, self, do_parse!(
         many0!(indent_except!(self.indent)) >> (())
@@ -70,23 +67,23 @@ impl ExprParser {
     ));
 
     method!(read_non_rec_field_expr<ExprParser, Tk, Expr>, mut self, alt!(
-        unit
-        | tuple
-        | unit_tuple
-        | list
-        | range
-        | qualified_ref
-        | adt
-        | read_if
-        | read_lambda
+        call_m!(self.unit)
+        | call_m!(self.tuple)
+        | call_m!(self.unit_tuple)
+        | call_m!(self.list)
+        | call_m!(self.range)
+        | call_m!(self.qualified_ref)
+        | call_m!(self.adt)
+        | call_m!(self.read_if)
+        | call_m!(self.read_lambda)
         | call_m!(self.read_case)
-        | read_let
-        | record
-        | record_update
-        | record_access
+        | call_m!(self.read_let)
+        | call_m!(self.record)
+        | call_m!(self.record_update)
+        | call_m!(self.record_access)
         | map!(literal!(), |c| Expr::Literal(c))
         | map!(read_ref,   |c| Expr::Ref(c))
-        | delimited!(tk!(LeftParen), read_expr, tk!(RightParen))
+        | do_parse!(tk!(LeftParen) >> e: call_m!(self.read_expr) >> tk!(RightParen) >> (e))
     ));
 
     method!(read_case<ExprParser, Tk, Expr>, mut self, do_parse!(
@@ -105,6 +102,119 @@ impl ExprParser {
         ex: call_m!(self.read_expr) >>
         ((p, ex))
     ));
+
+    method!(unit<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftParen) >> tk!(RightParen) >> (Expr::Unit)
+    ));
+
+    method!(tuple<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftParen) >>
+        a: call_m!(self.read_expr) >>
+        tk!(Comma) >>
+        list: separated_nonempty_list!(call_m!(self.comma_separator), call_m!(self.read_expr)) >>
+        tk!(RightParen) >>
+        (Expr::Tuple(create_vec(a, list)))
+    ));
+
+    method!(unit_tuple<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftParen) >>
+        list: many1!(call_m!(self.comma_separator)) >>
+        tk!(RightParen) >>
+        (Expr::Tuple(create_vec(Expr::Unit, list.into_iter().map(|_c| Expr::Unit).collect())))
+    ));
+
+    method!(comma_separator<ExprParser, Tk, ()>, mut self, do_parse!(
+        call_m!(self.spaces) >>
+        tk!(Comma) >>
+        call_m!(self.spaces) >>
+        (())
+    ));
+
+    method!(list<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftBracket) >>
+        list: separated_list!(call_m!(self.comma_separator), call_m!(self.read_expr)) >>
+        call_m!(self.spaces) >>
+        tk!(RightBracket) >>
+        (Expr::List(list))
+    ));
+
+    method!(range<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftBracket) >>
+        a: call_m!(self.read_expr) >>
+        tk!(DoubleDot) >>
+        b: call_m!(self.read_expr) >>
+        tk!(RightBracket) >>
+        (Expr::Range(Box::new(a), Box::new(b)))
+    ));
+
+    method!(adt<ExprParser, Tk, Expr>, mut self, do_parse!(
+        a: upper_id!() >> (Expr::Adt(a))
+    ));
+
+    method!(record<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftBrace) >>
+        entries: separated_list!(tk!(Comma), do_parse!(
+            id: id!() >>
+            tk!(Equals) >>
+            expr: call_m!(self.read_expr) >>
+            ((id, expr))
+        )) >>
+        tk!(RightBrace) >>
+        (Expr::Record(entries))
+    ));
+
+    method!(read_if<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(If) >>
+        cond: call_m!(self.read_expr) >>
+        tk!(Then) >>
+        tru: call_m!(self.read_expr) >>
+        tk!(Else) >>
+        fal: call_m!(self.read_expr) >>
+        (Expr::If(Box::new(cond), Box::new(tru), Box::new(fal)))
+    ));
+
+    method!(read_lambda<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(BackSlash) >>
+        p: many1!(read_pattern) >>
+        tk!(RightArrow) >>
+        expr: call_m!(self.read_expr) >>
+        (Expr::Lambda(p, Box::new(expr)))
+    ));
+
+    method!(read_let<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(Let) >>
+        a: many1!(read_definition) >>
+        tk!(In) >>
+        b: call_m!(self.read_expr) >>
+        (Expr::Let(a, Box::new(b)))
+    ));
+
+    method!(record_update<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(LeftBrace) >>
+        id: id!() >>
+        tk!(Pipe) >>
+        updates: separated_nonempty_list!(tk!(Comma), do_parse!(
+            id: id!() >>
+            tk!(Equals) >>
+            expr: call_m!(self.read_expr) >>
+            ((id, expr))
+        )) >>
+        tk!(RightBrace) >>
+        (Expr::RecordUpdate(id, updates))
+    ));
+
+    method!(record_access<ExprParser, Tk, Expr>, mut self, do_parse!(
+        tk!(Dot) >>
+        id: id!() >>
+        (Expr::RecordAccess(id))
+    ));
+
+    method!(qualified_ref<ExprParser, Tk, Expr>, mut self, do_parse!(
+        e: upper_ids >>
+        tk!(Dot) >>
+        id: id!() >>
+        (Expr::QualifiedRef(e, id))
+    ));
 }
 
 // independent methods
@@ -113,136 +223,6 @@ pub fn read_expr(i: Tk) -> IResult<Tk, Expr> {
     let (_, m) = ExprParser::new().read_expr(i);
     m
 }
-
-named!(unit<Tk, Expr>, do_parse!(
-    tk!(LeftParen) >> tk!(RightParen) >> (Expr::Unit)
-));
-
-named!(tuple<Tk, Expr>, do_parse!(
-    tk!(LeftParen) >>
-    a: read_expr >>
-    tk!(Comma) >>
-    list: separated_nonempty_list!(comma_separator, read_expr) >>
-    tk!(RightParen) >>
-    (Expr::Tuple(create_vec(a, list)))
-));
-
-named!(unit_tuple<Tk, Expr>, do_parse!(
-    tk!(LeftParen) >>
-    list: many1!(comma_separator) >>
-    tk!(RightParen) >>
-    (Expr::Tuple(create_vec(Expr::Unit, list.into_iter().map(|_c| Expr::Unit).collect())))
-));
-
-named!(comma_separator<Tk, ()>, do_parse!(
-    spaces >>
-    tk!(Comma) >>
-    spaces >>
-    (())
-));
-
-named!(list<Tk, Expr>, do_parse!(
-    tk!(LeftBracket) >>
-    list: separated_list!(comma_separator, read_expr) >>
-    spaces >>
-    tk!(RightBracket) >>
-    (Expr::List(list))
-));
-
-named!(range<Tk, Expr>, do_parse!(
-    tk!(LeftBracket) >>
-    a: read_expr >>
-    tk!(DoubleDot) >>
-    b: read_expr >>
-    tk!(RightBracket) >>
-    (Expr::Range(Box::new(a), Box::new(b)))
-));
-
-named!(adt<Tk, Expr>, do_parse!(
-    a: upper_id!() >> (Expr::Adt(a))
-));
-
-named!(record<Tk, Expr>, do_parse!(
-    tk!(LeftBrace) >>
-    entries: separated_list!(tk!(Comma), do_parse!(
-        id: id!() >>
-        tk!(Equals) >>
-        expr: read_expr >>
-        ((id, expr))
-    )) >>
-    tk!(RightBrace) >>
-    (Expr::Record(entries))
-));
-
-named!(read_if<Tk, Expr>, do_parse!(
-    tk!(If) >>
-    cond: read_expr >>
-    tk!(Then) >>
-    tru: read_expr >>
-    tk!(Else) >>
-    fal: read_expr >>
-    (Expr::If(Box::new(cond), Box::new(tru), Box::new(fal)))
-));
-
-named!(read_lambda<Tk, Expr>, do_parse!(
-    tk!(BackSlash) >>
-    p: many1!(read_pattern) >>
-    tk!(RightArrow) >>
-    expr: read_expr >>
-    (Expr::Lambda(p, Box::new(expr)))
-));
-
-named!(read_case<Tk, Expr>, do_parse!(
-    tk!(Case) >>
-    e: read_expr >>
-    tk!(Of) >>
-    count: indent!() >>
-    first: case_branch >>
-    rest: many0!(do_parse!(indent!(count) >> b: case_branch >> (b))) >>
-    (Expr::Case(Box::new(e), create_vec(first, rest)))
-));
-
-named!(case_branch<Tk, (Pattern, Expr)>, do_parse!(
-    p: read_pattern >>
-    tk!(RightArrow) >>
-    ex: read_expr >>
-    ((p, ex))
-));
-
-named!(read_let<Tk, Expr>, do_parse!(
-    tk!(Let) >>
-    a: many1!(read_definition) >>
-    tk!(In) >>
-    b: read_expr >>
-    (Expr::Let(a, Box::new(b)))
-));
-
-named!(record_update<Tk, Expr>, do_parse!(
-    tk!(LeftBrace) >>
-    id: id!() >>
-    tk!(Pipe) >>
-    updates: separated_nonempty_list!(tk!(Comma), do_parse!(
-        id: id!() >>
-        tk!(Equals) >>
-        expr: read_expr >>
-        ((id, expr))
-    )) >>
-    tk!(RightBrace) >>
-    (Expr::RecordUpdate(id, updates))
-));
-
-named!(record_access<Tk, Expr>, do_parse!(
-    tk!(Dot) >>
-    id: id!() >>
-    (Expr::RecordAccess(id))
-));
-
-named!(qualified_ref<Tk, Expr>, do_parse!(
-    e: upper_ids >>
-    tk!(Dot) >>
-    id: id!() >>
-    (Expr::QualifiedRef(e, id))
-));
 
 fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
     if rest.is_empty() { return first; }
