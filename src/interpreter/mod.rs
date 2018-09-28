@@ -30,9 +30,6 @@ fn get_type(env: &StaticEnv, expr: Expr) -> TypeAnalyzeResult {
             };
             Success(Type::Tag(name, vec![]))
         }
-        Expr::Range(a, b) => {
-            Success(Type::Tag("Range".s(), vec![]))
-        }
         Expr::Adt(name) => {
             env.adts.get(&name).map(|c| c.clone())
         }
@@ -118,14 +115,14 @@ mod tests {
     fn check_unit() {
         let expr = from_code(b"()");
         let env = StaticEnv::new();
-        assert_eq!(get_type(&env, expr), Some(Type::Unit));
+        assert_eq!(get_type(&env, expr), Success(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
         let expr = from_code(b"123");
         let env = StaticEnv::new();
-        assert_eq!(get_type(&env, expr), Some(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&env, expr), Success(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -137,7 +134,7 @@ mod tests {
             Box::new(Type::Tag("Int".s(), vec![])),
         ));
 
-        assert_eq!(get_type(&env, expr), Some(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&env, expr), Success(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -146,7 +143,7 @@ mod tests {
         let mut env = StaticEnv::new();
         env.adts.insert("True".s(), Type::Tag("Bool".s(), vec![]));
 
-        assert_eq!(get_type(&env, expr), Some(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&env, expr), Success(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -154,7 +151,7 @@ mod tests {
         let expr = from_code(b"\\x -> 1");
         let env = StaticEnv::new();
 
-        assert_eq!(get_type(&env, expr), Some(Type::Fun(
+        assert_eq!(get_type(&env, expr), Success(Type::Fun(
             Box::new(Type::Var("x".s())),
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
@@ -165,7 +162,7 @@ mod tests {
         let expr = from_code(b"[1, 2, 3]");
         let env = StaticEnv::new();
 
-        assert_eq!(get_type(&env, expr), Some(Type::Tag(
+        assert_eq!(get_type(&env, expr), Success(Type::Tag(
             "List".s(), vec![Type::Tag("Int".s(), vec![])],
         )));
     }

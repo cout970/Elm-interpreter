@@ -46,7 +46,6 @@ pub enum Expr {
     Unit,
     Tuple(Vec<Expr>),
     List(Vec<Expr>),
-    Range(Box<Expr>, Box<Expr>),
     Record(Vec<(String, Expr)>),
     Adt(String),
     RecordUpdate(String, Vec<(String, Expr)>),

@@ -176,7 +176,6 @@ RecUpd (* RecUpd *) = ID, "<-", Expr
 Expr (* Unit    *) = "(", ")"
      (* Tuple   *) | "(", Expr, ",", Expr, {",", Expr}, ")"
      (* List    *) | "[", [Expr, {",", Expr}], "]"
-     (* Range   *) | "[", Expr, "..", Expr, "]"
      (* Rec     *) | "{", [RecBind, {",", RecBind}], "}"
      (* ADT     *) | UPPERID
      (* PrefTOp *) | PREFIXTUPLEOP

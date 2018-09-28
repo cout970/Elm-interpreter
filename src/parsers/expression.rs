@@ -71,7 +71,6 @@ impl ExprParser {
         | call_m!(self.tuple)
         | call_m!(self.unit_tuple)
         | call_m!(self.list)
-        | call_m!(self.range)
         | call_m!(self.qualified_ref)
         | call_m!(self.adt)
         | call_m!(self.read_if)
@@ -136,15 +135,6 @@ impl ExprParser {
         call_m!(self.spaces) >>
         tk!(RightBracket) >>
         (Expr::List(list))
-    ));
-
-    method!(range<ExprParser, Tk, Expr>, mut self, do_parse!(
-        tk!(LeftBracket) >>
-        a: call_m!(self.read_expr) >>
-        tk!(DoubleDot) >>
-        b: call_m!(self.read_expr) >>
-        tk!(RightBracket) >>
-        (Expr::Range(Box::new(a), Box::new(b)))
     ));
 
     method!(adt<ExprParser, Tk, Expr>, self, do_parse!(
@@ -287,16 +277,6 @@ mod tests {
         let stream = get_all_tokens(b"[]");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::List(vec![]));
-    }
-
-    #[test]
-    fn check_range() {
-        let stream = get_all_tokens(b"[a..b]");
-        let m = read_expr(&stream);
-        assert_ok!(m, Expr::Range(
-            Box::new(Expr::Ref("a".s())),
-            Box::new(Expr::Ref("b".s()))
-        ));
     }
 
     #[test]
