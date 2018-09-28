@@ -3,7 +3,6 @@ use types::*;
 
 pub type Tk<'a> = &'a [Token];
 
-
 #[macro_export]
 macro_rules! tk {
     ($i:expr, $token: expr) => (

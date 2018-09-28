@@ -103,7 +103,7 @@ impl ExprParser {
         ((p, ex))
     ));
 
-    method!(unit<ExprParser, Tk, Expr>, mut self, do_parse!(
+    method!(unit<ExprParser, Tk, Expr>, self, do_parse!(
         tk!(LeftParen) >> tk!(RightParen) >> (Expr::Unit)
     ));
 
@@ -147,7 +147,7 @@ impl ExprParser {
         (Expr::Range(Box::new(a), Box::new(b)))
     ));
 
-    method!(adt<ExprParser, Tk, Expr>, mut self, do_parse!(
+    method!(adt<ExprParser, Tk, Expr>, self, do_parse!(
         a: upper_id!() >> (Expr::Adt(a))
     ));
 
@@ -203,13 +203,13 @@ impl ExprParser {
         (Expr::RecordUpdate(id, updates))
     ));
 
-    method!(record_access<ExprParser, Tk, Expr>, mut self, do_parse!(
+    method!(record_access<ExprParser, Tk, Expr>, self, do_parse!(
         tk!(Dot) >>
         id: id!() >>
         (Expr::RecordAccess(id))
     ));
 
-    method!(qualified_ref<ExprParser, Tk, Expr>, mut self, do_parse!(
+    method!(qualified_ref<ExprParser, Tk, Expr>, self, do_parse!(
         e: upper_ids >>
         tk!(Dot) >>
         id: id!() >>
