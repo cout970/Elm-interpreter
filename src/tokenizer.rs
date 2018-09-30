@@ -229,7 +229,7 @@ fn map_result(input: &[u8], res: IResult<&[u8], Token>) -> Option<(Token, usize)
 }
 
 fn read_token<'a>(i: Input) -> IResult<Input, Token> {
-    use nom::simple_errors::Context;
+    use nom::verbose_errors::Context;
 
     if i.stream.len() == 0 {
         return Err(Err::Incomplete(Needed::Size(1)));

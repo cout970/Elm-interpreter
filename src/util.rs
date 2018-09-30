@@ -8,7 +8,7 @@ macro_rules! tk {
     ($i:expr, $token: expr) => (
         {
             use nom::*;
-            use nom::simple_errors::Context;
+            use nom::verbose_errors::Context;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -30,7 +30,7 @@ macro_rules! id {
     ($i:expr,) => (
         {
             use nom::*;
-            use nom::simple_errors::Context;
+            use nom::verbose_errors::Context;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -52,7 +52,7 @@ macro_rules! upper_id {
     ($i:expr,) => (
         {
             use nom::*;
-            use nom::simple_errors::Context;
+            use nom::verbose_errors::Context;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -74,7 +74,7 @@ macro_rules! binop {
     ($i:expr,) => (
         {
             use nom::*;
-            use nom::simple_errors::Context;
+            use nom::verbose_errors::Context;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -96,7 +96,7 @@ macro_rules! literal {
     ($i:expr,) => (
         {
             use nom::*;
-            use nom::simple_errors::Context;
+            use nom::verbose_errors::Context;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -120,7 +120,7 @@ macro_rules! indent {
     ($i:expr, $count: expr) => (
     {
         use nom::*;
-        use nom::simple_errors::Context;
+        use nom::verbose_errors::Context;
 
         if $i.len() == 0 {
             Err(Err::Incomplete(Needed::Size(1)))
@@ -139,7 +139,7 @@ macro_rules! indent {
     ($i:expr,) => (
     {
         use nom::*;
-        use nom::simple_errors::Context;
+        use nom::verbose_errors::Context;
 
         if $i.len() == 0 {
             Err(Err::Incomplete(Needed::Size(1)))
@@ -160,7 +160,7 @@ macro_rules! indent_except {
     ($i:expr, $levels: expr) => (
     {
         use nom::*;
-        use nom::simple_errors::Context;
+        use nom::verbose_errors::Context;
 
         if $i.len() > 0 {
             let look = &$i[0];
@@ -202,22 +202,6 @@ pub trait StringConversion {
 impl StringConversion for str {
     fn s(&self) -> String {
         self.to_string()
-    }
-}
-
-// default priorities
-fn get_operator_priority(op: &str) -> i32 {
-    match op {
-        ">>" | "<<" => 9,
-        "^" => 8,
-        "*" | "/" | "//" | "%" | "rem" => 7,
-        "+" | "-" => 6,
-        "++" | "::" => 5,
-        "==" | "/=" | "<" | ">" | "<=" | ">=" => 4,
-        "&&" => 3,
-        "||" => 2,
-        "|>" | "<|" => 0,
-        _ => 1
     }
 }
 

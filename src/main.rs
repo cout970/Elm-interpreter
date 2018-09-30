@@ -6,7 +6,7 @@ extern crate nom;
 extern crate pretty_assertions;
 
 use nom::*;
-use nom::simple_errors::Context;
+use nom::verbose_errors::Context;
 use parsers::module::*;
 use parsers::statement::top_level_statement;
 use std::fs::File;

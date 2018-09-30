@@ -3,6 +3,8 @@ name = "elm-interpreter"
 version = "0.1.0"
 authors = ["cout970 <thecout970@gmail.com>"]
 
+[dependencies.nom]
+version = "4.0.0"
+features = ["verbose-errors"]
 [dependencies]
-nom = "4.0.0"
 pretty_assertions = "*"

@@ -29,71 +29,86 @@ impl ExprParser {
         many0!(indent_except!(self.indent)) >> (())
     ));
 
-    method!(read_expr<ExprParser, Tk, Expr>, mut self, do_parse!(
-        call_m!(self.spaces) >>
-        e: call_m!(self.read_expr_spaceless) >>
-        (e)
-    ));
+    method!(read_expr<ExprParser, Tk, Expr>, mut self,
+        do_parse!(
+            call_m!(self.spaces) >>
+            e: call_m!(self.read_expr_spaceless) >>
+            (e)
+        )
+    );
 
-    method!(read_expr_spaceless<ExprParser, Tk, Expr>, mut self, do_parse!(
-        first: call_m!(self.read_expr_app) >>
-        rest: many0!(call_m!(self.binop_item)) >>
-        (create_binop_chain(first, rest))
-    ));
+    method!(read_expr_spaceless<ExprParser, Tk, Expr>, mut self,
+        do_parse!(
+            first: call_m!(self.read_expr_app) >>
+            rest: many0!(call_m!(self.binop_item)) >>
+            (create_binop_chain(first, rest))
+        )
+    );
 
-    method!(binop_item<ExprParser, Tk, (String, Expr)>, mut self, do_parse!(
-        call_m!(self.spaces) >>
-        op: binop!() >>
-        call_m!(self.spaces) >>
-        ex: call_m!(self.read_expr_app) >>
-        ((op, ex))
-    ));
+    method!(binop_item<ExprParser, Tk, (String, Expr)>, mut self,
+        do_parse!(
+            call_m!(self.spaces) >>
+            op: binop!() >>
+            call_m!(self.spaces) >>
+            ex: call_m!(self.read_expr_app) >>
+            ((op, ex))
+        )
+    );
 
-    method!(read_expr_app<ExprParser, Tk, Expr>, mut self, do_parse!(
-        first: call_m!(self.read_expr_aux) >>
-        rest: many0!(do_parse!(call_m!(self.spaces) >> e: call_m!(self.read_expr_aux) >> (e))) >>
-        (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
-    ));
+    method!(read_expr_app<ExprParser, Tk, Expr>, mut self,
+        do_parse!(
+            first: call_m!(self.read_expr_aux) >>
+            rest: many0!(do_parse!(call_m!(self.spaces) >> e: call_m!(self.read_expr_aux) >> (e))) >>
+            (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
+        )
+    );
 
-    method!(read_expr_aux<ExprParser, Tk, Expr>, mut self, alt!(
-        call_m!(self.record_field) | call_m!(self.read_non_rec_field_expr)
-    ));
+    method!(read_expr_aux<ExprParser, Tk, Expr>, mut self,
+        alt!( call_m!(self.record_field)
+            | call_m!(self.read_non_rec_field_expr)
+        )
+    );
 
-    method!(record_field<ExprParser, Tk, Expr>, mut self, do_parse!(
-        e: call_m!(self.read_non_rec_field_expr) >>
-        tk!(Dot) >>
-        id: id!() >>
-        (Expr::RecordField(Box::new(e), id))
-    ));
+    method!(record_field<ExprParser, Tk, Expr>, mut self,
+        do_parse!(
+            e: call_m!(self.read_non_rec_field_expr) >>
+            tk!(Dot) >>
+            id: id!() >>
+            (Expr::RecordField(Box::new(e), id))
+        )
+    );
 
-    method!(read_non_rec_field_expr<ExprParser, Tk, Expr>, mut self, alt!(
-        call_m!(self.unit)
-        | call_m!(self.tuple)
-        | call_m!(self.unit_tuple)
-        | call_m!(self.list)
-        | call_m!(self.qualified_ref)
-        | call_m!(self.adt)
-        | call_m!(self.read_if)
-        | call_m!(self.read_lambda)
-        | call_m!(self.read_case)
-        | call_m!(self.read_let)
-        | call_m!(self.record)
-        | call_m!(self.record_update)
-        | call_m!(self.record_access)
-        | map!(literal!(), |c| Expr::Literal(c))
-        | map!(read_ref,   |c| Expr::Ref(c))
-        | do_parse!(tk!(LeftParen) >> e: call_m!(self.read_expr) >> tk!(RightParen) >> (e))
-    ));
+    method!(read_non_rec_field_expr<ExprParser, Tk, Expr>, mut self,
+        alt!( call_m!(self.unit)
+            | call_m!(self.tuple)
+            | call_m!(self.unit_tuple)
+            | call_m!(self.list)
+            | call_m!(self.qualified_ref)
+            | call_m!(self.adt)
+            | call_m!(self.read_if)
+            | call_m!(self.read_lambda)
+            | call_m!(self.read_case)
+            | call_m!(self.read_let)
+            | call_m!(self.record)
+            | call_m!(self.record_update)
+            | call_m!(self.record_access)
+            | map!(literal!(), |c| Expr::Literal(c))
+            | map!(read_ref,   |c| Expr::Ref(c))
+            | do_parse!(tk!(LeftParen) >> e: call_m!(self.read_expr) >> tk!(RightParen) >> (e))
+        )
+    );
 
-    method!(read_case<ExprParser, Tk, Expr>, mut self, do_parse!(
-        tk!(Case) >>
-        e: call_m!(self.read_expr) >>
-        tk!(Of) >>
-        count: do_parse!(s: indent!() >> ({self = self.push(s as usize); s})) >>
-        first: call_m!(self.case_branch) >>
-        rest: many0!(do_parse!(indent!(count) >> b: call_m!(self.case_branch) >> (b))) >>
-        (Expr::Case(Box::new(e), create_vec(first, rest)))
-    ));
+    method!(read_case<ExprParser, Tk, Expr>, mut self,
+        do_parse!(
+            tk!(Case) >>
+            e: call_m!(self.read_expr) >>
+            tk!(Of) >>
+            count: do_parse!(s: indent!() >> ({self = self.push(s as usize); s})) >>
+            first: call_m!(self.case_branch) >>
+            rest: many0!(do_parse!(indent!(count) >> b: call_m!(self.case_branch) >> (b))) >>
+            (Expr::Case(Box::new(e), create_vec(first, rest)))
+        )
+    );
 
     method!(case_branch<ExprParser, Tk, (Pattern, Expr)>, mut self, do_parse!(
         p: read_pattern >>
