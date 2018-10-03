@@ -3,14 +3,17 @@
 #![allow(dead_code, unused_imports)]
 // }
 
-
 #[macro_use]
 extern crate nom;
 #[macro_use]
 extern crate pretty_assertions;
 
-use nom::*;
+use analyzer::environment::StaticEnv;
+use analyzer::type_analyzer::get_type;
+use nom::ExtendInto;
+use nom::IResult;
 use nom::verbose_errors::Context;
+use parsers::expression::read_expr;
 use parsers::module::*;
 use parsers::statement::top_level_statement;
 use std::fs::File;
@@ -20,10 +23,9 @@ use std::io::Read;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
+use tokenizer::*;
 use types::*;
 use util::*;
-use parsers::expression::read_expr;
-use tokenizer::*;
 
 mod types;
 #[macro_use]
@@ -37,24 +39,30 @@ fn main() {
     interpret_stdin();
 }
 
-fn interpret_stdin(){
+fn interpret_stdin() {
     print!("> ");
     stdout().flush().unwrap();
     let stdin = stdin();
 
     for line in stdin.lock().lines() {
-        let tokens = get_all_tokens(&line.unwrap().as_bytes());
-
-        let result = read_expr(&tokens);
-
-        if let Ok((_, module)) = result {
-            println!("Output: \n{:#?}", module);
-        } else {
-            println!("Error: {:?}", result);
+        if let Err(s) = run_line(&line.unwrap().as_bytes()) {
+            println!("Error: {}", s);
         }
-
-        println!();
     }
+}
+
+fn run_line(line: &[u8]) -> Result<(), String> {
+    use nom::*;
+    let tokens = get_all_tokens(line);
+    let env = StaticEnv::new();
+
+    let (_, expr) = read_expr(&tokens).map_err(|e| format!("{:?}", e))?;
+    let expr_type = get_type(&env, &expr).map_err(|e| format!("{:?}", e))?;
+
+    println!("{:?} : {}", expr, expr_type);
+
+    println!();
+    Ok(())
 }
 
 fn load_file() -> Vec<u8> {
@@ -65,7 +73,7 @@ fn load_file() -> Vec<u8> {
     data
 }
 
-fn interpret_file(){
+fn interpret_file() {
     let file = load_file();
     let tokens = get_all_tokens(&file);
 //        println!("Tokens: \n{:#?}\n", tokens);

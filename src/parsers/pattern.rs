@@ -32,24 +32,36 @@ named!(unit<Tk, Pattern>, do_parse!(
 named!(tuple<Tk, Pattern>, do_parse!(
     tk!(LeftParen) >>
     a: read_pattern >>
-    tk!(Comma) >>
-    b: separated_nonempty_list!(tk!(Comma), read_pattern) >>
+    comma_separator >>
+    b: separated_nonempty_list!(comma_separator, read_pattern) >>
     tk!(RightParen) >>
     (Pattern::Tuple(create_vec(a, b)))
 ));
 
 named!(list<Tk, Pattern>, do_parse!(
     tk!(LeftBracket) >>
-    list: separated_list!(tk!(Comma), read_pattern) >>
+    list: separated_list!(comma_separator, read_pattern) >>
     tk!(RightBracket) >>
     (Pattern::List(list))
 ));
 
 named!(record<Tk, Pattern>, do_parse!(
     tk!(LeftBrace) >>
-    list: separated_list!(tk!(Comma), read_pattern) >>
+    list: separated_list!(comma_separator, id!()) >>
     tk!(RightBrace) >>
     (Pattern::Record(list))
+));
+
+// TODO binop pattern Ex. first :: rest
+named!(comma_separator<Tk, ()>, do_parse!(
+   spaces >>
+   tk!(Comma) >>
+   spaces >>
+   (())
+));
+
+named!(spaces<Tk, ()>, do_parse!(
+    many0!(indent!()) >> (())
 ));
 
 named!(literal<Tk, Pattern>, map!(literal!(), |l| Pattern::Literal(l)));
@@ -124,8 +136,8 @@ mod tests {
     fn check_record() {
         let stream = get_all_tokens(b"{ a, b }");
         let m = read_pattern(&stream);
-        assert_ok!(m, Pattern::Record(vec![
-            Pattern::Var("a".s()), Pattern::Var("b".s())
-        ]));
+        assert_ok!(m, Pattern::Record(
+            vec!["a".s(), "b".s()]
+        ));
     }
 }

@@ -1,11 +1,17 @@
 use analyzer::environment::StaticEnv;
-use types::Expr;
-use types::Type;
-use types::Literal;
-use util::StringConversion;
-use analyzer::type_analyzer::TypeError::*;
-use analyzer::expression_fold::ExprTree;
 use analyzer::expression_fold::create_expr_tree;
+use analyzer::expression_fold::ExprTree;
+use analyzer::type_analyzer::TypeError::*;
+use types::Definition;
+use types::Expr;
+use types::Literal;
+use types::Pattern;
+use types::Type;
+use types::TypeDefinition;
+use types::ValueDefinition;
+use util::StringConversion;
+use util::name_sequence::NameSequence;
+use util::build_fun_type;
 
 #[derive(Debug, PartialEq)]
 pub enum TypeError {
@@ -20,10 +26,12 @@ pub enum TypeError {
     RecordUpdateOnNonRecord(String),
     RecordUpdateUnknownField(String),
     CaseBranchDontMatchReturnType(String),
+    DefinitionTypeAndReturnTypeMismatch,
+    InvalidLambdaPattern(String),
     InternalError,
 }
 
-fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
+pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -84,15 +92,16 @@ fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
                 Err(IfBranchesDoesntMatch(format!("True Branch: {:?}, False Branch: {:?}", true_branch, false_branch)))
             }
         }
-        Expr::Lambda(_patterns, expr) => {
+        Expr::Lambda(patterns, expr) => {
             let out = get_type(env, expr)?;
-            // TODO patterns to variables
-            let var = Type::Var("x".s());
+            let mut var = patterns.iter()
+                .map(|p | pattern_to_type(p))
+                .collect::<Result<Vec<Type>, String>>()
+                .map_err(|s| InvalidLambdaPattern(s))?;
 
-            Ok(Type::Fun(
-                Box::new(var),
-                Box::new(out),
-            ))
+            var.push(out);
+
+            Ok(build_fun_type(&var))
         }
         Expr::List(exprs) => {
             if exprs.is_empty() {
@@ -115,7 +124,7 @@ fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::Let(defs, expr) => {
-            let new_env = env.expanded(defs);
+            let new_env = expand_env(env, defs)?;
             get_type(&new_env, expr)
         }
         Expr::OpChain(exprs, ops) => {
@@ -211,19 +220,11 @@ fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
     match tree {
         ExprTree::Leaf(e) => get_type(env, &e),
         ExprTree::Branch(op, left, right) => {
-
             let op_type = env.get_def_type(&op)
                 .ok_or(MissingDefinition(format!("Missing def {:?}", op)))?;
 
-            let left_value = match get_tree_type(env, *left) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
-
-            let right_value = match get_tree_type(env, *right) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
+            let left_value = get_tree_type(env, *left).map(|t| t.clone())?;
+            let right_value = get_tree_type(env, *right).map(|t| t.clone())?;
 
             if let Type::Fun(ref argument, ref next_func) = op_type {
                 if **argument != left_value {
@@ -245,6 +246,96 @@ fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
             } else {
                 Err(NotAFunction(format!("Expected infix operator but found: {:?}", op_type)))
             }
+        }
+    }
+}
+
+fn expand_env(old_env: &StaticEnv, defs: &Vec<Definition>) -> Result<StaticEnv, TypeError> {
+    let mut env = old_env.clone();
+
+    for Definition(opt_ty, value) in defs {
+        let (name, expr) = match value {
+            ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
+            ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
+            ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
+        };
+        let ty = get_type(&env, expr)?;
+
+        if let Some(TypeDefinition(def_name, def_ty)) = opt_ty {
+            if def_name != &name {
+                return Err(InternalError);
+            }
+            if def_ty != &ty {
+                return Err(DefinitionTypeAndReturnTypeMismatch);
+            }
+
+            env.add_def_type(&def_name, &def_ty);
+        } else {
+            let (name, expr) = match value {
+                ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
+                ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
+                ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
+            };
+            let ty = get_type(&env, expr)?;
+            env.add_def_type(&name, &ty);
+        }
+    }
+
+    Ok(env)
+}
+
+pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
+    match patt {
+        Pattern::Var(n) => {
+            Ok(Type::Var(n.to_owned()))
+        },
+        Pattern::Adt(n, items) => {
+            let types: Vec<Type> = items.iter()
+                .map(|p| pattern_to_type(p))
+                .collect::<Result<_, _>>()?;
+
+            Ok(Type::Tag(n.to_owned(), types))
+        }
+        Pattern::Wildcard => {
+            Ok(Type::Var(NameSequence::new().next()))
+        },
+        Pattern::Unit => {
+            Ok(Type::Unit)
+        },
+        Pattern::Tuple(items) => {
+            let types: Vec<Type> = items.iter()
+                .map(|p| pattern_to_type(p))
+                .collect::<Result<_, _>>()?;
+
+            Ok(Type::Tuple(types))
+        }
+        Pattern::List(items) => {
+            let item_type = if items.is_empty() {
+                Type::Var(NameSequence::new().next())
+            } else {
+                pattern_to_type(items.first().unwrap())?
+            };
+
+            Ok(Type::Tag("List".s(), vec![item_type]))
+        }
+        Pattern::Record(items) => {
+            let mut seq = NameSequence::new();
+            let entries = items.iter()
+                .map(|p| (p.to_owned(), Type::Var(seq.next())))
+                .collect();
+
+            Ok(Type::RecExt(seq.next(), entries))
+        }
+        Pattern::Literal(lit) => {
+            match lit {
+                Literal::Int(_) => Ok(Type::Tag("Int".s(), vec![])),
+                Literal::Float(_) => Ok(Type::Tag("Float".s(), vec![])),
+                Literal::String(_) => Ok(Type::Tag("String".s(), vec![])),
+                Literal::Char(_) => Ok(Type::Tag("Char".s(), vec![])),
+            }
+        }
+        Pattern::BinaryOp(_, _, _) => {
+            Err(format!("Infix pattern cannot be used in this situation"))
         }
     }
 }

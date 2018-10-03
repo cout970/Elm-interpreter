@@ -28,8 +28,8 @@ pub enum Pattern {
     Unit,
     Tuple(Vec<Pattern>),
     List(Vec<Pattern>),
-    Binop(String, Box<Pattern>, Box<Pattern>),
-    Record(Vec<Pattern>),
+    BinaryOp(String, Box<Pattern>, Box<Pattern>),
+    Record(Vec<String>),
     Literal(Literal),
 }
 

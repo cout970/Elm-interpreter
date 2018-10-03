@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use types::Definition;
 use types::Type;
+use analyzer::type_analyzer::get_type;
+use analyzer::type_analyzer::TypeError;
 
 #[derive(Clone)]
 pub struct StaticEnv {
@@ -30,10 +31,5 @@ impl StaticEnv {
 
     pub fn get_adt_type(&self, name: &str) -> Option<Type> {
         self.adts.get(name).map(|t| t.clone())
-    }
-
-    pub fn expanded(&self, _defs: &Vec<Definition>) -> StaticEnv {
-
-        self.clone()
     }
 }

@@ -1,6 +1,9 @@
 use tokenizer::Token;
 use types::*;
 
+pub mod name_sequence;
+pub mod format;
+
 pub type Tk<'a> = &'a [Token];
 
 #[macro_export]
@@ -235,4 +238,20 @@ pub fn parse_float2(minus: bool, integer_part: Vec<char>, decimal_part: Vec<char
     let dec_part: String = decimal_part.into_iter().collect();
     let value = format!("{}.{}", int_part, dec_part).parse::<Float>().unwrap();
     if minus { -value } else { value }
+}
+
+pub fn build_fun_type(types: &[Type]) -> Type {
+    assert!(types.len() >= 2);
+
+    if types.len() == 2 {
+        Type::Fun(
+            Box::from(types[0].clone()),
+            Box::from(types[1].clone()),
+        )
+    } else {
+        Type::Fun(
+            Box::from(types[0].clone()),
+            Box::from(build_fun_type(&types[1..])),
+        )
+    }
 }
