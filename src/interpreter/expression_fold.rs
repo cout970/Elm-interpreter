@@ -1,4 +1,6 @@
+use interpreter::expression_fold::ExprTreeError::*;
 use types::Expr;
+use util::StringConversion;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprTree {
@@ -7,15 +9,39 @@ pub enum ExprTree {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum ExprTreeError {
+    InvalidInput,
+    AssociativityError,
+    InternalError(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Associativity {
+    Left,
+    Right,
+    None,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 enum ETk {
     Expr(Expr),
     Op(String),
 }
 
-pub fn token_stream(exprs: Vec<Expr>, ops: Vec<String>) -> Vec<ETk> {
-    assert_eq!(exprs.len(), ops.len() + 1);
-    let mut list = Vec::new();
+pub fn create_expr_tree(exprs: Vec<Expr>, ops: Vec<String>) -> Result<ExprTree, ExprTreeError> {
+    let tokens = token_stream(exprs, ops)?;
+    let (rest, tree) = create_tree(&tokens, 0)?;
+    assert_eq!(rest.len(), 0);
 
+    Ok(tree)
+}
+
+fn token_stream(exprs: Vec<Expr>, ops: Vec<String>) -> Result<Vec<ETk>, ExprTreeError> {
+    if exprs.len() != ops.len() + 1 {
+        return Err(ExprTreeError::InvalidInput);
+    }
+
+    let mut list = Vec::new();
     let mut e = exprs.iter();
 
     list.push(ETk::Expr(e.next().unwrap().clone()));
@@ -25,21 +51,25 @@ pub fn token_stream(exprs: Vec<Expr>, ops: Vec<String>) -> Vec<ETk> {
         list.push(ETk::Expr(e.next().unwrap().clone()));
     });
 
-    list
+    Ok(list)
 }
 
-fn create_tree(mut tk: &[ETk], level: i32) -> (&[ETk], ExprTree) {
+fn create_tree(mut tk: &[ETk], level: i32) -> Result<(&[ETk], ExprTree), ExprTreeError> {
     if level == 10 {
-        match &tk[0] {
-            &ETk::Expr(ref e) => return (&tk[1..], ExprTree::Leaf(e.clone())),
-            _ => panic!("create_tree illegal state, tk: {:#?}", tk)
-        }
+        return match &tk[0] {
+            &ETk::Expr(ref e) => Ok((&tk[1..], ExprTree::Leaf(e.clone()))),
+            _ => Err(InternalError(format!("create_tree illegal state, tk: {:#?}", tk)))
+        };
     }
 
-    let (_tk, first) = create_tree(tk, level + 1);
+    let (_tk, first) = create_tree(tk, level + 1)?;
     tk = _tk;
 
-    let mut items: Vec<(String, ExprTree)> = vec![];
+    let mut ops: Vec<String> = vec![];
+    let mut exprs: Vec<ExprTree> = vec![];
+//    let mut items: Vec<(String, ExprTree)> = vec![];
+
+    exprs.push(first);
 
     while !tk.is_empty() {
         let op = match &tk[0] {
@@ -51,18 +81,73 @@ fn create_tree(mut tk: &[ETk], level: i32) -> (&[ETk], ExprTree) {
             break;
         }
 
-        let (_tk, item) = create_tree(&tk[1..], level + 1);
-        items.push((op, item));
+        let (_tk, item) = create_tree(&tk[1..], level + 1)?;
+        exprs.push(item);
+        ops.push(op);
+
+//        items.push((op, item));
 
         tk = _tk;
     }
 
+    if ops.is_empty() {
+        return Ok((tk, exprs[0].clone()));
+    }
 
-    let expr = items
-        .into_iter()
-        .fold(first, |a, (op, b)| ExprTree::Branch(op, Box::new(a), Box::new(b)));
+    let first_op = ops.first().unwrap();
+    let assoc = get_operator_associativity(first_op);
 
-    (tk, expr)
+    match assoc {
+        Associativity::Left => {
+            let mut index: usize = 0;
+            let mut current_tree = exprs[index].clone();
+            index += 1;
+
+            for op in ops.iter() {
+                if get_operator_associativity(op) != assoc {
+                    return Err(AssociativityError);
+                }
+                current_tree = ExprTree::Branch(
+                    op.clone(),
+                    Box::new(current_tree),
+                    Box::new(exprs[index].clone()),
+                );
+                index += 1;
+            }
+
+            Ok((tk, current_tree))
+        }
+        Associativity::Right => {
+            let mut index: isize = (exprs.len() - 1) as isize;
+            let mut current_tree = exprs[index as usize].clone();
+            index -= 1;
+
+            for op in ops.iter() {
+                if get_operator_associativity(op) != assoc {
+                    return Err(AssociativityError);
+                }
+                current_tree = ExprTree::Branch(
+                    op.clone(),
+                    Box::new(exprs[index as usize].clone()),
+                    Box::new(current_tree),
+                );
+                index -= 1;
+            }
+
+            Ok((tk, current_tree))
+        }
+        Associativity::None => {
+            if ops.len() == 1 {
+                Ok((tk, ExprTree::Branch(
+                    ops[0].clone(),
+                    Box::new(exprs[0].clone()),
+                    Box::new(exprs[1].clone()),
+                )))
+            } else {
+                Err(AssociativityError)
+            }
+        }
+    }
 }
 
 // default priorities
@@ -79,12 +164,6 @@ pub fn get_operator_priority(op: &str) -> i32 {
         "|>" | "<|" => 0,
         _ => 1
     }
-}
-
-enum Associativity {
-    Left,
-    Right,
-    None,
 }
 
 pub fn get_operator_associativity(op: &str) -> Associativity {
@@ -130,10 +209,8 @@ mod tests {
         let expr = from_code(b"a + b * c / d - f");
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let stream = token_stream(exprs, ops);
-                let (stream, tree) = create_tree(&stream, 0);
-                assert_eq!(stream.len(), 0);
-                assert_eq!(tree, Branch(
+                let tree = create_expr_tree(exprs, ops);
+                assert_eq!(tree, Ok(Branch(
                     "-".s(),
                     Box::new(Branch(
                         "+".s(),
@@ -149,7 +226,87 @@ mod tests {
                         )),
                     )),
                     Box::new(Leaf(Ref("f".s()))),
-                ));
+                )));
+            }
+            _ => panic!("Invalid type")
+        }
+    }
+
+    #[test]
+    fn check_operator_associativity_1() {
+        let expr = from_code(b"a >> b >> c"); // (a >> b) >> c
+        match expr {
+            Expr::OpChain(exprs, ops) => {
+                let tree = create_expr_tree(exprs, ops);
+                assert_eq!(tree, Ok(Branch(
+                    ">>".s(),
+                    Box::new(Branch(
+                        ">>".s(),
+                        Box::new(Leaf(Ref("a".s()))),
+                        Box::new(Leaf(Ref("b".s()))),
+                    )),
+                    Box::new(Leaf(Ref("c".s()))),
+                )));
+            }
+            _ => panic!("Invalid type")
+        }
+    }
+
+    #[test]
+    fn check_operator_associativity_2() {
+        let expr = from_code(b"a << b << c"); // a << (b << c)
+        match expr {
+            Expr::OpChain(exprs, ops) => {
+                let tree = create_expr_tree(exprs, ops);
+                assert_eq!(tree, Ok(Branch(
+                    "<<".s(),
+                    Box::new(Leaf(Ref("a".s()))),
+                    Box::new(Branch(
+                        "<<".s(),
+                        Box::new(Leaf(Ref("b".s()))),
+                        Box::new(Leaf(Ref("c".s()))),
+                    )),
+                )));
+            }
+            _ => panic!("Invalid type")
+        }
+    }
+
+    #[test]
+    fn check_operator_associativity_3() {
+        let expr = from_code(b"a >> b << c"); // Error
+        match expr {
+            Expr::OpChain(exprs, ops) => {
+                let tree = create_expr_tree(exprs, ops);
+                assert_eq!(tree, Err(AssociativityError));
+            }
+            _ => panic!("Invalid type")
+        }
+    }
+
+    #[test]
+    fn check_operator_associativity_4() {
+        let expr = from_code(b"a == b == c"); // Error
+        match expr {
+            Expr::OpChain(exprs, ops) => {
+                let tree = create_expr_tree(exprs, ops);
+                assert_eq!(tree, Err(AssociativityError));
+            }
+            _ => panic!("Invalid type")
+        }
+    }
+
+    #[test]
+    fn check_operator_associativity_5() {
+        let expr = from_code(b"a == b");
+        match expr {
+            Expr::OpChain(exprs, ops) => {
+                let tree = create_expr_tree(exprs, ops);
+                assert_eq!(tree, Ok(Branch(
+                    "==".s(),
+                    Box::new(Leaf(Ref("a".s()))),
+                    Box::new(Leaf(Ref("b".s()))),
+                )));
             }
             _ => panic!("Invalid type")
         }

@@ -1,4 +1,8 @@
+// Development only {
+// cargo watch -s 'clear && cargo test'
 #![allow(dead_code, unused_imports)]
+// }
+
 
 #[macro_use]
 extern crate nom;

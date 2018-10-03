@@ -1,3 +1,5 @@
+use interpreter::expression_fold::create_expr_tree;
+use interpreter::expression_fold::ExprTree;
 use interpreter::TypeError::*;
 use std::collections::HashMap;
 use types::Definition;
@@ -8,10 +10,8 @@ use util::*;
 
 mod expression_fold;
 
-type TypeAnalyzeResult = Result<Type, TypeError>;
-
 #[derive(Debug, PartialEq)]
-enum TypeError {
+pub enum TypeError {
     MissingAdt(String),
     MissingDefinition(String),
     ListNotHomogeneous(String),
@@ -19,6 +19,7 @@ enum TypeError {
     IfBranchesDoesntMatch(String),
     ArgumentsDoNotMatch(String),
     NotAFunction(String),
+    InvalidOperandChain(String),
     InternalError,
 }
 
@@ -37,7 +38,7 @@ impl StaticEnv {
     }
 }
 
-fn get_type(env: &StaticEnv, expr: Expr) -> TypeAnalyzeResult {
+fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -173,9 +174,12 @@ fn get_type(env: &StaticEnv, expr: Expr) -> TypeAnalyzeResult {
             get_type(&new_env, *expr)
         }
         Expr::OpChain(exprs, ops) => {
-//            let (_, tree) = create_tree(&token_stream(exprs, ops), 0);
-            // TODO
-            Ok(Type::Unit)
+            let tree = create_expr_tree(exprs, ops);
+
+            match tree {
+                Ok(tree) => get_tree_type(&env, tree),
+                Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
+            }
         }
         Expr::Record(entries) => {
             let mut types: Vec<(String, Type)> = vec![];
@@ -193,6 +197,49 @@ fn get_type(env: &StaticEnv, expr: Expr) -> TypeAnalyzeResult {
     }
 }
 
+fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
+    match tree {
+        ExprTree::Leaf(e) => get_type(env, e),
+        ExprTree::Branch(op, left, right) => {
+            let op_type = match env.defs.get(&op) {
+                Some(t) => t.clone(),
+                None => return Err(MissingDefinition(format!("Missing def {:?}", op)))
+            };
+
+            let left_value = match get_tree_type(env, *left) {
+                Ok(t) => t.clone(),
+                Err(e) => return Err(e)
+            };
+
+            let right_value = match get_tree_type(env, *right) {
+                Ok(t) => t.clone(),
+                Err(e) => return Err(e)
+            };
+
+            if let Type::Fun(ref argument, ref next_func) = op_type {
+                if **argument != left_value {
+                    return Err(ArgumentsDoNotMatch(
+                        format!("Expected argument: {:?}, found: {:?}", argument, left_value)
+                    ));
+                }
+                if let Type::Fun(ref argument, ref result) = **next_func {
+                    if **argument != right_value {
+                        return Err(ArgumentsDoNotMatch(
+                            format!("Expected argument: {:?}, found: {:?}", argument, right_value)
+                        ));
+                    }
+
+                    Ok(*result.clone())
+                } else {
+                    Err(NotAFunction(format!("Expected infix operator but found: {:?} after first evaluation", op_type)))
+                }
+            } else {
+                Err(NotAFunction(format!("Expected infix operator but found: {:?}", op_type)))
+            }
+        }
+    }
+}
+
 fn expand_env(_defs: Vec<Definition>, old_env: &StaticEnv) -> StaticEnv {
     old_env.clone()
 }
@@ -201,8 +248,8 @@ fn expand_env(_defs: Vec<Definition>, old_env: &StaticEnv) -> StaticEnv {
 mod tests {
     use nom::*;
     use nom::verbose_errors::*;
-    use super::*;
     use parsers::expression::read_expr;
+    use super::*;
     use tokenizer::get_all_tokens;
     use util::Tk;
 
@@ -288,6 +335,24 @@ mod tests {
                 ("a".s(), Type::Tag("Int".s(), vec![])),
                 ("b".s(), Type::Tag("String".s(), vec![])),
             ])
+        ));
+    }
+
+    #[test]
+    fn check_operator_chain() {
+        let expr = from_code(b"1 + 2");
+        let mut env = StaticEnv::new();
+
+        env.defs.insert("+".s(), Type::Fun(
+            Box::new(Type::Tag("Int".s(), vec![])),
+            Box::new(Type::Fun(
+                Box::new(Type::Tag("Int".s(), vec![])),
+                Box::new(Type::Tag("Int".s(), vec![])),
+            )),
+        ));
+
+        assert_eq!(get_type(&env, expr), Ok(
+            Type::Tag("Int".s(), vec![])
         ));
     }
 }
