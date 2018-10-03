@@ -28,7 +28,7 @@ enum ETk {
     Op(String),
 }
 
-pub fn create_expr_tree(exprs: Vec<Expr>, ops: Vec<String>) -> Result<ExprTree, ExprTreeError> {
+pub fn create_expr_tree(exprs: &Vec<Expr>, ops: &Vec<String>) -> Result<ExprTree, ExprTreeError> {
     let tokens = token_stream(exprs, ops)?;
     let (rest, tree) = create_tree(&tokens, 0)?;
     assert_eq!(rest.len(), 0);
@@ -36,7 +36,7 @@ pub fn create_expr_tree(exprs: Vec<Expr>, ops: Vec<String>) -> Result<ExprTree, 
     Ok(tree)
 }
 
-fn token_stream(exprs: Vec<Expr>, ops: Vec<String>) -> Result<Vec<ETk>, ExprTreeError> {
+fn token_stream(exprs: &Vec<Expr>, ops: &Vec<String>) -> Result<Vec<ETk>, ExprTreeError> {
     if exprs.len() != ops.len() + 1 {
         return Err(ExprTreeError::InvalidInput);
     }
@@ -209,7 +209,7 @@ mod tests {
         let expr = from_code(b"a + b * c / d - f");
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let tree = create_expr_tree(exprs, ops);
+                let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     "-".s(),
                     Box::new(Branch(
@@ -237,7 +237,7 @@ mod tests {
         let expr = from_code(b"a >> b >> c"); // (a >> b) >> c
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let tree = create_expr_tree(exprs, ops);
+                let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     ">>".s(),
                     Box::new(Branch(
@@ -257,7 +257,7 @@ mod tests {
         let expr = from_code(b"a << b << c"); // a << (b << c)
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let tree = create_expr_tree(exprs, ops);
+                let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     "<<".s(),
                     Box::new(Leaf(Ref("a".s()))),
@@ -277,7 +277,7 @@ mod tests {
         let expr = from_code(b"a >> b << c"); // Error
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let tree = create_expr_tree(exprs, ops);
+                let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Err(AssociativityError));
             }
             _ => panic!("Invalid type")
@@ -289,7 +289,7 @@ mod tests {
         let expr = from_code(b"a == b == c"); // Error
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let tree = create_expr_tree(exprs, ops);
+                let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Err(AssociativityError));
             }
             _ => panic!("Invalid type")
@@ -301,7 +301,7 @@ mod tests {
         let expr = from_code(b"a == b");
         match expr {
             Expr::OpChain(exprs, ops) => {
-                let tree = create_expr_tree(exprs, ops);
+                let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     "==".s(),
                     Box::new(Leaf(Ref("a".s()))),

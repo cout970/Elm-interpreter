@@ -38,7 +38,7 @@ impl StaticEnv {
     }
 }
 
-fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
+fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -53,37 +53,37 @@ fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            match env.adts.get(&name) {
+            match env.adts.get(name) {
                 Some(t) => Ok(t.clone()),
                 None => Err(MissingAdt(format!("Missing ADT {:?}", name)))
             }
         }
         Expr::Ref(name) => {
-            match env.defs.get(&name) {
+            match env.defs.get(name) {
                 Some(t) => Ok(t.clone()),
                 None => Err(MissingDefinition(format!("Missing def {:?}", name)))
             }
         }
         Expr::QualifiedRef(_path, name) => {
             if name.chars().next().unwrap().is_uppercase() {
-                match env.adts.get(&name) {
+                match env.adts.get(name) {
                     Some(t) => Ok(t.clone()),
                     None => Err(MissingDefinition(format!("Missing ADT {:?}", name)))
                 }
             } else {
-                match env.defs.get(&name) {
+                match env.defs.get(name) {
                     Some(t) => Ok(t.clone()),
                     None => Err(MissingDefinition(format!("Missing def {:?}", name)))
                 }
             }
         }
         Expr::Application(i, o) => {
-            let function = match get_type(env, *i) {
+            let function = match get_type(env, i) {
                 Ok(t) => t.clone(),
                 Err(e) => return Err(e)
             };
 
-            let input = match get_type(env, *o) {
+            let input = match get_type(env, o) {
                 Ok(t) => t.clone(),
                 Err(e) => return Err(e)
             };
@@ -102,17 +102,17 @@ fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::If(cond, a, b) => {
-            let cond = match get_type(env, *cond) {
+            let cond = match get_type(env, cond) {
                 Ok(t) => t.clone(),
                 Err(e) => return Err(e)
             };
 
-            let true_branch = match get_type(env, *a) {
+            let true_branch = match get_type(env, a) {
                 Ok(t) => t.clone(),
                 Err(e) => return Err(e)
             };
 
-            let false_branch = match get_type(env, *b) {
+            let false_branch = match get_type(env, b) {
                 Ok(t) => t.clone(),
                 Err(e) => return Err(e)
             };
@@ -135,10 +135,12 @@ fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::Lambda(_patterns, expr) => {
-            let out = get_type(env, *expr)?;
+            let out = get_type(env, expr)?;
+            // TODO patterns to variables
+            let var = Type::Var("x".s());
 
             Ok(Type::Fun(
-                Box::new(Type::Var("x".s())), // TODO
+                Box::new(var),
                 Box::new(out),
             ))
         }
@@ -171,7 +173,8 @@ fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
         }
         Expr::Let(defs, expr) => {
             let new_env = expand_env(defs, env);
-            get_type(&new_env, *expr)
+            // TODO
+            get_type(&new_env, expr)
         }
         Expr::OpChain(exprs, ops) => {
             let tree = create_expr_tree(exprs, ops);
@@ -186,12 +189,38 @@ fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
 
             for (name, expr) in entries {
                 match get_type(&env, expr) {
-                    Ok(ty) => types.push((name, ty)),
+                    Ok(ty) => types.push((name.clone(), ty)),
                     Err(e) => return Err(e)
                 }
             }
 
             Ok(Type::Record(types))
+        }
+        Expr::RecordAccess(_) => {
+            Ok(Type::Fun(
+                Box::new(Type::Var("a".s())),
+                Box::new(Type::Var("b".s())),
+            ))
+        }
+        Expr::RecordField(expr, name) => {
+            let record = match get_type(env, expr) {
+                Ok(t) => t.clone(),
+                Err(e) => { return Err(e); }
+            };
+
+            if let Type::Record(fields) = record {
+                let field: Option<&Type> = fields
+                    .iter()
+                    .find(|(f_name, _)| f_name == name)
+                    .map(|(_, f_type)| f_type);
+
+                match field {
+                    Some(t) => Ok(t.clone()),
+                    None => Err(InternalError)
+                }
+            } else {
+                Err(InternalError)
+            }
         }
         _ => Err(InternalError)
     }
@@ -199,7 +228,7 @@ fn get_type(env: &StaticEnv, expr: Expr) -> Result<Type, TypeError> {
 
 fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
     match tree {
-        ExprTree::Leaf(e) => get_type(env, e),
+        ExprTree::Leaf(e) => get_type(env, &e),
         ExprTree::Branch(op, left, right) => {
             let op_type = match env.defs.get(&op) {
                 Some(t) => t.clone(),
@@ -240,7 +269,7 @@ fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
     }
 }
 
-fn expand_env(_defs: Vec<Definition>, old_env: &StaticEnv) -> StaticEnv {
+fn expand_env(_defs: &Vec<Definition>, old_env: &StaticEnv) -> StaticEnv {
     old_env.clone()
 }
 
@@ -273,14 +302,14 @@ mod tests {
     fn check_unit() {
         let expr = from_code(b"()");
         let env = StaticEnv::new();
-        assert_eq!(get_type(&env, expr), Ok(Type::Unit));
+        assert_eq!(get_type(&env, &expr), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
         let expr = from_code(b"123");
         let env = StaticEnv::new();
-        assert_eq!(get_type(&env, expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -292,7 +321,7 @@ mod tests {
             Box::new(Type::Tag("Int".s(), vec![])),
         ));
 
-        assert_eq!(get_type(&env, expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -301,7 +330,7 @@ mod tests {
         let mut env = StaticEnv::new();
         env.adts.insert("True".s(), Type::Tag("Bool".s(), vec![]));
 
-        assert_eq!(get_type(&env, expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -309,7 +338,7 @@ mod tests {
         let expr = from_code(b"\\x -> 1");
         let env = StaticEnv::new();
 
-        assert_eq!(get_type(&env, expr), Ok(Type::Fun(
+        assert_eq!(get_type(&env, &expr), Ok(Type::Fun(
             Box::new(Type::Var("x".s())),
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
@@ -320,7 +349,7 @@ mod tests {
         let expr = from_code(b"[1, 2, 3]");
         let env = StaticEnv::new();
 
-        assert_eq!(get_type(&env, expr), Ok(Type::Tag(
+        assert_eq!(get_type(&env, &expr), Ok(Type::Tag(
             "List".s(), vec![Type::Tag("Int".s(), vec![])],
         )));
     }
@@ -330,7 +359,7 @@ mod tests {
         let expr = from_code(b"{ a = 1, b = \"Hi\" }");
         let env = StaticEnv::new();
 
-        assert_eq!(get_type(&env, expr), Ok(
+        assert_eq!(get_type(&env, &expr), Ok(
             Type::Record(vec![
                 ("a".s(), Type::Tag("Int".s(), vec![])),
                 ("b".s(), Type::Tag("String".s(), vec![])),
@@ -351,7 +380,7 @@ mod tests {
             )),
         ));
 
-        assert_eq!(get_type(&env, expr), Ok(
+        assert_eq!(get_type(&env, &expr), Ok(
             Type::Tag("Int".s(), vec![])
         ));
     }
