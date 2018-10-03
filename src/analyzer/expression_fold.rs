@@ -1,4 +1,4 @@
-use interpreter::expression_fold::ExprTreeError::*;
+use analyzer::expression_fold::ExprTreeError::*;
 use types::Expr;
 use util::StringConversion;
 
@@ -67,7 +67,6 @@ fn create_tree(mut tk: &[ETk], level: i32) -> Result<(&[ETk], ExprTree), ExprTre
 
     let mut ops: Vec<String> = vec![];
     let mut exprs: Vec<ExprTree> = vec![];
-//    let mut items: Vec<(String, ExprTree)> = vec![];
 
     exprs.push(first);
 
@@ -84,8 +83,6 @@ fn create_tree(mut tk: &[ETk], level: i32) -> Result<(&[ETk], ExprTree), ExprTre
         let (_tk, item) = create_tree(&tk[1..], level + 1)?;
         exprs.push(item);
         ops.push(op);
-
-//        items.push((op, item));
 
         tk = _tk;
     }
@@ -177,7 +174,7 @@ pub fn get_operator_associativity(op: &str) -> Associativity {
 
 #[cfg(test)]
 mod tests {
-    use interpreter::expression_fold::ExprTree::*;
+    use analyzer::expression_fold::ExprTree::*;
     use nom::*;
     use nom::verbose_errors::*;
     use parsers::expression::read_expr;
