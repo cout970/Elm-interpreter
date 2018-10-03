@@ -20,6 +20,9 @@ pub enum TypeError {
     ArgumentsDoNotMatch(String),
     NotAFunction(String),
     InvalidOperandChain(String),
+    RecordUpdateOnNonRecord(String),
+    RecordUpdateUnknownField(String),
+    CaseBranchDontMatchReturnType(String),
     InternalError,
 }
 
@@ -35,6 +38,14 @@ impl StaticEnv {
             adts: HashMap::new(),
             defs: HashMap::new(),
         }
+    }
+
+    pub fn get_def_type(&self, name: &str) -> Option<Type> {
+        self.defs.get(name).map(|t| t.clone())
+    }
+
+    pub fn get_adt_type(&self, name: &str) -> Option<Type> {
+        self.adts.get(name).map(|t| t.clone())
     }
 }
 
@@ -53,79 +64,44 @@ fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            match env.adts.get(name) {
-                Some(t) => Ok(t.clone()),
-                None => Err(MissingAdt(format!("Missing ADT {:?}", name)))
-            }
+            env.get_adt_type(name).ok_or(MissingAdt(format!("Missing ADT {:?}", name)))
         }
         Expr::Ref(name) => {
-            match env.defs.get(name) {
-                Some(t) => Ok(t.clone()),
-                None => Err(MissingDefinition(format!("Missing def {:?}", name)))
-            }
+            env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {:?}", name)))
         }
         Expr::QualifiedRef(_path, name) => {
+            // TODO resolve path
             if name.chars().next().unwrap().is_uppercase() {
-                match env.adts.get(name) {
-                    Some(t) => Ok(t.clone()),
-                    None => Err(MissingDefinition(format!("Missing ADT {:?}", name)))
-                }
+                env.get_adt_type(name).ok_or(MissingAdt(format!("Missing ADT {:?}", name)))
             } else {
-                match env.defs.get(name) {
-                    Some(t) => Ok(t.clone()),
-                    None => Err(MissingDefinition(format!("Missing def {:?}", name)))
-                }
+                env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {:?}", name)))
             }
         }
         Expr::Application(i, o) => {
-            let function = match get_type(env, i) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
+            let function = get_type(env, i).map(|i| i.clone())?;
+            let input = get_type(env, o).map(|i| i.clone())?;
 
-            let input = match get_type(env, o) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
-
-            match function {
-                Type::Fun(ref argument, ref result) => {
-                    if **argument != input {
-                        Err(ArgumentsDoNotMatch(format!("Expected argument: {:?}, found: {:?}", argument, input)))
-                    } else {
-                        Ok(*result.clone())
-                    }
+            if let Type::Fun(ref argument, ref result) = function {
+                if **argument != input {
+                    Err(ArgumentsDoNotMatch(format!("Expected argument: {:?}, found: {:?}", argument, input)))
+                } else {
+                    Ok(*result.clone())
                 }
-                _ => {
-                    Err(NotAFunction(format!("Expected function found: {:?}", function)))
-                }
+            } else {
+                Err(NotAFunction(format!("Expected function found: {:?}", function)))
             }
         }
         Expr::If(cond, a, b) => {
-            let cond = match get_type(env, cond) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
+            let cond = get_type(env, cond).map(|i| i.clone())?;
+            let true_branch = get_type(env, a).map(|i| i.clone())?;
+            let false_branch = get_type(env, b).map(|i| i.clone())?;
 
-            let true_branch = match get_type(env, a) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
-
-            let false_branch = match get_type(env, b) {
-                Ok(t) => t.clone(),
-                Err(e) => return Err(e)
-            };
-
-            match cond {
-                Type::Tag(name, _) => {
-                    if name != "Bool" {
-                        return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {:?}", name)));
-                    }
+            if let Type::Tag(name, _) = cond {
+                if name != "Bool" {
+                    return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {:?}", name)));
                 }
-                _ => {
-                    return Err(IfWithNonBoolCondition("Expected Bool expression".s()));
-                }
+            } else {
+                return Err(IfWithNonBoolCondition("Expected Bool expression".s()));
             }
 
             if true_branch == false_branch {
@@ -148,16 +124,9 @@ fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             if exprs.is_empty() {
                 Ok(Type::Tag("List".s(), vec![Type::Var("a".s())]))
             } else {
-                let mut types: Vec<Type> = vec![];
-
-                for e in exprs {
-                    let e_type = match get_type(env, e) {
-                        Ok(t) => t.clone(),
-                        Err(e) => { return Err(e); }
-                    };
-
-                    types.push(e_type);
-                }
+                let types: Vec<Type> = exprs.iter()
+                    .map(|e| get_type(env, e))
+                    .collect::<Result<_, _>>()?;
 
                 let first = types.first().unwrap();
 
@@ -177,22 +146,15 @@ fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             get_type(&new_env, expr)
         }
         Expr::OpChain(exprs, ops) => {
-            let tree = create_expr_tree(exprs, ops);
-
-            match tree {
+            match create_expr_tree(exprs, ops) {
                 Ok(tree) => get_tree_type(&env, tree),
                 Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
             }
         }
         Expr::Record(entries) => {
-            let mut types: Vec<(String, Type)> = vec![];
-
-            for (name, expr) in entries {
-                match get_type(&env, expr) {
-                    Ok(ty) => types.push((name.clone(), ty)),
-                    Err(e) => return Err(e)
-                }
-            }
+            let types: Vec<(String, Type)> = entries.iter()
+                .map(|(name, expr)| get_type(&env, expr).map(|ty| (name.clone(), ty)))
+                .collect::<Result<_, _>>()?;
 
             Ok(Type::Record(types))
         }
@@ -222,7 +184,53 @@ fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
                 Err(InternalError)
             }
         }
-        _ => Err(InternalError)
+        Expr::Tuple(items) => {
+            let types: Vec<Type> = items.iter()
+                .map(|e| get_type(env, e))
+                .collect::<Result<_, _>>()?;
+
+            Ok(Type::Tuple(types))
+        }
+        Expr::RecordUpdate(name, updates) => {
+            let record_type = env.get_def_type(name)
+                .ok_or(MissingDefinition(format!("Missing def {:?}", name)))?;
+
+
+            if let Type::Record(fields) = &record_type {
+                for (field_name, _) in updates {
+                    let found = fields.iter().any(|(field, _)| field == field_name);
+                    if !found {
+                        return Err(RecordUpdateUnknownField(
+                            format!("Field '{:?}' not found in record: {:?} of type: {:?}", field_name, name, record_type)
+                        ));
+                    }
+                }
+
+                Ok(record_type.clone())
+            } else {
+                Err(RecordUpdateOnNonRecord(
+                    format!("Expecting record to update but found: {:?}", record_type)
+                ))
+            }
+        }
+        Expr::Case(expr, branches) => {
+
+            // check that the case expression has a valid type
+            get_type(env, expr)?;
+
+            let mut iter = branches.iter();
+            let (_, e) = iter.next().unwrap();
+            let first_type = get_type(env, e)?;
+
+            while let Some((_, e)) = iter.next() {
+                let ret = get_type(env, e)?;
+                if ret != first_type {
+                    return Err(CaseBranchDontMatchReturnType("".s()));
+                }
+            }
+
+            Ok(first_type)
+        }
     }
 }
 
@@ -383,5 +391,48 @@ mod tests {
         assert_eq!(get_type(&env, &expr), Ok(
             Type::Tag("Int".s(), vec![])
         ));
+    }
+
+    #[test]
+    fn check_tuple() {
+        let expr = from_code(b"(1, \"a\", ())");
+        let env = StaticEnv::new();
+
+        assert_eq!(get_type(&env, &expr), Ok(
+            Type::Tuple(vec![
+                Type::Tag("Int".s(), vec![]),
+                Type::Tag("String".s(), vec![]),
+                Type::Unit,
+            ])
+        ));
+    }
+
+    #[test]
+    fn check_record_update() {
+        let expr = from_code(b"{ x | a = 0}");
+        let mut env = StaticEnv::new();
+        let record_type = Type::Record(vec![
+            ("a".s(), Type::Tag("Int".s(), vec![]))
+        ]);
+
+        env.defs.insert("x".s(), record_type.clone());
+
+        assert_eq!(get_type(&env, &expr), Ok(record_type));
+    }
+
+    #[test]
+    fn check_case() {
+        let expr = from_code(b"case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
+        let env = StaticEnv::new();
+
+        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("String".s(), vec![])));
+    }
+
+    #[test]
+    fn check_case2() {
+        let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
+        let env = StaticEnv::new();
+
+        assert_eq!(get_type(&env, &expr), Err(CaseBranchDontMatchReturnType("".s())));
     }
 }
