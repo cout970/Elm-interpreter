@@ -26,6 +26,7 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
+use analyzer::environment::default_lang_env;
 
 mod types;
 #[macro_use]
@@ -43,21 +44,21 @@ fn interpret_stdin() {
     print!("> ");
     stdout().flush().unwrap();
     let stdin = stdin();
+    let env = default_lang_env();
 
     for line in stdin.lock().lines() {
-        if let Err(s) = run_line(&line.unwrap().as_bytes()) {
+        if let Err(s) = run_line(&env, &line.unwrap().as_bytes()) {
             println!("Error: {}", s);
         }
     }
 }
 
-fn run_line(line: &[u8]) -> Result<(), String> {
+fn run_line(env: &StaticEnv, line: &[u8]) -> Result<(), String> {
     use nom::*;
     let tokens = get_all_tokens(line);
-    let env = StaticEnv::new();
 
     let (_, expr) = read_expr(&tokens).map_err(|e| format!("{:?}", e))?;
-    let expr_type = get_type(&env, &expr).map_err(|e| format!("{:?}", e))?;
+    let expr_type = get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
 
     println!("{:?} : {}", expr, expr_type);
 

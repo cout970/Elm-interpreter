@@ -9,9 +9,9 @@ use types::Pattern;
 use types::Type;
 use types::TypeDefinition;
 use types::ValueDefinition;
-use util::StringConversion;
-use util::name_sequence::NameSequence;
 use util::build_fun_type;
+use util::name_sequence::NameSequence;
+use util::StringConversion;
 
 #[derive(Debug, PartialEq)]
 pub enum TypeError {
@@ -46,25 +46,27 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            env.get_adt_type(name).ok_or(MissingAdt(format!("Missing ADT {:?}", name)))
+            env.get_def_type(name).ok_or(MissingAdt(format!("Missing ADT {:?}", name)))
         }
         Expr::Ref(name) => {
             env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {:?}", name)))
         }
         Expr::QualifiedRef(_path, name) => {
             // TODO resolve path
-            if name.chars().next().unwrap().is_uppercase() {
-                env.get_adt_type(name).ok_or(MissingAdt(format!("Missing ADT {:?}", name)))
+            let is_adt = name.chars().next().unwrap().is_uppercase();
+
+            env.get_def_type(name).ok_or(if is_adt {
+                MissingAdt(format!("Missing ADT {:?}", name))
             } else {
-                env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {:?}", name)))
-            }
+                MissingDefinition(format!("Missing def {:?}", name))
+            })
         }
         Expr::Application(i, o) => {
             let function = get_type(env, i).map(|i| i.clone())?;
             let input = get_type(env, o).map(|i| i.clone())?;
 
             if let Type::Fun(ref argument, ref result) = function {
-                if **argument != input {
+                if !type_assignable_from(env, &input, &**argument) {
                     Err(ArgumentsDoNotMatch(format!("Expected argument: {:?}, found: {:?}", argument, input)))
                 } else {
                     Ok(*result.clone())
@@ -78,12 +80,8 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             let true_branch = get_type(env, a).map(|i| i.clone())?;
             let false_branch = get_type(env, b).map(|i| i.clone())?;
 
-            if let Type::Tag(name, _) = cond {
-                if name != "Bool" {
-                    return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {:?}", name)));
-                }
-            } else {
-                return Err(IfWithNonBoolCondition("Expected Bool expression".s()));
+            if !type_assignable_from(env, &Type::Tag("Bool".s(), vec![]), &cond) {
+                return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {:?}", cond)));
             }
 
             if true_branch == false_branch {
@@ -95,7 +93,7 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
         Expr::Lambda(patterns, expr) => {
             let out = get_type(env, expr)?;
             let mut var = patterns.iter()
-                .map(|p | pattern_to_type(p))
+                .map(|p| pattern_to_type(p))
                 .collect::<Result<Vec<Type>, String>>()
                 .map_err(|s| InvalidLambdaPattern(s))?;
 
@@ -252,6 +250,7 @@ fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
 
 fn expand_env(old_env: &StaticEnv, defs: &Vec<Definition>) -> Result<StaticEnv, TypeError> {
     let mut env = old_env.clone();
+    env.enter_block();
 
     for Definition(opt_ty, value) in defs {
         let (name, expr) = match value {
@@ -265,7 +264,7 @@ fn expand_env(old_env: &StaticEnv, defs: &Vec<Definition>) -> Result<StaticEnv, 
             if def_name != &name {
                 return Err(InternalError);
             }
-            if def_ty != &ty {
+            if type_assignable_from(&env, def_ty, &ty) {
                 return Err(DefinitionTypeAndReturnTypeMismatch);
             }
 
@@ -284,11 +283,20 @@ fn expand_env(old_env: &StaticEnv, defs: &Vec<Definition>) -> Result<StaticEnv, 
     Ok(env)
 }
 
+pub fn type_assignable_from(_env: &StaticEnv, child_or_equal: &Type, parent: &Type) -> bool {
+    if parent == child_or_equal {
+        true
+    } else {
+        // TODO proper ADT checking
+        false
+    }
+}
+
 pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
     match patt {
         Pattern::Var(n) => {
             Ok(Type::Var(n.to_owned()))
-        },
+        }
         Pattern::Adt(n, items) => {
             let types: Vec<Type> = items.iter()
                 .map(|p| pattern_to_type(p))
@@ -298,10 +306,10 @@ pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
         }
         Pattern::Wildcard => {
             Ok(Type::Var(NameSequence::new().next()))
-        },
+        }
         Pattern::Unit => {
             Ok(Type::Unit)
-        },
+        }
         Pattern::Tuple(items) => {
             let types: Vec<Type> = items.iter()
                 .map(|p| pattern_to_type(p))
@@ -396,7 +404,7 @@ mod tests {
     fn check_if() {
         let expr = from_code(b"if True then 1 else 0");
         let mut env = StaticEnv::new();
-        env.add_adt_type("True", &Type::Tag("Bool".s(), vec![]));
+        env.add_def_type("True", &Type::Tag("Bool".s(), vec![]));
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
