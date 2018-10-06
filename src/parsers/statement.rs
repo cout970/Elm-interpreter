@@ -8,11 +8,11 @@ use tokenizer::Token::*;
 
 named!(pub top_level_statement<Tk, Statement>, do_parse!(
     tk!(LineStart) >>
-    s: statement_item >>
+    s: read_statement >>
     (s)
 ));
 
-named!(statement_item<Tk, Statement>, alt!(
+named!(pub read_statement<Tk, Statement>, alt!(
     alias
     | adt
     | port

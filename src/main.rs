@@ -8,14 +8,15 @@ extern crate nom;
 #[macro_use]
 extern crate pretty_assertions;
 
-use analyzer::environment::StaticEnv;
+use analyzer::environment::default_lang_env;
+use analyzer::environment::Environment;
 use analyzer::type_analyzer::get_type;
 use nom::ExtendInto;
 use nom::IResult;
 use nom::verbose_errors::Context;
 use parsers::expression::read_expr;
+use parsers::statement::read_statement;
 use parsers::module::*;
-use parsers::statement::top_level_statement;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -26,7 +27,6 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
-use analyzer::environment::default_lang_env;
 
 mod types;
 #[macro_use]
@@ -50,19 +50,29 @@ fn interpret_stdin() {
         if let Err(s) = run_line(&env, &line.unwrap().as_bytes()) {
             println!("Error: {}", s);
         }
+        print!("> ");
+        stdout().flush().unwrap();
     }
 }
 
-fn run_line(env: &StaticEnv, line: &[u8]) -> Result<(), String> {
+fn run_line(env: &Environment, line: &[u8]) -> Result<(), String> {
     use nom::*;
     let tokens = get_all_tokens(line);
 
-    let (_, expr) = read_expr(&tokens).map_err(|e| format!("{:?}", e))?;
-    let expr_type = get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
+    let stm = read_statement(&tokens).map_err(|e| e.to_string());
 
-    println!("{:?} : {}", expr, expr_type);
+    match stm {
+        Ok((_, statement)) => {
+            println!("{:?}", statement);
+        },
+        Err(_) =>{
+            let (_, expr) = read_expr(&tokens).map_err(|e| e.to_string())?;
+            let expr_type = get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
 
-    println!();
+            println!("{} : {}", expr, expr_type);
+        }
+    }
+
     Ok(())
 }
 

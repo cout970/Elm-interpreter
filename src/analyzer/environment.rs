@@ -6,21 +6,18 @@ use util::StringConversion;
 use util::build_fun_type;
 
 #[derive(Clone)]
-pub struct StaticEnv {
+pub struct Environment {
     blocks: Vec<HashMap<String, Type>>
 }
 
-pub fn default_lang_env() -> StaticEnv {
-    let mut env = StaticEnv::new();
+pub fn default_lang_env() -> Environment {
+    let mut env = Environment::new();
 
     env.add_def_type("True", &Type::Tag("Bool".s(), vec![]));
     env.add_def_type("False", &Type::Tag("Bool".s(), vec![]));
 
-    env.add_def_type("Int", &Type::Tag("number".s(), vec![]));
-    env.add_def_type("Float", &Type::Tag("number".s(), vec![]));
-
     env.add_def_type("::", &build_fun_type(&vec![
-        Type::Var("a".s()), Type::Var("a".s()), Type::Tag("List".s(), vec![Type::Var("a".s())])
+        Type::Var("a".s()), Type::Tag("List".s(), vec![Type::Var("a".s())]), Type::Tag("List".s(), vec![Type::Var("a".s())])
     ]));
 
     env.add_def_type("+", &build_fun_type(&vec![
@@ -39,7 +36,7 @@ pub fn default_lang_env() -> StaticEnv {
     env
 }
 
-impl StaticEnv {
+impl Environment {
     pub fn new() -> Self {
         Self {
             blocks: vec![HashMap::new()],

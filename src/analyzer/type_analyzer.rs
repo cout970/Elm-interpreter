@@ -1,7 +1,8 @@
-use analyzer::environment::StaticEnv;
+use analyzer::environment::Environment;
 use analyzer::expression_fold::create_expr_tree;
 use analyzer::expression_fold::ExprTree;
 use analyzer::type_analyzer::TypeError::*;
+use std::ops::Deref;
 use types::Definition;
 use types::Expr;
 use types::Literal;
@@ -13,7 +14,7 @@ use util::build_fun_type;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
     MissingAdt(String),
     MissingDefinition(String),
@@ -31,7 +32,7 @@ pub enum TypeError {
     InternalError,
 }
 
-pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
+pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -46,19 +47,19 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            env.get_def_type(name).ok_or(MissingAdt(format!("Missing ADT {:?}", name)))
+            env.get_def_type(name).ok_or(MissingAdt(format!("Missing ADT {}", name)))
         }
         Expr::Ref(name) => {
-            env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {:?}", name)))
+            env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {}", name)))
         }
         Expr::QualifiedRef(_path, name) => {
             // TODO resolve path
             let is_adt = name.chars().next().unwrap().is_uppercase();
 
             env.get_def_type(name).ok_or(if is_adt {
-                MissingAdt(format!("Missing ADT {:?}", name))
+                MissingAdt(format!("Missing ADT {}", name))
             } else {
-                MissingDefinition(format!("Missing def {:?}", name))
+                MissingDefinition(format!("Missing def {}", name))
             })
         }
         Expr::Application(i, o) => {
@@ -67,12 +68,12 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
 
             if let Type::Fun(ref argument, ref result) = function {
                 if !type_assignable_from(env, &input, &**argument) {
-                    Err(ArgumentsDoNotMatch(format!("Expected argument: {:?}, found: {:?}", argument, input)))
+                    Err(ArgumentsDoNotMatch(format!("Expected argument: {}, found: {}", argument, input)))
                 } else {
                     Ok(*result.clone())
                 }
             } else {
-                Err(NotAFunction(format!("Expected function found: {:?}", function)))
+                Err(NotAFunction(format!("Expected function found: {}", function)))
             }
         }
         Expr::If(cond, a, b) => {
@@ -81,13 +82,15 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
             let false_branch = get_type(env, b).map(|i| i.clone())?;
 
             if !type_assignable_from(env, &Type::Tag("Bool".s(), vec![]), &cond) {
-                return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {:?}", cond)));
+                return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {}", cond)));
             }
 
-            if true_branch == false_branch {
-                Ok(true_branch)
-            } else {
-                Err(IfBranchesDoesntMatch(format!("True Branch: {:?}, False Branch: {:?}", true_branch, false_branch)))
+            let ret_ty = common_type(env, &[&true_branch, &false_branch]);
+            match ret_ty {
+                Ok(ty) => Ok(ty.clone()),
+                Err((a, b)) => Err(
+                    IfBranchesDoesntMatch(format!("True Branch: {}, False Branch: {}", a, b))
+                )
             }
         }
         Expr::Lambda(patterns, expr) => {
@@ -109,16 +112,23 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
                     .map(|e| get_type(env, e))
                     .collect::<Result<_, _>>()?;
 
-                let first = types.first().unwrap();
+                let ret_ty = common_type(env, &types.iter().collect::<Vec<&Type>>());
+                match ret_ty {
+                    Ok(ty) => {
+                        Ok(Type::Tag("List".s(), vec![ty.clone()]))
+                    }
+                    Err((a, b)) => {
+                        let index = types.iter()
+                            .enumerate()
+                            .find(|(_, ty)| ty == &b)
+                            .unwrap()
+                            .0;
 
-                for i in 1..types.len() {
-                    if &types[i] != first {
-                        let msg = format!("List of {:?}, but found element {:?} at {}", first, types[i], i);
-                        return Err(ListNotHomogeneous(msg));
+                        Err(ListNotHomogeneous(
+                            format!("List of '{}', but found element '{}' at index: {}", a, b, index)
+                        ))
                     }
                 }
-
-                Ok(Type::Tag("List".s(), vec![first.clone()]))
             }
         }
         Expr::Let(defs, expr) => {
@@ -173,7 +183,7 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
         }
         Expr::RecordUpdate(name, updates) => {
             let record_type = env.get_def_type(name)
-                .ok_or(MissingDefinition(format!("Missing def {:?}", name)))?;
+                .ok_or(MissingDefinition(format!("Missing def {}", name)))?;
 
 
             if let Type::Record(fields) = &record_type {
@@ -181,7 +191,7 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
                     let found = fields.iter().any(|(field, _)| field == field_name);
                     if !found {
                         return Err(RecordUpdateUnknownField(
-                            format!("Field '{:?}' not found in record: {:?} of type: {:?}", field_name, name, record_type)
+                            format!("Field '{}' not found in record: {} of type: {}", field_name, name, record_type)
                         ));
                     }
                 }
@@ -189,7 +199,7 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
                 Ok(record_type.clone())
             } else {
                 Err(RecordUpdateOnNonRecord(
-                    format!("Expecting record to update but found: {:?}", record_type)
+                    format!("Expecting record to update but found: {}", record_type)
                 ))
             }
         }
@@ -204,7 +214,7 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
 
             while let Some((_, e)) = iter.next() {
                 let ret = get_type(env, e)?;
-                if ret != first_type {
+                if !type_assignable_from(env, &ret, &first_type) {
                     return Err(CaseBranchDontMatchReturnType("".s()));
                 }
             }
@@ -214,41 +224,41 @@ pub fn get_type(env: &StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
     }
 }
 
-fn get_tree_type(env: &StaticEnv, tree: ExprTree) -> Result<Type, TypeError> {
+fn get_tree_type(env: &Environment, tree: ExprTree) -> Result<Type, TypeError> {
     match tree {
         ExprTree::Leaf(e) => get_type(env, &e),
         ExprTree::Branch(op, left, right) => {
             let op_type = env.get_def_type(&op)
-                .ok_or(MissingDefinition(format!("Missing def {:?}", op)))?;
+                .ok_or(MissingDefinition(format!("Missing def {}", op)))?;
 
             let left_value = get_tree_type(env, *left).map(|t| t.clone())?;
             let right_value = get_tree_type(env, *right).map(|t| t.clone())?;
 
             if let Type::Fun(ref argument, ref next_func) = op_type {
-                if **argument != left_value {
+                if !type_assignable_from(env, &left_value, &**argument) {
                     return Err(ArgumentsDoNotMatch(
-                        format!("Expected argument: {:?}, found: {:?}", argument, left_value)
+                        format!("Expected argument: {}, found: {}", argument, left_value)
                     ));
                 }
                 if let Type::Fun(ref argument, ref result) = **next_func {
-                    if **argument != right_value {
+                    if !type_assignable_from(env, &right_value, &**argument) {
                         return Err(ArgumentsDoNotMatch(
-                            format!("Expected argument: {:?}, found: {:?}", argument, right_value)
+                            format!("Expected argument: {}, found: {}", argument, right_value)
                         ));
                     }
 
                     Ok(*result.clone())
                 } else {
-                    Err(NotAFunction(format!("Expected infix operator but found: {:?} after first evaluation", op_type)))
+                    Err(NotAFunction(format!("Expected infix operator but found: {} after first evaluation", op_type)))
                 }
             } else {
-                Err(NotAFunction(format!("Expected infix operator but found: {:?}", op_type)))
+                Err(NotAFunction(format!("Expected infix operator but found: {}", op_type)))
             }
         }
     }
 }
 
-fn expand_env(old_env: &StaticEnv, defs: &Vec<Definition>) -> Result<StaticEnv, TypeError> {
+fn expand_env(old_env: &Environment, defs: &Vec<Definition>) -> Result<Environment, TypeError> {
     let mut env = old_env.clone();
     env.enter_block();
 
@@ -283,13 +293,55 @@ fn expand_env(old_env: &StaticEnv, defs: &Vec<Definition>) -> Result<StaticEnv, 
     Ok(env)
 }
 
-pub fn type_assignable_from(_env: &StaticEnv, child_or_equal: &Type, parent: &Type) -> bool {
+pub fn type_assignable_from(env: &Environment, child_or_equal: &Type, parent: &Type) -> bool {
     if parent == child_or_equal {
         true
     } else {
-        // TODO proper ADT checking
-        false
+        match parent {
+            Type::Var(_) => true,
+            Type::Tag(name, children) => {
+                match child_or_equal {
+                    Type::Tag(child_name, child_children) => {
+                        name == "number" && children.is_empty() &&
+                            (child_name == "Int" || child_name == "Float") && child_children.is_empty()
+                    }
+                    _ => false
+                }
+            }
+            Type::Fun(a, b) => {
+                match child_or_equal {
+                    Type::Fun(a2, b2) => {
+                        type_assignable_from(env, a2, a) && type_assignable_from(env, b2, b)
+                    }
+                    _ => false
+                }
+            }
+            Type::Unit => false,
+            Type::Tuple(items) => {
+                match child_or_equal {
+                    Type::Tuple(items2) => {
+                        if items.len() == items2.len() {
+                            items2.iter().zip(items).all(|(a, b)| type_assignable_from(env, b, a))
+                        } else { false }
+                    }
+                    _ => false
+                }
+            }
+            Type::Record(_) => false,
+            Type::RecExt(_, _) => false,
+        }
     }
+}
+
+pub fn common_type<'a>(env: &Environment, types: &[&'a Type]) -> Result<&'a Type, (&'a Type, &'a Type)> {
+    let first = *types.first().unwrap();
+
+    for i in 1..types.len() {
+        if !type_assignable_from(env, &types[i], first) {
+            return Err((first, types[i]));
+        }
+    }
+    Ok(first)
 }
 
 pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
@@ -377,21 +429,21 @@ mod tests {
     #[test]
     fn check_unit() {
         let expr = from_code(b"()");
-        let env = StaticEnv::new();
+        let env = Environment::new();
         assert_eq!(get_type(&env, &expr), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
         let expr = from_code(b"123");
-        let env = StaticEnv::new();
+        let env = Environment::new();
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_fun() {
         let expr = from_code(b"fun 123");
-        let mut env = StaticEnv::new();
+        let mut env = Environment::new();
         env.add_def_type("fun", &Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Tag("Int".s(), vec![])),
@@ -403,7 +455,7 @@ mod tests {
     #[test]
     fn check_if() {
         let expr = from_code(b"if True then 1 else 0");
-        let mut env = StaticEnv::new();
+        let mut env = Environment::new();
         env.add_def_type("True", &Type::Tag("Bool".s(), vec![]));
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
@@ -412,7 +464,7 @@ mod tests {
     #[test]
     fn check_lambda() {
         let expr = from_code(b"\\x -> 1");
-        let env = StaticEnv::new();
+        let env = Environment::new();
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Fun(
             Box::new(Type::Var("x".s())),
@@ -423,7 +475,7 @@ mod tests {
     #[test]
     fn check_list() {
         let expr = from_code(b"[1, 2, 3]");
-        let env = StaticEnv::new();
+        let env = Environment::new();
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag(
             "List".s(), vec![Type::Tag("Int".s(), vec![])],
@@ -431,9 +483,21 @@ mod tests {
     }
 
     #[test]
+    fn check_bad_list() {
+        let expr = from_code(b"[1, 2, 'a']");
+        let env = Environment::new();
+
+        assert_eq!(get_type(&env, &expr), Err(
+            ListNotHomogeneous(
+                "List of 'Int', but found element 'Char' at index: 2".s()
+            )
+        ));
+    }
+
+    #[test]
     fn check_record() {
         let expr = from_code(b"{ a = 1, b = \"Hi\" }");
-        let env = StaticEnv::new();
+        let env = Environment::new();
 
         assert_eq!(get_type(&env, &expr), Ok(
             Type::Record(vec![
@@ -446,7 +510,7 @@ mod tests {
     #[test]
     fn check_operator_chain() {
         let expr = from_code(b"1 + 2");
-        let mut env = StaticEnv::new();
+        let mut env = Environment::new();
 
         env.add_def_type("+", &Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
@@ -464,7 +528,7 @@ mod tests {
     #[test]
     fn check_tuple() {
         let expr = from_code(b"(1, \"a\", ())");
-        let env = StaticEnv::new();
+        let env = Environment::new();
 
         assert_eq!(get_type(&env, &expr), Ok(
             Type::Tuple(vec![
@@ -478,7 +542,7 @@ mod tests {
     #[test]
     fn check_record_update() {
         let expr = from_code(b"{ x | a = 0}");
-        let mut env = StaticEnv::new();
+        let mut env = Environment::new();
         let record_type = Type::Record(vec![
             ("a".s(), Type::Tag("Int".s(), vec![]))
         ]);
@@ -491,7 +555,7 @@ mod tests {
     #[test]
     fn check_case() {
         let expr = from_code(b"case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
-        let env = StaticEnv::new();
+        let env = Environment::new();
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag("String".s(), vec![])));
     }
@@ -499,7 +563,7 @@ mod tests {
     #[test]
     fn check_case2() {
         let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
-        let env = StaticEnv::new();
+        let env = Environment::new();
 
         assert_eq!(get_type(&env, &expr), Err(CaseBranchDontMatchReturnType("".s())));
     }
