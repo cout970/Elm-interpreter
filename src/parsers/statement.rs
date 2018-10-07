@@ -19,6 +19,33 @@ named!(pub read_statement<Tk, Statement>, alt!(
     | definition
 ));
 
+named!(pub read_definition<Tk, Definition>, do_parse!(
+    t: opt!(read_type_def) >>
+    v: read_value_def >>
+    (Definition(t.map(|e| e.1), v))
+));
+
+named!(read_type_def<Tk, (String, Type)>, do_parse!(
+    name: read_type_def_name >>
+    tk!(Colon) >>
+    ty: read_type >>
+    opt!(tk!(LineStart)) >>
+    ((name, ty))
+));
+
+named!(read_type_def_name<Tk, String>, alt!(
+    id!() | delimited!(tk!(LeftParen), binop!(), tk!(RightParen))
+));
+
+named!(read_value_def<Tk, ValueDefinition>, do_parse!(
+    a: id!() >>
+    p: many0!(read_pattern) >>
+    tk!(Equals) >>
+    many0!(indent!()) >>
+    e: read_expr >>
+    (ValueDefinition { name: a, patterns: p, expr: e })
+));
+
 named!(adt<Tk, Statement>, do_parse!(
     tk!(TypeTk) >>
     a: upper_id!() >>
@@ -45,65 +72,11 @@ named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
 named!(port<Tk, Statement>, do_parse!(
     tk!(Port) >>
     t: read_type_def >>
-    (Statement::Port(t))
+    (Statement::Port(t.0, t.1))
 ));
 
 named!(definition<Tk, Statement>, map!(
     read_definition, |c| Statement::Def(c)
-));
-
-named!(pub read_definition<Tk, Definition>, do_parse!(
-    t: opt!(read_type_def) >>
-    v: read_value_def >>
-    (Definition(t, v))
-));
-
-named!(read_type_def<Tk, TypeDefinition>, do_parse!(
-    name: read_type_def_name >>
-    tk!(Colon) >>
-    ty: read_type >>
-    opt!(tk!(LineStart)) >>
-    (TypeDefinition(name, ty))
-));
-
-named!(read_type_def_name<Tk, String>, alt!(
-    id!() | delimited!(tk!(LeftParen), binop!(), tk!(RightParen))
-));
-
-named!(read_value_def<Tk, ValueDefinition>, alt!(
-    prefix_value_def |
-    infix_value_def |
-    name_value_def
-));
-
-named!(prefix_value_def<Tk, ValueDefinition>, do_parse!(
-    tk!(LeftParen) >>
-    b: binop!() >>
-    tk!(RightParen) >>
-    p: many0!(read_pattern) >>
-    tk!(Equals) >>
-    many0!(indent!()) >>
-    e: read_expr >>
-    (ValueDefinition::PrefixOp(b, p, e))
-));
-
-named!(infix_value_def<Tk, ValueDefinition>, do_parse!(
-    a: read_pattern >>
-    b: binop!() >>
-    p: many0!(read_pattern) >>
-    tk!(Equals) >>
-    many0!(indent!()) >>
-    e: read_expr >>
-    (ValueDefinition::InfixOp(a, b, p, e))
-));
-
-named!(name_value_def<Tk, ValueDefinition>, do_parse!(
-    a: id!() >>
-    p: many0!(read_pattern) >>
-    tk!(Equals) >>
-    many0!(indent!()) >>
-    e: read_expr >>
-    (ValueDefinition::Name(a, p, e))
 ));
 
 named!(alias<Tk, Statement>, do_parse!(
@@ -149,11 +122,10 @@ mod tests {
         let stream = get_all_tokens(b"\nport js_function : Int -> Int");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Port(
-            TypeDefinition("js_function".s(),
-                Type::Fun(
-                    Box::new(Type::Tag("Int".s(), vec![])),
-                    Box::new(Type::Tag("Int".s(), vec![])),
-                )
+            "js_function".s(),
+            Type::Fun(
+                Box::new(Type::Tag("Int".s(), vec![])),
+                Box::new(Type::Tag("Int".s(), vec![])),
             )
         ));
     }
@@ -165,7 +137,11 @@ mod tests {
         assert_ok!(m, Statement::Def(
             Definition(
                 None,
-                ValueDefinition::Name("my_fun".s(), vec![Pattern::Var("x".s())], Expr::Unit)
+                ValueDefinition {
+                    name: "my_fun".s(),
+                    patterns: vec![Pattern::Var("x".s())],
+                    expr: Expr::Unit
+                }
             )
         ));
     }
@@ -177,7 +153,11 @@ mod tests {
         assert_ok!(m, Statement::Def(
             Definition(
                 None,
-                ValueDefinition::Name("x".s(), vec![], Expr::Literal(Literal::Int(5)))
+                ValueDefinition{
+                    name: "x".s(),
+                    patterns: vec![],
+                    expr: Expr::Literal(Literal::Int(5))
+                }
             )
         ));
     }
@@ -189,8 +169,12 @@ mod tests {
         assert_ok!(m,
             Statement::Def(
                 Definition(
-                    Some(TypeDefinition("my_fun".s(), Type::Tag("Int".s(), vec![]))),
-                    ValueDefinition::Name("my_fun".s(), vec![], Expr::Literal(Literal::Int(5)))
+                    Some(Type::Tag("Int".s(), vec![])),
+                    ValueDefinition {
+                        name: "my_fun".s(),
+                        patterns: vec![],
+                        expr: Expr::Literal(Literal::Int(5))
+                    }
                 )
             )
         );
@@ -206,9 +190,10 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
             Statement::Def(
                 Definition(
                     None,
-                    ValueDefinition::Name("update".s(),
-                        vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
-                        Expr::Case(
+                    ValueDefinition{
+                        name: "update".s(),
+                        patterns: vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
+                        expr: Expr::Case(
                             Box::new(Expr::Ref("msg".s())),
                             vec![
                                 (
@@ -227,7 +212,7 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
                                 )
                             ]
                         )
-                    )
+                    }
                 )
             )
         );

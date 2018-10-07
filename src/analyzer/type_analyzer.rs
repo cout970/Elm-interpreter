@@ -8,11 +8,11 @@ use types::Expr;
 use types::Literal;
 use types::Pattern;
 use types::Type;
-use types::TypeDefinition;
 use types::ValueDefinition;
 use util::build_fun_type;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
+use analyzer::get_value_type;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
@@ -47,20 +47,20 @@ pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            env.get_def_type(name).ok_or(MissingAdt(format!("Missing ADT {}", name)))
+            env.find(name).ok_or(MissingAdt(format!("Missing ADT {}", name))).map(|val| get_value_type(&val))
         }
         Expr::Ref(name) => {
-            env.get_def_type(name).ok_or(MissingDefinition(format!("Missing def {}", name)))
+            env.find(name).ok_or(MissingDefinition(format!("Missing def {}", name))).map(|val| get_value_type(&val))
         }
         Expr::QualifiedRef(_path, name) => {
             // TODO resolve path
             let is_adt = name.chars().next().unwrap().is_uppercase();
 
-            env.get_def_type(name).ok_or(if is_adt {
+            env.find(name).ok_or(if is_adt {
                 MissingAdt(format!("Missing ADT {}", name))
             } else {
                 MissingDefinition(format!("Missing def {}", name))
-            })
+            }).map(|val| get_value_type(&val))
         }
         Expr::Application(i, o) => {
             let function = get_type(env, i).map(|i| i.clone())?;
@@ -182,8 +182,9 @@ pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tuple(types))
         }
         Expr::RecordUpdate(name, updates) => {
-            let record_type = env.get_def_type(name)
-                .ok_or(MissingDefinition(format!("Missing def {}", name)))?;
+            let record_type = env.find(name)
+                .ok_or(MissingDefinition(format!("Missing def {}", name)))
+                .map(|val| get_value_type(&val))?;
 
 
             if let Type::Record(fields) = &record_type {
@@ -228,8 +229,9 @@ fn get_tree_type(env: &Environment, tree: ExprTree) -> Result<Type, TypeError> {
     match tree {
         ExprTree::Leaf(e) => get_type(env, &e),
         ExprTree::Branch(op, left, right) => {
-            let op_type = env.get_def_type(&op)
-                .ok_or(MissingDefinition(format!("Missing def {}", op)))?;
+            let op_type = env.find(&op)
+                .ok_or(MissingDefinition(format!("Missing def {}", op)))
+                .map(|val| get_value_type(&val))?;
 
             let left_value = get_tree_type(env, *left).map(|t| t.clone())?;
             let right_value = get_tree_type(env, *right).map(|t| t.clone())?;
@@ -258,37 +260,38 @@ fn get_tree_type(env: &Environment, tree: ExprTree) -> Result<Type, TypeError> {
     }
 }
 
-fn expand_env(old_env: &Environment, defs: &Vec<Definition>) -> Result<Environment, TypeError> {
+fn expand_env(old_env: &Environment, _defs: &Vec<Definition>) -> Result<Environment, TypeError> {
     let mut env = old_env.clone();
     env.enter_block();
 
-    for Definition(opt_ty, value) in defs {
-        let (name, expr) = match value {
-            ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
-            ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
-            ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
-        };
-        let ty = get_type(&env, expr)?;
-
-        if let Some(TypeDefinition(def_name, def_ty)) = opt_ty {
-            if def_name != &name {
-                return Err(InternalError);
-            }
-            if type_assignable_from(&env, def_ty, &ty) {
-                return Err(DefinitionTypeAndReturnTypeMismatch);
-            }
-
-            env.add_def_type(&def_name, &def_ty);
-        } else {
-            let (name, expr) = match value {
-                ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
-                ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
-                ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
-            };
-            let ty = get_type(&env, expr)?;
-            env.add_def_type(&name, &ty);
-        }
-    }
+    // TODO
+//    for Definition(opt_ty, value) in defs {
+//        let (name, expr) = match value {
+//            ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
+//            ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
+//            ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
+//        };
+//        let ty = get_type(&env, expr)?;
+//
+//        if let Some(def_ty) = opt_ty {
+//            if def_name != &name {
+//                return Err(InternalError);
+//            }
+//            if type_assignable_from(&env, def_ty, &ty) {
+//                return Err(DefinitionTypeAndReturnTypeMismatch);
+//            }
+//
+//            env.add_def_type(&def_name, &def_ty);
+//        } else {
+//            let (name, expr) = match value {
+//                ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
+//                ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
+//                ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
+//            };
+//            let ty = get_type(&env, expr)?;
+//            env.add_def_type(&name, &ty);
+//        }
+//    }
 
     Ok(env)
 }
@@ -403,11 +406,15 @@ pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
 
 #[cfg(test)]
 mod tests {
+    use analyzer::environment::builtin_fun_of;
     use nom::*;
     use nom::verbose_errors::*;
     use parsers::expression::read_expr;
     use super::*;
     use tokenizer::get_all_tokens;
+    use types::CurriedFunc;
+    use types::Fun;
+    use types::Value;
     use util::Tk;
 
     fn from_code(code: &[u8]) -> Expr {
@@ -444,10 +451,10 @@ mod tests {
     fn check_fun() {
         let expr = from_code(b"fun 123");
         let mut env = Environment::new();
-        env.add_def_type("fun", &Type::Fun(
+        env.add("fun", builtin_fun_of(0, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Tag("Int".s(), vec![])),
-        ));
+        )));
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
@@ -456,7 +463,10 @@ mod tests {
     fn check_if() {
         let expr = from_code(b"if True then 1 else 0");
         let mut env = Environment::new();
-        env.add_def_type("True", &Type::Tag("Bool".s(), vec![]));
+
+        env.add("True", builtin_fun_of(
+            0, Type::Tag("Bool".s(), vec![]),
+        ));
 
         assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
@@ -512,13 +522,13 @@ mod tests {
         let expr = from_code(b"1 + 2");
         let mut env = Environment::new();
 
-        env.add_def_type("+", &Type::Fun(
+        env.add("+", builtin_fun_of(0, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Fun(
                 Box::new(Type::Tag("Int".s(), vec![])),
                 Box::new(Type::Tag("Int".s(), vec![])),
             )),
-        ));
+        )));
 
         assert_eq!(get_type(&env, &expr), Ok(
             Type::Tag("Int".s(), vec![])
@@ -547,7 +557,7 @@ mod tests {
             ("a".s(), Type::Tag("Int".s(), vec![]))
         ]);
 
-        env.add_def_type("x", &record_type);
+        env.add("x", builtin_fun_of(0, record_type.clone()));
 
         assert_eq!(get_type(&env, &expr), Ok(record_type));
     }

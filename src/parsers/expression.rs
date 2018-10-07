@@ -349,11 +349,11 @@ mod tests {
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Let(
             vec![
-                Definition(None, ValueDefinition::Name(
-                    "x".s(),
-                    vec![],
-                    Expr::Literal(Literal::Int(5))
-                ))
+                Definition(None, ValueDefinition{
+                    name: "x".s(),
+                    patterns: vec![],
+                    expr: Expr::Literal(Literal::Int(5))
+                })
             ],
             Box::new(Expr::Literal(Literal::Int(3)))
         ));

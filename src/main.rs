@@ -27,6 +27,7 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
+use interpreter::eval;
 
 mod types;
 #[macro_use]
@@ -44,10 +45,10 @@ fn interpret_stdin() {
     print!("> ");
     stdout().flush().unwrap();
     let stdin = stdin();
-    let env = default_lang_env();
+    let mut env = default_lang_env();
 
     for line in stdin.lock().lines() {
-        if let Err(s) = run_line(&env, &line.unwrap().as_bytes()) {
+        if let Err(s) = run_line(&mut env, &line.unwrap().as_bytes()) {
             println!("Error: {}", s);
         }
         print!("> ");
@@ -55,7 +56,7 @@ fn interpret_stdin() {
     }
 }
 
-fn run_line(env: &Environment, line: &[u8]) -> Result<(), String> {
+fn run_line(env: &mut Environment, line: &[u8]) -> Result<(), String> {
     use nom::*;
     let tokens = get_all_tokens(line);
 
@@ -68,8 +69,11 @@ fn run_line(env: &Environment, line: &[u8]) -> Result<(), String> {
         Err(_) =>{
             let (_, expr) = read_expr(&tokens).map_err(|e| e.to_string())?;
             let expr_type = get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
+            env.enter_block();
+            let value = eval(env, &expr)?;
+            env.exit_block();
 
-            println!("{} : {}", expr, expr_type);
+            println!("{} : {}", value, expr_type);
         }
     }
 

@@ -1,12 +1,13 @@
+use analyzer::expression_fold::create_expr_tree;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
+use types::Definition;
 use types::Expr;
 use types::Literal;
-use types::Type;
 use types::Pattern;
-use types::Definition;
-use analyzer::expression_fold::create_expr_tree;
+use types::Type;
+use types::Value;
 
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -110,7 +111,7 @@ impl Display for Expr {
             Expr::RecordAccess(name) => write!(f, ".{}", name)?,
             Expr::If(cond, t_branch, f_branch) => {
                 write!(f, "if {} then {} else {}", cond, t_branch, f_branch)?
-            },
+            }
             Expr::Case(expr, branches) => {
                 write!(f, "case {} of (", expr)?;
                 print_pairs(f, branches)?;
@@ -120,13 +121,13 @@ impl Display for Expr {
                 write!(f, "\\")?;
                 print_vec(f, patt)?;
                 write!(f, " -> {}", expr)?
-            },
+            }
             Expr::Application(a, b) => write!(f, "({} {})", a, b)?,
             Expr::Let(defs, expr) => {
                 write!(f, "let (")?;
                 print_vec(f, defs)?;
                 write!(f, ") in ({})", expr)?;
-            },
+            }
             Expr::OpChain(exprs, ops) => {
                 let tree = create_expr_tree(exprs, ops);
                 match tree {
@@ -137,7 +138,7 @@ impl Display for Expr {
                         write!(f, "Invalid Tree: {:?}", e)?;
                     }
                 }
-            },
+            }
             Expr::Literal(lit) => write!(f, "{}", lit)?,
             Expr::Ref(name) => write!(f, "{}", name)?,
         }
@@ -145,14 +146,48 @@ impl Display for Expr {
     }
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self {
+            Value::Unit => write!(f, "()")?,
+            Value::Int(it) => write!(f, "{}", it)?,
+            Value::Float(it) => write!(f, "{}", it)?,
+            Value::String(it) => write!(f, "\"{}\"", it)?,
+            Value::Char(it) => write!(f, "'{}'", it)?,
+            Value::List(items) => {
+                write!(f, "[")?;
+                print_vec(f, items)?;
+                write!(f, "]")?;
+            },
+            Value::Tuple(items) => {
+                write!(f, "(")?;
+                print_vec(f, items)?;
+                write!(f, ")")?;
+            },
+            Value::Record(items) => {
+                write!(f, "{{ ")?;
+                print_pairs(f, items)?;
+                write!(f, " }}")?;
+            },
+            Value::Adt(name, items) => {
+                write!(f, "{} ", name)?;
+                print_vec(f, items)?;
+            },
+            Value::Fun(_) => write!(f, "<function>")?,
+        }
+        Ok(())
+    }
+}
+
+
 impl Display for Pattern {
-    fn fmt(&self, f: & mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{:?}", self)
     }
 }
 
 impl Display for Definition {
-    fn fmt(&self, f: & mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{:?}", self)
     }
 }

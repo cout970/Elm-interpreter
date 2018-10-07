@@ -37,7 +37,7 @@ pub enum Pattern {
 pub enum Statement {
     Alias(Vec<String>, Type),
     Adt(Vec<String>, Vec<(String, Vec<Type>)>),
-    Port(TypeDefinition),
+    Port(String, Type),
     Def(Definition),
 }
 
@@ -63,27 +63,50 @@ pub enum Expr {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TypeDefinition(pub String, pub Type);
+pub enum Value {
+    Unit,
+    Int(i32),
+    Float(f32),
+    String(String),
+    Char(char),
+    List(Vec<Value>),
+    Tuple(Vec<Value>),
+    Record(Vec<(String, Value)>),
+    Adt(String, Vec<Value>),
+    Fun(CurriedFunc),
+}
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ValueDefinition {
-    PrefixOp(String, Vec<Pattern>, Expr),
-    InfixOp(Pattern, String, Vec<Pattern>, Expr),
-    Name(String, Vec<Pattern>, Expr),
+pub struct CurriedFunc {
+    pub args: Vec<Value>,
+    pub fun: Fun,
+    pub arg_count: u32,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Fun {
+    Builtin(u32, Type),
+    Expr(Vec<Pattern>, Expr, Type),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ValueDefinition {
+    pub name: String,
+    pub patterns: Vec<Pattern>,
+    pub expr: Expr,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Definition(
-    pub Option<TypeDefinition>,
+    pub Option<Type>,
     pub ValueDefinition,
 );
-
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct Module {
     pub header: Option<ModuleHeader>,
     pub imports: Vec<Import>,
-    pub statements: Vec<Statement>
+    pub statements: Vec<Statement>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
