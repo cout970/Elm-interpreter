@@ -90,6 +90,19 @@ pub enum Fun {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Adt {
+    pub name: String,
+    pub types: Vec<Type>,
+    pub variants: Vec<AdtVariant>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct AdtVariant {
+    pub name: String,
+    pub types: Vec<Type>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct ValueDefinition {
     pub name: String,
     pub patterns: Vec<Pattern>,

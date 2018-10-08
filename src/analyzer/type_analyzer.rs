@@ -1,18 +1,23 @@
+use analyzer::environment::arg_count;
 use analyzer::environment::Environment;
 use analyzer::expression_fold::create_expr_tree;
 use analyzer::expression_fold::ExprTree;
+use analyzer::get_value_type;
 use analyzer::type_analyzer::TypeError::*;
+use interpreter::eval;
 use std::ops::Deref;
+use types::CurriedFunc;
 use types::Definition;
 use types::Expr;
+use types::Fun;
 use types::Literal;
 use types::Pattern;
 use types::Type;
+use types::Value;
 use types::ValueDefinition;
 use util::build_fun_type;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
-use analyzer::get_value_type;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
@@ -29,10 +34,11 @@ pub enum TypeError {
     CaseBranchDontMatchReturnType(String),
     DefinitionTypeAndReturnTypeMismatch,
     InvalidLambdaPattern(String),
+    ConstantEvaluationError(String),
     InternalError,
 }
 
-pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
+pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -94,7 +100,13 @@ pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::Lambda(patterns, expr) => {
+            env.enter_block();
+//            for patt  in patterns {
+//                env.add(patt.name, pattern_to_type(patt));
+//            }
             let out = get_type(env, expr)?;
+            env.exit_block();
+
             let mut var = patterns.iter()
                 .map(|p| pattern_to_type(p))
                 .collect::<Result<Vec<Type>, String>>()
@@ -132,18 +144,21 @@ pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::Let(defs, expr) => {
-            let new_env = expand_env(env, defs)?;
-            get_type(&new_env, expr)
+            env.enter_block();
+            expand_env(env, defs.iter().collect());
+            let ty = get_type(env, expr);
+            env.exit_block();
+            ty
         }
         Expr::OpChain(exprs, ops) => {
             match create_expr_tree(exprs, ops) {
-                Ok(tree) => get_tree_type(&env, tree),
+                Ok(tree) => get_tree_type(env, tree),
                 Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
             }
         }
         Expr::Record(entries) => {
             let types: Vec<(String, Type)> = entries.iter()
-                .map(|(name, expr)| get_type(&env, expr).map(|ty| (name.clone(), ty)))
+                .map(|(name, expr)| get_type(env, expr).map(|ty| (name.clone(), ty)))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Record(types))
@@ -225,7 +240,7 @@ pub fn get_type(env: &Environment, expr: &Expr) -> Result<Type, TypeError> {
     }
 }
 
-fn get_tree_type(env: &Environment, tree: ExprTree) -> Result<Type, TypeError> {
+fn get_tree_type(env: &mut Environment, tree: ExprTree) -> Result<Type, TypeError> {
     match tree {
         ExprTree::Leaf(e) => get_type(env, &e),
         ExprTree::Branch(op, left, right) => {
@@ -260,40 +275,33 @@ fn get_tree_type(env: &Environment, tree: ExprTree) -> Result<Type, TypeError> {
     }
 }
 
-fn expand_env(old_env: &Environment, _defs: &Vec<Definition>) -> Result<Environment, TypeError> {
-    let mut env = old_env.clone();
-    env.enter_block();
+pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), TypeError> {
+    for Definition(opt_ty, value) in defs {
+        let expr_ty = get_type(env, &value.expr)?;
 
+        let ty = opt_ty.clone()
+            .map(|t| particularize_type(&t, &expr_ty))
+            .unwrap_or(expr_ty);
+
+        let val: Value = if value.patterns.is_empty() {
+            eval(env, &value.expr).map_err(|e| ConstantEvaluationError(e))?
+        } else {
+            Value::Fun(CurriedFunc {
+                args: vec![],
+                arg_count: arg_count(&ty),
+                fun: Fun::Expr(value.patterns.clone(), value.expr.clone(), ty),
+            })
+        };
+
+        env.add(&value.name, val);
+    }
+
+    Ok(())
+}
+
+fn particularize_type(def: &Type, _expr: &Type) -> Type {
     // TODO
-//    for Definition(opt_ty, value) in defs {
-//        let (name, expr) = match value {
-//            ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
-//            ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
-//            ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
-//        };
-//        let ty = get_type(&env, expr)?;
-//
-//        if let Some(def_ty) = opt_ty {
-//            if def_name != &name {
-//                return Err(InternalError);
-//            }
-//            if type_assignable_from(&env, def_ty, &ty) {
-//                return Err(DefinitionTypeAndReturnTypeMismatch);
-//            }
-//
-//            env.add_def_type(&def_name, &def_ty);
-//        } else {
-//            let (name, expr) = match value {
-//                ValueDefinition::PrefixOp(name, _, expr) => (name.to_owned(), expr),
-//                ValueDefinition::InfixOp(_, name, _, expr) => (name.to_owned(), expr),
-//                ValueDefinition::Name(name, _, expr) => (name.to_owned(), expr),
-//            };
-//            let ty = get_type(&env, expr)?;
-//            env.add_def_type(&name, &ty);
-//        }
-//    }
-
-    Ok(env)
+    def.clone()
 }
 
 pub fn type_assignable_from(env: &Environment, child_or_equal: &Type, parent: &Type) -> bool {
@@ -436,15 +444,15 @@ mod tests {
     #[test]
     fn check_unit() {
         let expr = from_code(b"()");
-        let env = Environment::new();
-        assert_eq!(get_type(&env, &expr), Ok(Type::Unit));
+        let mut env = Environment::new();
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
         let expr = from_code(b"123");
-        let env = Environment::new();
-        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        let mut env = Environment::new();
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -456,7 +464,7 @@ mod tests {
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
 
-        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
@@ -468,15 +476,15 @@ mod tests {
             0, Type::Tag("Bool".s(), vec![]),
         ));
 
-        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_lambda() {
         let expr = from_code(b"\\x -> 1");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Ok(Type::Fun(
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Fun(
             Box::new(Type::Var("x".s())),
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
@@ -485,9 +493,9 @@ mod tests {
     #[test]
     fn check_list() {
         let expr = from_code(b"[1, 2, 3]");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Ok(Type::Tag(
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag(
             "List".s(), vec![Type::Tag("Int".s(), vec![])],
         )));
     }
@@ -495,9 +503,9 @@ mod tests {
     #[test]
     fn check_bad_list() {
         let expr = from_code(b"[1, 2, 'a']");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Err(
+        assert_eq!(get_type(&mut env, &expr), Err(
             ListNotHomogeneous(
                 "List of 'Int', but found element 'Char' at index: 2".s()
             )
@@ -507,9 +515,9 @@ mod tests {
     #[test]
     fn check_record() {
         let expr = from_code(b"{ a = 1, b = \"Hi\" }");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Ok(
+        assert_eq!(get_type(&mut env, &expr), Ok(
             Type::Record(vec![
                 ("a".s(), Type::Tag("Int".s(), vec![])),
                 ("b".s(), Type::Tag("String".s(), vec![])),
@@ -530,7 +538,7 @@ mod tests {
             )),
         )));
 
-        assert_eq!(get_type(&env, &expr), Ok(
+        assert_eq!(get_type(&mut env, &expr), Ok(
             Type::Tag("Int".s(), vec![])
         ));
     }
@@ -538,9 +546,9 @@ mod tests {
     #[test]
     fn check_tuple() {
         let expr = from_code(b"(1, \"a\", ())");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Ok(
+        assert_eq!(get_type(&mut env, &expr), Ok(
             Type::Tuple(vec![
                 Type::Tag("Int".s(), vec![]),
                 Type::Tag("String".s(), vec![]),
@@ -559,22 +567,22 @@ mod tests {
 
         env.add("x", builtin_fun_of(0, record_type.clone()));
 
-        assert_eq!(get_type(&env, &expr), Ok(record_type));
+        assert_eq!(get_type(&mut env, &expr), Ok(record_type));
     }
 
     #[test]
     fn check_case() {
         let expr = from_code(b"case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Ok(Type::Tag("String".s(), vec![])));
+        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("String".s(), vec![])));
     }
 
     #[test]
     fn check_case2() {
         let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
-        let env = Environment::new();
+        let mut env = Environment::new();
 
-        assert_eq!(get_type(&env, &expr), Err(CaseBranchDontMatchReturnType("".s())));
+        assert_eq!(get_type(&mut env, &expr), Err(CaseBranchDontMatchReturnType("".s())));
     }
 }

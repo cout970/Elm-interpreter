@@ -1,6 +1,7 @@
 use analyzer::type_analyzer::get_type;
 use analyzer::type_analyzer::TypeError;
 use std::collections::HashMap;
+use types::Adt;
 use types::CurriedFunc;
 use types::Definition;
 use types::Fun;
@@ -14,7 +15,10 @@ pub struct Environment(Vec<Block>);
 
 #[derive(Clone)]
 struct Block {
-    funs: HashMap<String, Value>
+    defs: HashMap<String, Value>,
+    adts: HashMap<String, Adt>,
+    alias: HashMap<String, Type>,
+    variables: HashMap<String, Type>,
 }
 
 pub fn builtin_fun_of(id: u32, ty: Type) -> Value {
@@ -25,7 +29,7 @@ pub fn builtin_fun_of(id: u32, ty: Type) -> Value {
     })
 }
 
-fn arg_count(ty: &Type) -> u32 {
+pub fn arg_count(ty: &Type) -> u32 {
     match ty {
         Type::Fun(_, ref out) => {
             1 + arg_count(out)
@@ -79,17 +83,22 @@ pub fn default_lang_env() -> Environment {
 impl Environment {
     pub fn new() -> Self {
         Environment(vec![
-            Block { funs: HashMap::new() }
+            Block {
+                defs: HashMap::new(),
+                adts: HashMap::new(),
+                alias: HashMap::new(),
+                variables: HashMap::new(),
+            }
         ])
     }
 
     pub fn add(&mut self, name: &str, def: Value) {
-        self.0.last_mut().unwrap().funs.insert(name.to_owned(), def);
+        self.0.last_mut().unwrap().defs.insert(name.to_owned(), def);
     }
 
     pub fn find(&self, name: &str) -> Option<Value> {
         for b in self.0.iter().rev() {
-            let opt = b.funs.get(name);
+            let opt = b.defs.get(name);
 
             if let Some(t) = opt {
                 return Some(t.clone());
@@ -100,7 +109,12 @@ impl Environment {
     }
 
     pub fn enter_block(&mut self) {
-        self.0.push(Block { funs: HashMap::new() });
+        self.0.push(Block {
+            defs: HashMap::new(),
+            adts: HashMap::new(),
+            alias: HashMap::new(),
+            variables: HashMap::new(),
+        });
     }
 
     pub fn exit_block(&mut self) {
