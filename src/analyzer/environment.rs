@@ -97,10 +97,24 @@ impl Environment {
     }
 
     pub fn find(&self, name: &str) -> Option<Value> {
-        for b in self.0.iter().rev() {
-            let opt = b.defs.get(name);
+        self.find_map(|block| block.defs.get(name))
+    }
 
-            if let Some(t) = opt {
+    pub fn find_variable(&self, name: &str) -> Option<Type> {
+        self.find_map(|block| block.variables.get(name))
+    }
+
+    pub fn add_variable(&mut self, name: &str, var: Type) {
+        self.0.last_mut().unwrap().variables.insert(name.to_owned(), var);
+    }
+
+    fn find_map<T, F>(&self, func: F) -> Option<T>
+        where
+            T: Clone,
+            F: Fn(&Block) -> Option<&T>
+    {
+        for b in self.0.iter().rev() {
+            if let Some(t) = func(b) {
                 return Some(t.clone());
             }
         }

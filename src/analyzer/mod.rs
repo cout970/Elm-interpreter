@@ -7,7 +7,7 @@ use types::Fun;
 pub mod environment;
 pub mod type_analyzer;
 pub mod expression_fold;
-
+pub mod pattern_helper;
 
 fn get_value_type(value: &Value) -> Type {
     match value {

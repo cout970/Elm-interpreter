@@ -3,6 +3,8 @@ use analyzer::environment::Environment;
 use analyzer::expression_fold::create_expr_tree;
 use analyzer::expression_fold::ExprTree;
 use analyzer::get_value_type;
+use analyzer::pattern_helper::add_pattern_variables;
+use analyzer::pattern_helper::pattern_to_type;
 use analyzer::type_analyzer::TypeError::*;
 use interpreter::eval;
 use std::ops::Deref;
@@ -35,6 +37,7 @@ pub enum TypeError {
     DefinitionTypeAndReturnTypeMismatch,
     InvalidLambdaPattern(String),
     ConstantEvaluationError(String),
+    VariableAlreadyDeclared(String),
     InternalError,
 }
 
@@ -53,20 +56,26 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            env.find(name).ok_or(MissingAdt(format!("Missing ADT {}", name))).map(|val| get_value_type(&val))
+            env.find(name)
+                .map(|val| get_value_type(&val))
+                .or_else(|| env.find_variable(name))
+                .ok_or(MissingAdt(format!("Missing ADT {}", name)))
         }
         Expr::Ref(name) => {
-            env.find(name).ok_or(MissingDefinition(format!("Missing def {}", name))).map(|val| get_value_type(&val))
+            env.find(name)
+                .map(|val| get_value_type(&val))
+                .or_else(|| env.find_variable(name))
+                .ok_or(MissingDefinition(format!("Missing def {}", name)))
         }
         Expr::QualifiedRef(_path, name) => {
             // TODO resolve path
             let is_adt = name.chars().next().unwrap().is_uppercase();
 
-            env.find(name).ok_or(if is_adt {
-                MissingAdt(format!("Missing ADT {}", name))
+            if is_adt {
+                get_type(env, &Expr::Adt(name.to_owned()))
             } else {
-                MissingDefinition(format!("Missing def {}", name))
-            }).map(|val| get_value_type(&val))
+                get_type(env, &Expr::Ref(name.to_owned()))
+            }
         }
         Expr::Application(i, o) => {
             let function = get_type(env, i).map(|i| i.clone())?;
@@ -101,11 +110,12 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
         }
         Expr::Lambda(patterns, expr) => {
             env.enter_block();
-//            for patt  in patterns {
-//                env.add(patt.name, pattern_to_type(patt));
-//            }
-            let out = get_type(env, expr)?;
+            for patt in patterns {
+                add_pattern_variables(env, patt).map_err(|e| VariableAlreadyDeclared(e))?;
+            }
+            let out_ = get_type(env, expr);
             env.exit_block();
+            let out = out_?;
 
             let mut var = patterns.iter()
                 .map(|p| pattern_to_type(p))
@@ -197,10 +207,7 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
             Ok(Type::Tuple(types))
         }
         Expr::RecordUpdate(name, updates) => {
-            let record_type = env.find(name)
-                .ok_or(MissingDefinition(format!("Missing def {}", name)))
-                .map(|val| get_value_type(&val))?;
-
+            let record_type = get_type(env, &Expr::Ref(name.to_owned()))?;
 
             if let Type::Record(fields) = &record_type {
                 for (field_name, _) in updates {
@@ -244,9 +251,7 @@ fn get_tree_type(env: &mut Environment, tree: ExprTree) -> Result<Type, TypeErro
     match tree {
         ExprTree::Leaf(e) => get_type(env, &e),
         ExprTree::Branch(op, left, right) => {
-            let op_type = env.find(&op)
-                .ok_or(MissingDefinition(format!("Missing def {}", op)))
-                .map(|val| get_value_type(&val))?;
+            let op_type = get_type(env, &Expr::Ref(op.to_owned()))?;
 
             let left_value = get_tree_type(env, *left).map(|t| t.clone())?;
             let right_value = get_tree_type(env, *right).map(|t| t.clone())?;
@@ -277,7 +282,15 @@ fn get_tree_type(env: &mut Environment, tree: ExprTree) -> Result<Type, TypeErro
 
 pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), TypeError> {
     for Definition(opt_ty, value) in defs {
-        let expr_ty = get_type(env, &value.expr)?;
+
+        env.enter_block();
+        for patt in &value.patterns {
+            add_pattern_variables(env, patt).map_err(|e| VariableAlreadyDeclared(e))?;
+        }
+        let out_ = get_type(env, &value.expr);
+        env.exit_block();
+        let expr_ty = out_?;
+
 
         let ty = opt_ty.clone()
             .map(|t| particularize_type(&t, &expr_ty))
@@ -354,63 +367,6 @@ pub fn common_type<'a>(env: &Environment, types: &[&'a Type]) -> Result<&'a Type
     }
     Ok(first)
 }
-
-pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
-    match patt {
-        Pattern::Var(n) => {
-            Ok(Type::Var(n.to_owned()))
-        }
-        Pattern::Adt(n, items) => {
-            let types: Vec<Type> = items.iter()
-                .map(|p| pattern_to_type(p))
-                .collect::<Result<_, _>>()?;
-
-            Ok(Type::Tag(n.to_owned(), types))
-        }
-        Pattern::Wildcard => {
-            Ok(Type::Var(NameSequence::new().next()))
-        }
-        Pattern::Unit => {
-            Ok(Type::Unit)
-        }
-        Pattern::Tuple(items) => {
-            let types: Vec<Type> = items.iter()
-                .map(|p| pattern_to_type(p))
-                .collect::<Result<_, _>>()?;
-
-            Ok(Type::Tuple(types))
-        }
-        Pattern::List(items) => {
-            let item_type = if items.is_empty() {
-                Type::Var(NameSequence::new().next())
-            } else {
-                pattern_to_type(items.first().unwrap())?
-            };
-
-            Ok(Type::Tag("List".s(), vec![item_type]))
-        }
-        Pattern::Record(items) => {
-            let mut seq = NameSequence::new();
-            let entries = items.iter()
-                .map(|p| (p.to_owned(), Type::Var(seq.next())))
-                .collect();
-
-            Ok(Type::RecExt(seq.next(), entries))
-        }
-        Pattern::Literal(lit) => {
-            match lit {
-                Literal::Int(_) => Ok(Type::Tag("Int".s(), vec![])),
-                Literal::Float(_) => Ok(Type::Tag("Float".s(), vec![])),
-                Literal::String(_) => Ok(Type::Tag("String".s(), vec![])),
-                Literal::Char(_) => Ok(Type::Tag("Char".s(), vec![])),
-            }
-        }
-        Pattern::BinaryOp(_, _, _) => {
-            Err(format!("Infix pattern cannot be used in this situation"))
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
