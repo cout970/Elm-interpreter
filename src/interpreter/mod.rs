@@ -1,6 +1,7 @@
 use analyzer::environment::Environment;
 use analyzer::expression_fold::create_expr_tree;
 use analyzer::expression_fold::ExprTree;
+use analyzer::pattern_helper::add_pattern_variables;
 use analyzer::type_analyzer::get_type;
 use types::CurriedFunc;
 use types::Definition;
@@ -11,6 +12,7 @@ use types::Pattern;
 use types::Type;
 use types::Value;
 use util::StringConversion;
+use analyzer::pattern_helper::add_pattern_values;
 
 
 pub fn eval(env: &mut Environment, expr: &Expr) -> Result<Value, String> {
@@ -179,7 +181,12 @@ fn exec_fun(env: &mut Environment, fun: &Fun, args: &[Value]) -> Result<Value, S
         }
         Fun::Expr(ref patterns, ref expr, _) => {
             env.enter_block();
-            init_local_vals(env, patterns, args);
+            assert_eq!(patterns.len(), args.len());
+
+            for (patt, val) in patterns.iter().zip(args) {
+                add_pattern_values(env, patt, val).unwrap();
+            }
+
             let res = eval(env, expr);
             env.exit_block();
             Ok(res?)
@@ -219,10 +226,6 @@ fn builtin_fun(id: u32, args: &[Value]) -> Result<Value, String> {
     };
 
     Ok(ret)
-}
-
-fn init_local_vals(env: &mut Environment, patterns: &[Pattern], args: &[Value]) {
-    assert_eq!(patterns.len(), args.len());
 }
 
 #[cfg(test)]

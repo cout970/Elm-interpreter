@@ -38,6 +38,7 @@ pub enum TypeError {
     InvalidLambdaPattern(String),
     ConstantEvaluationError(String),
     VariableAlreadyDeclared(String),
+    UnableToCalculateFunctionType(String),
     InternalError,
 }
 
@@ -88,7 +89,7 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
                     Ok(*result.clone())
                 }
             } else {
-                Err(NotAFunction(format!("Expected function found: {}", function)))
+                Err(NotAFunction(format!("Expected function found: {}, (in: {}, out: {})", function, i, o)))
             }
         }
         Expr::If(cond, a, b) => {
@@ -287,14 +288,21 @@ pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), T
         for patt in &value.patterns {
             add_pattern_variables(env, patt).map_err(|e| VariableAlreadyDeclared(e))?;
         }
-        let out_ = get_type(env, &value.expr);
+        let expr_ty = get_type(env, &value.expr);
         env.exit_block();
-        let expr_ty = out_?;
+
+        let mut args_ty = (&value.patterns).iter()
+            .map(|p| pattern_to_type(p))
+            .collect::<Result<Vec<Type>, _>>()
+            .map_err(|e| UnableToCalculateFunctionType(e))?;
+
+        args_ty.push(expr_ty?);
+        let fun_ty = build_fun_type(&args_ty);
 
 
         let ty = opt_ty.clone()
-            .map(|t| particularize_type(&t, &expr_ty))
-            .unwrap_or(expr_ty);
+            .map(|t| particularize_type(&t, &fun_ty))
+            .unwrap_or(fun_ty);
 
         let val: Value = if value.patterns.is_empty() {
             eval(env, &value.expr).map_err(|e| ConstantEvaluationError(e))?
