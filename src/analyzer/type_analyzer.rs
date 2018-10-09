@@ -2,7 +2,6 @@ use analyzer::environment::arg_count;
 use analyzer::environment::Environment;
 use analyzer::expression_fold::create_expr_tree;
 use analyzer::expression_fold::ExprTree;
-use analyzer::get_value_type;
 use analyzer::pattern_helper::add_pattern_variables;
 use analyzer::pattern_helper::pattern_to_type;
 use analyzer::type_analyzer::TypeError::*;
@@ -20,6 +19,10 @@ use types::ValueDefinition;
 use util::build_fun_type;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
+use analyzer::environment::expand_env;
+use analyzer::type_resolution::type_assignable_from;
+use analyzer::type_resolution::calculate_common_type;
+use analyzer::type_resolution::get_value_type;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
@@ -101,7 +104,7 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
                 return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {}", cond)));
             }
 
-            let ret_ty = common_type(env, &[&true_branch, &false_branch]);
+            let ret_ty = calculate_common_type(env, &[&true_branch, &false_branch]);
             match ret_ty {
                 Ok(ty) => Ok(ty.clone()),
                 Err((a, b)) => Err(
@@ -135,7 +138,7 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
                     .map(|e| get_type(env, e))
                     .collect::<Result<_, _>>()?;
 
-                let ret_ty = common_type(env, &types.iter().collect::<Vec<&Type>>());
+                let ret_ty = calculate_common_type(env, &types.iter().collect::<Vec<&Type>>());
                 match ret_ty {
                     Ok(ty) => {
                         Ok(Type::Tag("List".s(), vec![ty.clone()]))
@@ -156,9 +159,10 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
         }
         Expr::Let(defs, expr) => {
             env.enter_block();
-            expand_env(env, defs.iter().collect());
+            let res = expand_env(env, defs.iter().collect());
             let ty = get_type(env, expr);
             env.exit_block();
+            res?;
             ty
         }
         Expr::OpChain(exprs, ops) => {
@@ -279,101 +283,6 @@ fn get_tree_type(env: &mut Environment, tree: ExprTree) -> Result<Type, TypeErro
             }
         }
     }
-}
-
-pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), TypeError> {
-    for Definition(opt_ty, value) in defs {
-
-        env.enter_block();
-        for patt in &value.patterns {
-            add_pattern_variables(env, patt).map_err(|e| VariableAlreadyDeclared(e))?;
-        }
-        let expr_ty = get_type(env, &value.expr);
-        env.exit_block();
-
-        let mut args_ty = (&value.patterns).iter()
-            .map(|p| pattern_to_type(p))
-            .collect::<Result<Vec<Type>, _>>()
-            .map_err(|e| UnableToCalculateFunctionType(e))?;
-
-        args_ty.push(expr_ty?);
-        let fun_ty = build_fun_type(&args_ty);
-
-
-        let ty = opt_ty.clone()
-            .map(|t| particularize_type(&t, &fun_ty))
-            .unwrap_or(fun_ty);
-
-        let val: Value = if value.patterns.is_empty() {
-            eval(env, &value.expr).map_err(|e| ConstantEvaluationError(e))?
-        } else {
-            Value::Fun(CurriedFunc {
-                args: vec![],
-                arg_count: arg_count(&ty),
-                fun: Fun::Expr(value.patterns.clone(), value.expr.clone(), ty),
-            })
-        };
-
-        env.add(&value.name, val);
-    }
-
-    Ok(())
-}
-
-fn particularize_type(def: &Type, _expr: &Type) -> Type {
-    // TODO
-    def.clone()
-}
-
-pub fn type_assignable_from(env: &Environment, child_or_equal: &Type, parent: &Type) -> bool {
-    if parent == child_or_equal {
-        true
-    } else {
-        match parent {
-            Type::Var(_) => true,
-            Type::Tag(name, children) => {
-                match child_or_equal {
-                    Type::Tag(child_name, child_children) => {
-                        name == "number" && children.is_empty() &&
-                            (child_name == "Int" || child_name == "Float") && child_children.is_empty()
-                    }
-                    _ => false
-                }
-            }
-            Type::Fun(a, b) => {
-                match child_or_equal {
-                    Type::Fun(a2, b2) => {
-                        type_assignable_from(env, a2, a) && type_assignable_from(env, b2, b)
-                    }
-                    _ => false
-                }
-            }
-            Type::Unit => false,
-            Type::Tuple(items) => {
-                match child_or_equal {
-                    Type::Tuple(items2) => {
-                        if items.len() == items2.len() {
-                            items2.iter().zip(items).all(|(a, b)| type_assignable_from(env, b, a))
-                        } else { false }
-                    }
-                    _ => false
-                }
-            }
-            Type::Record(_) => false,
-            Type::RecExt(_, _) => false,
-        }
-    }
-}
-
-pub fn common_type<'a>(env: &Environment, types: &[&'a Type]) -> Result<&'a Type, (&'a Type, &'a Type)> {
-    let first = *types.first().unwrap();
-
-    for i in 1..types.len() {
-        if !type_assignable_from(env, &types[i], first) {
-            return Err((first, types[i]));
-        }
-    }
-    Ok(first)
 }
 
 #[cfg(test)]

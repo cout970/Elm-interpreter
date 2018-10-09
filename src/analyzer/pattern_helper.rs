@@ -87,7 +87,7 @@ pub fn add_pattern_variables(env: &mut Environment, pattern: &Pattern) -> Result
                 env.add_variable(p, Type::Var(p.to_owned()))
             }
         }
-        Pattern::Literal(lit) => {}
+        Pattern::Literal(_) => {}
         Pattern::Wildcard => {}
         Pattern::Unit => {}
         Pattern::BinaryOp(_, ref a, ref b) => {
@@ -147,7 +147,7 @@ pub fn add_pattern_values(env: &mut Environment, pattern: &Pattern, value: &Valu
                 env.add_variable(p, Type::Var(p.to_owned()))
             }
         }
-        Pattern::Literal(lit) => {}
+        Pattern::Literal(_) => {}
         Pattern::Wildcard => {}
         Pattern::Unit => {}
         Pattern::BinaryOp(op, ref a, ref b) => {

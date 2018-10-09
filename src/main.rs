@@ -28,7 +28,7 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
-use analyzer::type_analyzer::expand_env;
+use analyzer::environment::expand_env;
 
 mod types;
 #[macro_use]
@@ -66,9 +66,9 @@ fn run_line(env: &mut Environment, line: &[u8]) -> Result<(), String> {
     match stm {
         Ok((_, statement)) => {
             match statement {
-                Statement::Alias(path, ty) => {}
-                Statement::Adt(def, variants) => {}
-                Statement::Port(name, ty) => {}
+                Statement::Alias(_path, _ty) => {}
+                Statement::Adt(_def, _variants) => {}
+                Statement::Port(_name, _ty) => {}
                 Statement::Def(ref def) => {
                     expand_env(env, vec![def]).map_err(|e| format!("{:?}", e))?;
                 }
