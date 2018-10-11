@@ -1,5 +1,49 @@
-pub mod module;
-pub mod types;
-pub mod statement;
-pub mod expression;
-pub mod pattern;
+use parsers::expression::read_expr;
+use parsers::statement::read_statement;
+use tokenizer::Token;
+use tokenizer::tokenize;
+use types::Expr;
+use types::Statement;
+
+pub type Tk<'a> = &'a [Token];
+
+#[macro_use]
+mod macros;
+
+mod module;
+mod types;
+mod statement;
+mod expression;
+mod pattern;
+
+pub fn parse_expr(i: Tk) -> Result<Expr, ()> {
+    match read_expr(i) {
+        Ok((_, e)) => Ok(e),
+        Err(_) => Err(())
+    }
+}
+
+pub fn parse_statement(i: Tk) -> Result<Statement, ()> {
+    match read_statement(i) {
+        Ok((_, e)) => Ok(e),
+        Err(_) => Err(())
+    }
+}
+
+pub fn from_code(code: &[u8]) -> Expr {
+    use nom::*;
+
+    let stream = tokenize(code);
+    let expr: IResult<Tk, Expr> = read_expr(&stream);
+
+    match expr {
+        Ok((_, e)) => e,
+        Err(e) => {
+            match e {
+                Err::Incomplete(need) => panic!("Tokens needed: {:?}", need),
+                Err::Failure(ctx) => panic!("Parsing failure: {:#?}", ctx),
+                Err::Error(ctx) => panic!("Syntax error: {:#?}", ctx),
+            };
+        }
+    }
+}

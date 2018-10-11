@@ -2,6 +2,7 @@ use *;
 use tokenizer::Token;
 use tokenizer::Token::*;
 use types::*;
+use parsers::Tk;
 use util::create_vec;
 
 named!(pub read_pattern<Tk, Pattern>,  alt!(

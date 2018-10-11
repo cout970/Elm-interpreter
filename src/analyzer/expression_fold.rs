@@ -177,29 +177,12 @@ mod tests {
     use analyzer::expression_fold::ExprTree::*;
     use nom::*;
     use nom::verbose_errors::*;
-    use parsers::expression::read_expr;
     use super::*;
     use tokenizer::tokenize;
     use types::Expr;
     use types::Expr::Ref;
     use util::StringConversion;
-    use util::Tk;
-
-    fn from_code(code: &[u8]) -> Expr {
-        let stream = tokenize(code);
-        let expr: IResult<Tk, Expr> = read_expr(&stream);
-
-        match expr {
-            Ok((_, e)) => e,
-            Err(e) => {
-                match e {
-                    Err::Incomplete(need) => panic!("Tokens needed: {:?}", need),
-                    Err::Failure(ctx) => panic!("Parsing failure: {:#?}", ctx),
-                    Err::Error(ctx) => panic!("Syntax error: {:#?}", ctx),
-                };
-            }
-        }
-    }
+    use parsers::from_code;
 
     #[test]
     fn check_operator_precedence() {

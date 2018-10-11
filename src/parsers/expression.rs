@@ -5,7 +5,7 @@ use parsers::pattern::read_pattern;
 use parsers::statement::read_definition;
 use tokenizer::Token::*;
 use types::Expr;
-use util::Tk;
+use parsers::Tk;
 
 // Expresions
 
@@ -250,7 +250,6 @@ mod tests {
     use nom::*;
     use super::*;
     use tokenizer::tokenize;
-    use util::Tk;
 
     #[test]
     fn check_unit() {

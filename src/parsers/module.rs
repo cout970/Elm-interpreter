@@ -4,6 +4,7 @@ use parsers::statement::*;
 use tokenizer::Token;
 use tokenizer::Token::*;
 use types::Module;
+use parsers::Tk;
 use util::*;
 
 // Modules

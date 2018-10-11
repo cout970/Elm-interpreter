@@ -17,9 +17,6 @@ use interpreter::eval;
 use nom::ExtendInto;
 use nom::IResult;
 use nom::verbose_errors::Context;
-use parsers::expression::read_expr;
-use parsers::module::*;
-use parsers::statement::read_statement;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -30,10 +27,13 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
+use parsers::parse_expr;
+use parsers::parse_statement;
 
 mod types;
 #[macro_use]
 mod util;
+#[macro_use]
 mod parsers;
 mod tokenizer;
 mod analyzer;
@@ -61,11 +61,10 @@ fn interpret_stdin() {
 pub fn run_line(env: &mut Environment, line: &[u8]) -> Result<String, String> {
     use nom::*;
     let tokens = tokenize(line);
-
-    let stm = read_statement(&tokens).map_err(|e| e.to_string());
+    let stm = parse_statement(&tokens).map_err(|e| format!("{:?}", e));
 
     match stm {
-        Ok((_, statement)) => {
+        Ok(statement) => {
             match statement {
                 Statement::Alias(path, ty) => { Ok(format!("type alias {:?} = {}", path, ty)) }
                 Statement::Adt(def, variants) => { Ok(format!("type {:?} = {:?}", def, variants)) }
@@ -77,7 +76,7 @@ pub fn run_line(env: &mut Environment, line: &[u8]) -> Result<String, String> {
             }
         }
         Err(_) => {
-            let (_, expr) = read_expr(&tokens).map_err(|e| e.to_string())?;
+            let expr = parse_expr(&tokens).map_err(|e| format!("{:?}", e))?;
             // check expr type
             get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
             env.enter_block();
@@ -99,17 +98,17 @@ fn load_file() -> Vec<u8> {
     data
 }
 
-fn interpret_file() {
-    let file = load_file();
-    let tokens = tokenize(&file);
+//fn interpret_file() {
+//    let file = load_file();
+//    let tokens = tokenize(&file);
 //        println!("Tokens: \n{:#?}\n", tokens);
 
-    let result = read_module(&tokens);
-
-    if let Ok((rest, module)) = result {
-        println!("Remaining: {:?}\n", rest);
-        println!("Output: \n{:#?}", module);
-    } else {
-        println!("{:?}", result);
-    }
-}
+//    let result = read_module(&tokens);
+//
+//    if let Ok((rest, module)) = result {
+//        println!("Remaining: {:?}\n", rest);
+//        println!("Output: \n{:#?}", module);
+//    } else {
+//        println!("{:?}", result);
+//    }
+//}
