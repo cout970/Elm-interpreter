@@ -60,7 +60,7 @@ fn interpret_stdin() {
 
 pub fn run_line(env: &mut Environment, line: &[u8]) -> Result<String, String> {
     use nom::*;
-    let tokens = get_all_tokens(line);
+    let tokens = tokenize(line);
 
     let stm = read_statement(&tokens).map_err(|e| e.to_string());
 
@@ -101,7 +101,7 @@ fn load_file() -> Vec<u8> {
 
 fn interpret_file() {
     let file = load_file();
-    let tokens = get_all_tokens(&file);
+    let tokens = tokenize(&file);
 //        println!("Tokens: \n{:#?}\n", tokens);
 
     let result = read_module(&tokens);

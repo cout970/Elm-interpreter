@@ -95,11 +95,11 @@ named!(alias<Tk, Statement>, do_parse!(
 mod tests {
     use nom::*;
     use super::*;
-    use tokenizer::get_all_tokens;
+    use tokenizer::tokenize;
 
     #[test]
     fn check_type_alias() {
-        let stream = get_all_tokens(b"\ntype alias Html = MyHtml");
+        let stream = tokenize(b"\ntype alias Html = MyHtml");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Alias(
             vec!["Html".s()],
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn check_adt() {
-        let stream = get_all_tokens(b"\ntype Boolean = True | False");
+        let stream = tokenize(b"\ntype Boolean = True | False");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Adt(
             vec!["Boolean".s()],
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn check_port() {
-        let stream = get_all_tokens(b"\nport js_function : Int -> Int");
+        let stream = tokenize(b"\nport js_function : Int -> Int");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Port(
             "js_function".s(),
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn check_def() {
-        let stream = get_all_tokens(b"\nmy_fun x = ()");
+        let stream = tokenize(b"\nmy_fun x = ()");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
             Definition(
@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     fn check_def2() {
-        let stream = get_all_tokens(b"\nx = 5");
+        let stream = tokenize(b"\nx = 5");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
             Definition(
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn check_def3() {
-        let stream = get_all_tokens(b"\nmy_fun: Int\nmy_fun = 5");
+        let stream = tokenize(b"\nmy_fun: Int\nmy_fun = 5");
         let m = top_level_statement(&stream);
         assert_ok!(m,
             Statement::Def(
@@ -182,7 +182,7 @@ mod tests {
 
     //    #[test]
     fn check_def4() {
-        let stream = get_all_tokens(b"\n\
+        let stream = tokenize(b"\n\
 update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
         ");
         let m = top_level_statement(&stream);

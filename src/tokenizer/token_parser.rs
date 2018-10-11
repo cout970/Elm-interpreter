@@ -1,52 +1,8 @@
+use tokenizer::Token::*;
+use tokenizer::Token;
 use nom::*;
-use self::Token::*;
-use types::*;
 use util::*;
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum Token {
-    Id(String),
-    UpperId(String),
-    BinaryOperator(String),
-    LitInt(Int),
-    LitFloat(Float),
-    LitChar(char),
-    LitString(String),
-    Indent(u32),
-    LineStart,
-    BackSlash,
-    Let,
-    If,
-    Else,
-    Then,
-    Case,
-    Of,
-    In,
-    ModuleTk,
-    Where,
-    Exposing,
-    ImportTk,
-    As,
-    TypeTk,
-    Port,
-    Alias,
-    Underscore,
-    Dot,
-    DoubleDot,
-    Comma,
-    LeftParen,
-    RightParen,
-    LeftBracket,
-    RightBracket,
-    LeftBrace,
-    RightBrace,
-    Equals,
-    Pipe,
-    RightArrow,
-    LeftArrow,
-    Colon,
-    Eof,
-}
+use tokenizer::Input;
 
 named!(lower<char>, one_of!("abcdefghijklmnopqrstuvwxyz"));
 
@@ -152,23 +108,25 @@ named!(basic_binop_string<String>, map!(
     |v| v.into_iter().collect::<String>()
 ));
 
-fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
-    let (o, binop): (&[u8], String) = basic_binop_string(input)?;
-    let op = from_binop(binop);
-    Ok((o, op))
-}
-
 named!(underscore<Token>, map!(char!('_'), |_c| Underscore));
+
 named!(dot<Token>, map!(char!('.'), |_c| Dot));
+
 named!(double_dot<Token>, map!(tag!(".."), |_c| DoubleDot));
+
 named!(comma<Token>, map!(char!(','), |_c| Comma));
+
 named!(equals<Token>, map!(char!('='), |_c| Equals));
+
 named!(pipe<Token>, map!(char!('|'), |_c| Pipe));
+
 named!(left_arrow<Token>, map!(tag!("<-"), |_c| LeftArrow));
+
 named!(right_arrow<Token>, map!(tag!("->"), |_c| RightArrow));
+
 named!(eof_marker<Token>, alt!(map!(eof!(), |_c| Eof) | map!(char!('\0'), |_c| Eof)));
 
-named!(read_token_forced<Token>, alt!(
+named!(pub read_token_forced<Token>, alt!(
     read_binop
     | comma
     | pipe
@@ -183,6 +141,13 @@ named!(read_token_forced<Token>, alt!(
     | right_brace
     | eof_marker
 ));
+
+
+fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
+    let (o, binop): (&[u8], String) = basic_binop_string(input)?;
+    let op = from_binop(binop);
+    Ok((o, op))
+}
 
 fn from_id(id: String) -> Token {
     match id.as_bytes() {
@@ -216,128 +181,6 @@ fn from_binop(id: String) -> Token {
         b"->" => RightArrow,
         b"\\" => BackSlash,
         _ => BinaryOperator(id)
-    }
-}
-
-fn map_result(input: &[u8], res: IResult<&[u8], Token>) -> Option<(Token, usize)> {
-    match res {
-        Ok((rest, ret)) => {
-            Some((ret, input.len() - rest.len()))
-        }
-        _ => None
-    }
-}
-
-fn read_token<'a>(i: Input) -> IResult<Input, Token> {
-    use nom::verbose_errors::Context;
-
-    if i.stream.len() == 0 {
-        return Err(Err::Incomplete(Needed::Size(1)));
-    }
-
-    let mut ptr = 0;
-    let mut new_line = false;
-
-    while i.stream[ptr] == b' ' || i.stream[ptr] == b'\n' {
-        new_line |= i.stream[ptr] == b'\n';
-        ptr += 1;
-    }
-
-    if new_line {
-        let mut indentation = 0;
-
-        for j in 0..ptr {
-            let j = ptr - j - 1;
-            if i.stream[j] == b'\n' {
-                break;
-            }
-            indentation += 1;
-        }
-
-        if indentation == 0 {
-            return Ok((i.advance(ptr), LineStart));
-        } else {
-            return Ok((i.advance(ptr), Indent(indentation)));
-        }
-    }
-
-    let (tk, len) = {
-        let rest = &i.stream[ptr..];
-
-        let opt_tk = map_result(rest, read_token_forced(rest));
-
-        match opt_tk {
-            Some(pair) => pair,
-            _ => return Err(Err::Failure(
-                Context::Code(i, ErrorKind::Custom(0))
-            ))
-        }
-    };
-
-    Ok((i.advance(ptr + len), tk))
-}
-
-pub fn get_all_tokens(stream: &[u8]) -> Vec<Token> {
-    let mut tokens = Vec::new();
-    let mut stream: Vec<u8> = stream.iter().map(|c| c.to_owned()).collect();
-    stream.push('\0' as u8);
-    stream.push('\0' as u8);
-
-    let mut input: Input = Input::new(&stream);
-    loop {
-        let res = read_token(input);
-
-        match res {
-            Ok((rem, token)) => {
-                tokens.push(token.clone());
-                if token == Token::Eof { break; }
-                input = rem;
-            }
-            Err(_) => {
-                panic!("\n{:?}\n", res);
-            }
-        };
-    }
-
-    tokens
-}
-
-#[derive(PartialEq, Debug, Clone)]
-struct Input<'a> {
-    stream: &'a [u8],
-    line: u32,
-    column: u32,
-}
-
-impl<'a> Input<'a> {
-    fn new(stream: &'a [u8]) -> Self {
-        Input {
-            stream,
-            line: 0,
-            column: 0,
-        }
-    }
-
-    fn advance(&self, n: usize) -> Input<'a> {
-        let skipped: &[u8] = &self.stream[0..n];
-
-        let mut line = self.line;
-        let mut column = self.column;
-
-        for c in skipped {
-            if *c as char == '\n' {
-                line += 1;
-                column = 0;
-            } else {
-                column += 1;
-            }
-        }
-
-        Input {
-            stream: &self.stream[n..],
-            line,
-            column,
-        }
     }
 }
 
@@ -413,42 +256,5 @@ mod tests {
         assert_ok!(read_token_forced(b"-> "), RightArrow);
         assert_ok!(read_token_forced(b"<- "), LeftArrow);
         assert_ok!(read_token_forced(b"<-- "), BinaryOperator("<--".s()));
-    }
-
-    #[test]
-    fn check_tokens() {
-        let code = b"identifier1234,123.45";
-        let tokens = get_all_tokens(code);
-        assert_eq!(tokens, vec![Id("identifier1234".s()), Comma, LitFloat(123.45), Eof]);
-    }
-
-    #[test]
-    fn check_identifiers() {
-        let code = b"i, _a, b123, cBAD, aghjh, get_something";
-        let tokens = get_all_tokens(code);
-        assert_eq!(tokens, vec![
-            Id("i".s()), Comma,
-            Underscore,
-            Id("a".s()), Comma,
-            Id("b123".s()), Comma,
-            Id("cBAD".s()), Comma,
-            Id("aghjh".s()), Comma,
-            Id("get_something".s()),
-            Eof
-        ]);
-    }
-
-    #[test]
-    fn check_indentation_token() {
-        let code = b"case i of\n  1\n  2\nmy_func";
-        let tokens = get_all_tokens(code);
-        assert_eq!(tokens, vec![
-            Case, Id("i".s()), Of,
-            Indent(2), LitInt(1),
-            Indent(2), LitInt(2),
-            LineStart,
-            Id("my_func".s()),
-            Eof
-        ]);
     }
 }

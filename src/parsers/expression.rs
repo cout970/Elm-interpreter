@@ -249,27 +249,27 @@ fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
 mod tests {
     use nom::*;
     use super::*;
-    use tokenizer::get_all_tokens;
+    use tokenizer::tokenize;
     use util::Tk;
 
     #[test]
     fn check_unit() {
         let p = ExprParser::new();
-        let stream = get_all_tokens(b"()");
+        let stream = tokenize(b"()");
         let (_, m) = p.read_expr(&stream);
         assert_ok!(m, Expr::Unit);
     }
 
     #[test]
     fn check_parens() {
-        let stream = get_all_tokens(b"(a)");
+        let stream = tokenize(b"(a)");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Ref("a".s()));
     }
 
     #[test]
     fn check_tuple() {
-        let stream = get_all_tokens(b"(a, b)");
+        let stream = tokenize(b"(a, b)");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Tuple(vec![
             Expr::Ref("a".s()),
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn check_list() {
-        let stream = get_all_tokens(b"[a, b]");
+        let stream = tokenize(b"[a, b]");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::List(vec![
             Expr::Ref("a".s()),
@@ -289,14 +289,14 @@ mod tests {
 
     #[test]
     fn check_empty_list() {
-        let stream = get_all_tokens(b"[]");
+        let stream = tokenize(b"[]");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::List(vec![]));
     }
 
     #[test]
     fn check_unit_tuple() {
-        let stream = get_all_tokens(b"(,)");
+        let stream = tokenize(b"(,)");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Tuple(vec![
             Expr::Unit,
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn check_if() {
-        let stream = get_all_tokens(b"if a then b else c");
+        let stream = tokenize(b"if a then b else c");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::If(
             Box::new(Expr::Ref("a".s())),
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn check_lambda() {
-        let stream = get_all_tokens(b"\\x -> x");
+        let stream = tokenize(b"\\x -> x");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Lambda(
             vec![Pattern::Var("x".s())],
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn check_case() {
-        let stream = get_all_tokens(b"case x of\n  [] -> 0\n  _ -> 1");
+        let stream = tokenize(b"case x of\n  [] -> 0\n  _ -> 1");
         println!("{:#?}", stream);
 
         let m = read_expr(&stream);
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn check_let() {
-        let stream = get_all_tokens(b"let x = 5 in 3");
+        let stream = tokenize(b"let x = 5 in 3");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Let(
             vec![
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn check_binop_chain() {
-        let stream = get_all_tokens(b"1 + 2 + 3 + 4");
+        let stream = tokenize(b"1 + 2 + 3 + 4");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::OpChain(vec![
             Expr::Literal(Literal::Int(1)),
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn check_priorities() {
-        let stream = get_all_tokens(b"1 * 2 + 3 * 4");
+        let stream = tokenize(b"1 * 2 + 3 * 4");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::OpChain(vec![
            Expr::Literal(Literal::Int(1)),
@@ -387,7 +387,7 @@ mod tests {
 
     #[test]
     fn check_record_update() {
-        let stream = get_all_tokens(b"{ a | b = 0 }");
+        let stream = tokenize(b"{ a | b = 0 }");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::RecordUpdate(
             "a".s(),
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn check_record_update2() {
-        let stream = get_all_tokens(b"{ a | b = 0, c = 1 }");
+        let stream = tokenize(b"{ a | b = 0, c = 1 }");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::RecordUpdate(
             "a".s(),
@@ -410,14 +410,14 @@ mod tests {
 
     #[test]
     fn check_record_access() {
-        let stream = get_all_tokens(b".x");
+        let stream = tokenize(b".x");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::RecordAccess("x".s()));
     }
 
     #[test]
     fn check_record_field() {
-        let stream = get_all_tokens(b"{}.x");
+        let stream = tokenize(b"{}.x");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::RecordField(
             Box::new(Expr::Record(vec![])),
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn check_qualified_ref() {
-        let stream = get_all_tokens(b"List.map");
+        let stream = tokenize(b"List.map");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::QualifiedRef(
             vec!["List".s()],
@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn check_function_application() {
-        let stream = get_all_tokens(b"my_fun 1");
+        let stream = tokenize(b"my_fun 1");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Application(
             Box::new(Expr::Ref("my_fun".s())),
@@ -447,7 +447,7 @@ mod tests {
 
     #[test]
     fn check_function_application2() {
-        let stream = get_all_tokens(b"my_fun 1 2");
+        let stream = tokenize(b"my_fun 1 2");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::Application(
             Box::new(Expr::Application(
@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn check_function_application_priority() {
-        let stream = get_all_tokens(b"my_fun 1 2 + 3");
+        let stream = tokenize(b"my_fun 1 2 + 3");
         let m = read_expr(&stream);
         assert_ok!(m, Expr::OpChain(
             vec![
@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn check_multiline_expr() {
-        let stream = get_all_tokens(b"my_fun []\n  []");
+        let stream = tokenize(b"my_fun []\n  []");
         let m = read_expr(&stream);
         assert_ok!(m,
         Expr::Application(
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn check_case_indentation() {
-        let stream = get_all_tokens(b"\
+        let stream = tokenize(b"\
 case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
         ");
         let m = read_expr(&stream);

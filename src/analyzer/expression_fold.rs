@@ -179,14 +179,14 @@ mod tests {
     use nom::verbose_errors::*;
     use parsers::expression::read_expr;
     use super::*;
-    use tokenizer::get_all_tokens;
+    use tokenizer::tokenize;
     use types::Expr;
     use types::Expr::Ref;
     use util::StringConversion;
     use util::Tk;
 
     fn from_code(code: &[u8]) -> Expr {
-        let stream = get_all_tokens(code);
+        let stream = tokenize(code);
         let expr: IResult<Tk, Expr> = read_expr(&stream);
 
         match expr {

@@ -70,46 +70,46 @@ named!(literal<Tk, Pattern>, map!(literal!(), |l| Pattern::Literal(l)));
 mod tests {
     use nom::*;
     use super::*;
-    use tokenizer::get_all_tokens;
+    use tokenizer::tokenize;
 
     #[test]
     fn check_literal() {
-        let stream = get_all_tokens(b"1");
+        let stream = tokenize(b"1");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Literal(Literal::Int(1)));
     }
 
     #[test]
     fn check_variable() {
-        let stream = get_all_tokens(b"variable");
+        let stream = tokenize(b"variable");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Var("variable".s()));
     }
 
     #[test]
     fn check_algebraic_data_type() {
-        let stream = get_all_tokens(b"List a");
+        let stream = tokenize(b"List a");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Adt("List".s(), vec![Pattern::Var("a".s())]));
     }
 
     #[test]
     fn check_wildcard() {
-        let stream = get_all_tokens(b"_");
+        let stream = tokenize(b"_");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Wildcard);
     }
 
     #[test]
     fn check_unit() {
-        let stream = get_all_tokens(b"()");
+        let stream = tokenize(b"()");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Unit);
     }
 
     #[test]
     fn check_tuple() {
-        let stream = get_all_tokens(b"(a, b)");
+        let stream = tokenize(b"(a, b)");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Tuple(vec![
             Pattern::Var("a".s()), Pattern::Var("b".s())
@@ -118,14 +118,14 @@ mod tests {
 
     #[test]
     fn check_empty_list() {
-        let stream = get_all_tokens(b"[]");
+        let stream = tokenize(b"[]");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::List(vec![]));
     }
 
     #[test]
     fn check_list() {
-        let stream = get_all_tokens(b"[a, b]");
+        let stream = tokenize(b"[a, b]");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::List(vec![
             Pattern::Var("a".s()), Pattern::Var("b".s())
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn check_record() {
-        let stream = get_all_tokens(b"{ a, b }");
+        let stream = tokenize(b"{ a, b }");
         let m = read_pattern(&stream);
         assert_ok!(m, Pattern::Record(
             vec!["a".s(), "b".s()]

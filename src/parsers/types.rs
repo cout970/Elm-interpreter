@@ -79,40 +79,40 @@ fn create_fun(a: Type, b: Vec<Type>) -> Type {
 mod tests {
     use nom::*;
     use super::*;
-    use tokenizer::get_all_tokens;
+    use tokenizer::tokenize;
     use util::StringConversion;
 
     #[test]
     fn check_unit() {
-        let stream = get_all_tokens(b"()");
+        let stream = tokenize(b"()");
         let m = read_type(&stream);
         assert_ok!(m, Type::Unit);
     }
 
     #[test]
     fn check_variable() {
-        let stream = get_all_tokens(b"a");
+        let stream = tokenize(b"a");
         let m = read_type(&stream);
         assert_ok!(m, Type::Var("a".s()));
     }
 
     #[test]
     fn check_tag() {
-        let stream = get_all_tokens(b"List a");
+        let stream = tokenize(b"List a");
         let m = read_type(&stream);
         assert_ok!(m, Type::Tag("List".s(), vec![Type::Var("a".s())]));
     }
 
     #[test]
     fn check_tuple2() {
-        let stream = get_all_tokens(b"(a,b)");
+        let stream = tokenize(b"(a,b)");
         let m = read_type(&stream);
         assert_ok!(m, Type::Tuple(vec![Type::Var("a".s()), Type::Var("b".s())]));
     }
 
     #[test]
     fn check_tuple6() {
-        let stream = get_all_tokens(b"(a,b,c,d,e,f)");
+        let stream = tokenize(b"(a,b,c,d,e,f)");
         let m = read_type(&stream);
         assert_ok!(m, Type::Tuple(vec![
             Type::Var("a".s()),
@@ -126,35 +126,35 @@ mod tests {
 
     #[test]
     fn check_empty_record() {
-        let stream = get_all_tokens(b"{}");
+        let stream = tokenize(b"{}");
         let m = read_type(&stream);
         assert_ok!(m, Type::Record(vec![]));
     }
 
     #[test]
     fn check_record() {
-        let stream = get_all_tokens(b"{ a: b }");
+        let stream = tokenize(b"{ a: b }");
         let m = read_type(&stream);
         assert_ok!(m, Type::Record(vec![("a".s(), Type::Var("b".s()))]));
     }
 
     #[test]
     fn check_ext_record() {
-        let stream = get_all_tokens(b"{ list | a: b }");
+        let stream = tokenize(b"{ list | a: b }");
         let m = read_type(&stream);
         assert_ok!(m, Type::RecExt("list".s(), vec![("a".s(), Type::Var("b".s()))]));
     }
 
     #[test]
     fn check_paren() {
-        let stream = get_all_tokens(b"(a)");
+        let stream = tokenize(b"(a)");
         let m = read_type(&stream);
         assert_ok!(m, Type::Var("a".s()));
     }
 
     #[test]
     fn check_function() {
-        let stream = get_all_tokens(b"Int -> Float -> a");
+        let stream = tokenize(b"Int -> Float -> a");
         let m = read_type(&stream);
         assert_ok!(m, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
