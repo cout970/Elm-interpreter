@@ -65,7 +65,12 @@ pub fn pattern_to_type(patt: &Pattern) -> Result<Type, String> {
 pub fn add_pattern_variables(env: &mut Environment, pattern: &Pattern) -> Result<(), String> {
     match pattern {
         Pattern::Var(n) => {
-            env.add_variable(&n, Type::Var(n.to_owned()))
+            env.add_variable(&n, Type::Var("a".s()))
+        }
+        Pattern::Record(ref items) => {
+            for p in items {
+                env.add_variable(p, Type::Var(p.to_owned()))
+            }
         }
         Pattern::Adt(_, ref items) => {
             for p in items {
@@ -80,11 +85,6 @@ pub fn add_pattern_variables(env: &mut Environment, pattern: &Pattern) -> Result
         Pattern::List(ref items) => {
             for p in items {
                 add_pattern_variables(env, p)?;
-            }
-        }
-        Pattern::Record(ref items) => {
-            for p in items {
-                env.add_variable(p, Type::Var(p.to_owned()))
             }
         }
         Pattern::Literal(_) => {}

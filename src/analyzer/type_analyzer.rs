@@ -89,6 +89,7 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
                 if !type_assignable_from(env, &input, &**argument) {
                     Err(ArgumentsDoNotMatch(format!("Expected argument: {}, found: {}", argument, input)))
                 } else {
+
                     Ok(*result.clone())
                 }
             } else {

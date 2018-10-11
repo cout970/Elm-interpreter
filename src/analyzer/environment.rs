@@ -139,22 +139,21 @@ pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), T
         let expr_ty = get_type(env, &value.expr);
         env.exit_block();
 
-        let mut args_ty = (&value.patterns).iter()
-            .map(|p| pattern_to_type(p))
-            .collect::<Result<Vec<Type>, _>>()
-            .map_err(|e| UnableToCalculateFunctionType(e))?;
-
-        args_ty.push(expr_ty?);
-        let fun_ty = build_fun_type(&args_ty);
-
-
-        let ty = opt_ty.clone()
-            .map(|t| particularize_type(&t, &fun_ty))
-            .unwrap_or(fun_ty);
-
         let val: Value = if value.patterns.is_empty() {
             eval(env, &value.expr).map_err(|e| ConstantEvaluationError(e))?
         } else {
+            let mut args_ty = (&value.patterns).iter()
+                .map(|p| pattern_to_type(p))
+                .collect::<Result<Vec<Type>, _>>()
+                .map_err(|e| UnableToCalculateFunctionType(e))?;
+
+            args_ty.push(expr_ty?);
+            let fun_ty = build_fun_type(&args_ty);
+
+            let ty = opt_ty.clone()
+                .map(|t| particularize_type(&t, &fun_ty))
+                .unwrap_or(fun_ty);
+
             Value::Fun(CurriedFunc {
                 args: vec![],
                 arg_count: arg_count(&ty),

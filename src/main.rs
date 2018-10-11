@@ -10,7 +10,9 @@ extern crate pretty_assertions;
 
 use analyzer::environment::default_lang_env;
 use analyzer::environment::Environment;
+use analyzer::environment::expand_env;
 use analyzer::type_analyzer::get_type;
+use analyzer::type_resolution::get_value_type;
 use interpreter::eval;
 use nom::ExtendInto;
 use nom::IResult;
@@ -28,7 +30,6 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
-use analyzer::environment::expand_env;
 
 mod types;
 #[macro_use]
@@ -57,7 +58,7 @@ fn interpret_stdin() {
     }
 }
 
-fn run_line(env: &mut Environment, line: &[u8]) -> Result<(), String> {
+pub fn run_line(env: &mut Environment, line: &[u8]) -> Result<String, String> {
     use nom::*;
     let tokens = get_all_tokens(line);
 
@@ -66,26 +67,28 @@ fn run_line(env: &mut Environment, line: &[u8]) -> Result<(), String> {
     match stm {
         Ok((_, statement)) => {
             match statement {
-                Statement::Alias(_path, _ty) => {}
-                Statement::Adt(_def, _variants) => {}
-                Statement::Port(_name, _ty) => {}
+                Statement::Alias(path, ty) => { Ok(format!("type alias {:?} = {}", path, ty)) }
+                Statement::Adt(def, variants) => { Ok(format!("type {:?} = {:?}", def, variants)) }
+                Statement::Port(name, ty) => { Ok(format!("port {} = {}", name, ty)) }
                 Statement::Def(ref def) => {
                     expand_env(env, vec![def]).map_err(|e| format!("{:?}", e))?;
+                    Ok(format!("def {:?}", def))
                 }
             }
         }
         Err(_) => {
             let (_, expr) = read_expr(&tokens).map_err(|e| e.to_string())?;
-            let expr_type = get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
+            // check expr type
+            get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
             env.enter_block();
             let value = eval(env, &expr);
             env.exit_block();
 
-            println!("{} : {}", value?, expr_type);
+            let value = value?;
+
+            Ok(format!("{} : {}", &value, get_value_type(&value)))
         }
     }
-
-    Ok(())
 }
 
 fn load_file() -> Vec<u8> {
