@@ -11,12 +11,13 @@ extern crate pretty_assertions;
 use analyzer::environment::default_lang_env;
 use analyzer::environment::Environment;
 use analyzer::environment::expand_env;
-use analyzer::type_analyzer::get_type;
 use analyzer::type_resolution::get_value_type;
 use interpreter::eval;
 use nom::ExtendInto;
 use nom::IResult;
 use nom::verbose_errors::Context;
+use parsers::parse_expr;
+use parsers::parse_statement;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -27,8 +28,7 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
-use parsers::parse_expr;
-use parsers::parse_statement;
+use analyzer::type_check_expression;
 
 mod types;
 #[macro_use]
@@ -78,7 +78,7 @@ pub fn run_line(env: &mut Environment, line: &[u8]) -> Result<String, String> {
         Err(_) => {
             let expr = parse_expr(&tokens).map_err(|e| format!("{:?}", e))?;
             // check expr type
-            get_type(env, &expr).map_err(|e| format!("{:?}", e))?;
+            type_check_expression(env, &expr).map_err(|e| format!("{:?}", e))?;
             env.enter_block();
             let value = eval(env, &expr);
             env.exit_block();

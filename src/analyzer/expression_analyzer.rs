@@ -1,11 +1,16 @@
-use analyzer::environment::arg_count;
 use analyzer::environment::Environment;
-use analyzer::expression_fold::create_expr_tree;
-use analyzer::expression_fold::ExprTree;
+use analyzer::environment::expand_env;
+use analyzer::function_analyzer::analyze_function;
+use analyzer::function_analyzer::analyze_function_arguments;
+use analyzer::function_analyzer::PatternMatchingError;
 use analyzer::pattern_helper::add_pattern_variables;
-use analyzer::pattern_helper::pattern_to_type;
-use analyzer::type_analyzer::TypeError::*;
+use analyzer::type_resolution::calculate_common_type;
+use analyzer::type_resolution::get_value_type;
+use analyzer::type_resolution::type_assignable_from;
+use analyzer::TypeError::*;
+use analyzer::TypeError;
 use interpreter::eval;
+use std::collections::HashMap;
 use std::ops::Deref;
 use types::CurriedFunc;
 use types::Definition;
@@ -17,35 +22,12 @@ use types::Type;
 use types::Value;
 use types::ValueDefinition;
 use util::build_fun_type;
+use util::expression_fold::create_expr_tree;
+use util::expression_fold::ExprTree;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
-use analyzer::environment::expand_env;
-use analyzer::type_resolution::type_assignable_from;
-use analyzer::type_resolution::calculate_common_type;
-use analyzer::type_resolution::get_value_type;
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum TypeError {
-    MissingAdt(String),
-    MissingDefinition(String),
-    ListNotHomogeneous(String),
-    IfWithNonBoolCondition(String),
-    IfBranchesDoesntMatch(String),
-    ArgumentsDoNotMatch(String),
-    NotAFunction(String),
-    InvalidOperandChain(String),
-    RecordUpdateOnNonRecord(String),
-    RecordUpdateUnknownField(String),
-    CaseBranchDontMatchReturnType(String),
-    DefinitionTypeAndReturnTypeMismatch,
-    InvalidLambdaPattern(String),
-    ConstantEvaluationError(String),
-    VariableAlreadyDeclared(String),
-    UnableToCalculateFunctionType(String),
-    InternalError,
-}
-
-pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
+pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type>, expr: &Expr, expected: Option<&Type>) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -62,34 +44,36 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
         Expr::Adt(name) => {
             env.find(name)
                 .map(|val| get_value_type(&val))
-                .or_else(|| env.find_variable(name))
                 .ok_or(MissingAdt(format!("Missing ADT {}", name)))
         }
         Expr::Ref(name) => {
-            env.find(name)
-                .map(|val| get_value_type(&val))
-                .or_else(|| env.find_variable(name))
-                .ok_or(MissingDefinition(format!("Missing def {}", name)))
+            if vars.contains_key(name) {
+                Ok(vars.get(name).unwrap().clone())
+            } else {
+                env.find(name)
+                    .map(|val| get_value_type(&val))
+                    .ok_or(MissingDefinition(format!("Missing def {}", name)))
+            }
         }
         Expr::QualifiedRef(_path, name) => {
             // TODO resolve path
             let is_adt = name.chars().next().unwrap().is_uppercase();
 
             if is_adt {
-                get_type(env, &Expr::Adt(name.to_owned()))
+                analyze_expression(env, vars, &Expr::Adt(name.to_owned()), expected)
             } else {
-                get_type(env, &Expr::Ref(name.to_owned()))
+                analyze_expression(env, vars, &Expr::Ref(name.to_owned()), expected)
             }
         }
         Expr::Application(i, o) => {
-            let function = get_type(env, i).map(|i| i.clone())?;
-            let input = get_type(env, o).map(|i| i.clone())?;
+            let function = analyze_expression(env, vars, i, None)?;
 
             if let Type::Fun(ref argument, ref result) = function {
+                let input = analyze_expression(env, vars, o, Some(result))?;
+
                 if !type_assignable_from(env, &input, &**argument) {
                     Err(ArgumentsDoNotMatch(format!("Expected argument: {}, found: {}", argument, input)))
                 } else {
-
                     Ok(*result.clone())
                 }
             } else {
@@ -97,9 +81,9 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::If(cond, a, b) => {
-            let cond = get_type(env, cond).map(|i| i.clone())?;
-            let true_branch = get_type(env, a).map(|i| i.clone())?;
-            let false_branch = get_type(env, b).map(|i| i.clone())?;
+            let cond = analyze_expression(env, vars, cond, Some(&Type::Tag("Bool".s(), vec![])))?;
+            let true_branch = analyze_expression(env, vars, a, expected)?;
+            let false_branch = analyze_expression(env, vars, b, expected)?;
 
             if !type_assignable_from(env, &Type::Tag("Bool".s(), vec![]), &cond) {
                 return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {}", cond)));
@@ -114,20 +98,24 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::Lambda(patterns, expr) => {
-            env.enter_block();
-            for patt in patterns {
-                add_pattern_variables(env, patt).map_err(|e| VariableAlreadyDeclared(e))?;
+            let (tys, new_vars) = analyze_function_arguments(patterns)?;
+
+            for (name, value) in &new_vars {
+                if vars.contains_key(name) {
+                    return Err(VariableNameShadowed(name.clone()));
+                }
+
+                vars.insert(name.clone(), value.clone());
             }
-            let out_ = get_type(env, expr);
-            env.exit_block();
-            let out = out_?;
 
-            let mut var = patterns.iter()
-                .map(|p| pattern_to_type(p))
-                .collect::<Result<Vec<Type>, String>>()
-                .map_err(|s| InvalidLambdaPattern(s))?;
+            let out = analyze_expression(env, vars, expr, expected);
 
-            var.push(out);
+            for (ref name, ref value) in new_vars {
+                vars.remove(name);
+            }
+
+            let mut var = tys.clone();
+            var.push(out?);
 
             Ok(build_fun_type(&var))
         }
@@ -136,7 +124,7 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
                 Ok(Type::Tag("List".s(), vec![Type::Var("a".s())]))
             } else {
                 let types: Vec<Type> = exprs.iter()
-                    .map(|e| get_type(env, e))
+                    .map(|e| analyze_expression(env, vars, e, None))
                     .collect::<Result<_, _>>()?;
 
                 let ret_ty = calculate_common_type(env, &types.iter().collect::<Vec<&Type>>());
@@ -160,21 +148,33 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
         }
         Expr::Let(defs, expr) => {
             env.enter_block();
-            let res = expand_env(env, defs.iter().collect());
-            let ty = get_type(env, expr);
+            for def in defs {
+                let def_ty = analyze_function(env, def);
+
+                match def_ty {
+                    Ok(ty) => {
+                        env.add_variable(&def.1.name, ty);
+                    }
+                    Err(e) => {
+                        env.exit_block();
+                        return Err(e);
+                    }
+                }
+            }
+            let res = analyze_expression(env, vars, expr, expected);
             env.exit_block();
-            res?;
-            ty
+
+            res
         }
         Expr::OpChain(exprs, ops) => {
             match create_expr_tree(exprs, ops) {
-                Ok(tree) => get_tree_type(env, tree),
+                Ok(tree) => get_tree_type(env, vars, tree, expected),
                 Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
             }
         }
         Expr::Record(entries) => {
             let types: Vec<(String, Type)> = entries.iter()
-                .map(|(name, expr)| get_type(env, expr).map(|ty| (name.clone(), ty)))
+                .map(|(name, expr)| analyze_expression(env, vars, expr, None).map(|ty| (name.clone(), ty)))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Record(types))
@@ -186,7 +186,10 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
             ))
         }
         Expr::RecordField(expr, name) => {
-            let record = match get_type(env, expr) {
+            let exp_ty = Type::Record(vec![
+                (name.clone(), expected.map(|e| e.clone()).unwrap_or(Type::Var("a".s())))
+            ]);
+            let record = match analyze_expression(env, vars, expr, Some(&exp_ty)) {
                 Ok(t) => t.clone(),
                 Err(e) => { return Err(e); }
             };
@@ -207,13 +210,19 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
         }
         Expr::Tuple(items) => {
             let types: Vec<Type> = items.iter()
-                .map(|e| get_type(env, e))
+                .map(|e| analyze_expression(env, vars, e, None))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Tuple(types))
         }
         Expr::RecordUpdate(name, updates) => {
-            let record_type = get_type(env, &Expr::Ref(name.to_owned()))?;
+            let mut update_types = vec![];
+            for (name, expr) in updates {
+                update_types.push((name.clone(), analyze_expression(env, vars, expr, None)?));
+            }
+            let exp_ty = Type::Record(update_types);
+
+            let record_type = analyze_expression(env, vars, &Expr::Ref(name.to_owned()), Some(&exp_ty))?;
 
             if let Type::Record(fields) = &record_type {
                 for (field_name, _) in updates {
@@ -233,42 +242,43 @@ pub fn get_type(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
             }
         }
         Expr::Case(expr, branches) => {
-
-            // check that the case expression has a valid type
-            get_type(env, expr)?;
-
             let mut iter = branches.iter();
             let (_, e) = iter.next().unwrap();
-            let first_type = get_type(env, e)?;
+            let first_type = analyze_expression(env, vars, e, None)?;
 
             while let Some((_, e)) = iter.next() {
-                let ret = get_type(env, e)?;
+                let ret = analyze_expression(env, vars, e, None)?;
                 if !type_assignable_from(env, &ret, &first_type) {
                     return Err(CaseBranchDontMatchReturnType("".s()));
                 }
             }
+
+            // check that the case expression has a valid type
+            analyze_expression(env, vars, expr, Some(&first_type))?;
 
             Ok(first_type)
         }
     }
 }
 
-fn get_tree_type(env: &mut Environment, tree: ExprTree) -> Result<Type, TypeError> {
+fn get_tree_type(env: &mut Environment, vars: &mut HashMap<String, Type>, tree: ExprTree,
+                 expected: Option<&Type>) -> Result<Type, TypeError> {
     match tree {
-        ExprTree::Leaf(e) => get_type(env, &e),
+        ExprTree::Leaf(e) => analyze_expression(env, vars, &e, expected),
         ExprTree::Branch(op, left, right) => {
-            let op_type = get_type(env, &Expr::Ref(op.to_owned()))?;
-
-            let left_value = get_tree_type(env, *left).map(|t| t.clone())?;
-            let right_value = get_tree_type(env, *right).map(|t| t.clone())?;
+            let op_type = analyze_expression(env, vars, &Expr::Ref(op.to_owned()), None)?;
 
             if let Type::Fun(ref argument, ref next_func) = op_type {
+                let left_value = get_tree_type(env, vars, *left, Some(next_func)).map(|t| t.clone())?;
+
                 if !type_assignable_from(env, &left_value, &**argument) {
                     return Err(ArgumentsDoNotMatch(
                         format!("Expected argument: {}, found: {}", argument, left_value)
                     ));
                 }
                 if let Type::Fun(ref argument, ref result) = **next_func {
+                    let right_value = get_tree_type(env, vars, *right, Some(result)).map(|t| t.clone())?;
+
                     if !type_assignable_from(env, &right_value, &**argument) {
                         return Err(ArgumentsDoNotMatch(
                             format!("Expected argument: {}, found: {}", argument, right_value)
@@ -286,63 +296,72 @@ fn get_tree_type(env: &mut Environment, tree: ExprTree) -> Result<Type, TypeErro
     }
 }
 
+
 #[cfg(test)]
 mod tests {
-    use analyzer::environment::builtin_fun_of;
     use nom::*;
     use nom::verbose_errors::*;
+    use parsers::from_code;
     use super::*;
     use tokenizer::tokenize;
     use types::CurriedFunc;
     use types::Fun;
     use types::Value;
-    use parsers::from_code;
+    use util::builtin_fun_of;
 
     #[test]
     fn check_unit() {
         let expr = from_code(b"()");
         let mut env = Environment::new();
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Unit));
+        let mut vars: HashMap<String, Type> = Default::default();
+
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
         let expr = from_code(b"123");
         let mut env = Environment::new();
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        let mut vars: HashMap<String, Type> = Default::default();
+
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_fun() {
         let expr = from_code(b"fun 123");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
+
         env.add("fun", builtin_fun_of(0, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
 
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_if() {
         let expr = from_code(b"if True then 1 else 0");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
         env.add("True", builtin_fun_of(
             0, Type::Tag("Bool".s(), vec![]),
         ));
 
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_lambda() {
         let expr = from_code(b"\\x -> 1");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Fun(
-            Box::new(Type::Var("x".s())),
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Fun(
+            Box::new(Type::Var("a".s())),
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
     }
@@ -351,8 +370,9 @@ mod tests {
     fn check_list() {
         let expr = from_code(b"[1, 2, 3]");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag(
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag(
             "List".s(), vec![Type::Tag("Int".s(), vec![])],
         )));
     }
@@ -361,8 +381,9 @@ mod tests {
     fn check_bad_list() {
         let expr = from_code(b"[1, 2, 'a']");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Err(
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Err(
             ListNotHomogeneous(
                 "List of 'Int', but found element 'Char' at index: 2".s()
             )
@@ -373,8 +394,9 @@ mod tests {
     fn check_record() {
         let expr = from_code(b"{ a = 1, b = \"Hi\" }");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Ok(
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(
             Type::Record(vec![
                 ("a".s(), Type::Tag("Int".s(), vec![])),
                 ("b".s(), Type::Tag("String".s(), vec![])),
@@ -386,6 +408,7 @@ mod tests {
     fn check_operator_chain() {
         let expr = from_code(b"1 + 2");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
         env.add("+", builtin_fun_of(0, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
@@ -395,7 +418,7 @@ mod tests {
             )),
         )));
 
-        assert_eq!(get_type(&mut env, &expr), Ok(
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(
             Type::Tag("Int".s(), vec![])
         ));
     }
@@ -404,8 +427,9 @@ mod tests {
     fn check_tuple() {
         let expr = from_code(b"(1, \"a\", ())");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Ok(
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(
             Type::Tuple(vec![
                 Type::Tag("Int".s(), vec![]),
                 Type::Tag("String".s(), vec![]),
@@ -418,28 +442,32 @@ mod tests {
     fn check_record_update() {
         let expr = from_code(b"{ x | a = 0}");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
+
         let record_type = Type::Record(vec![
             ("a".s(), Type::Tag("Int".s(), vec![]))
         ]);
 
         env.add("x", builtin_fun_of(0, record_type.clone()));
 
-        assert_eq!(get_type(&mut env, &expr), Ok(record_type));
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(record_type));
     }
 
     #[test]
     fn check_case() {
         let expr = from_code(b"case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Ok(Type::Tag("String".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("String".s(), vec![])));
     }
 
     #[test]
     fn check_case2() {
         let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
         let mut env = Environment::new();
+        let mut vars: HashMap<String, Type> = Default::default();
 
-        assert_eq!(get_type(&mut env, &expr), Err(CaseBranchDontMatchReturnType("".s())));
+        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Err(CaseBranchDontMatchReturnType("".s())));
     }
 }

@@ -1,2 +1,9 @@
 
-pub mod codes;
+
+pub enum ErrorType {
+    Lexical,
+    Syntactic,
+    Semantic,
+    Runtime
+}
+

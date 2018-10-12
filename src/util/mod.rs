@@ -3,6 +3,7 @@ use types::*;
 
 pub mod name_sequence;
 pub mod format;
+pub mod expression_fold;
 
 #[cfg(test)]
 macro_rules! assert_ok {
@@ -27,6 +28,46 @@ impl StringConversion for str {
         self.to_string()
     }
 }
+
+pub trait VecExt<A> {
+    fn map<B, F: FnMut(&A) -> B>(&self, f: F) -> Vec<B>;
+    fn join_vec(&self, other: &[A]) -> Vec<A>;
+}
+
+impl <A: Clone> VecExt<A> for Vec<A> {
+    fn map<B, F: FnMut(&A) -> B>(&self, f: F) -> Vec<B> {
+        self.iter().map(f).collect()
+    }
+
+    fn join_vec(&self, other: &[A]) -> Vec<A> {
+        let mut res: Vec<A> = Vec::new();
+        for a in self {
+            res.push(a.clone());
+        }
+        for b in other {
+            res.push(b.clone());
+        }
+        res
+    }
+}
+
+pub fn builtin_fun_of(id: u32, ty: Type) -> Value {
+    Value::Fun(CurriedFunc {
+        args: vec![],
+        arg_count: arg_count(&ty),
+        fun: Fun::Builtin(id, ty),
+    })
+}
+
+pub fn arg_count(ty: &Type) -> u32 {
+    match ty {
+        Type::Fun(_, ref out) => {
+            1 + arg_count(out)
+        }
+        _ => 0
+    }
+}
+
 
 pub fn to_string(v: &[u8]) -> String {
     v.into_iter().map(|c| *c as char).collect::<String>()

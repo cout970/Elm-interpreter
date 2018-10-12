@@ -1,8 +1,7 @@
 use analyzer::environment::Environment;
-use analyzer::expression_fold::create_expr_tree;
-use analyzer::expression_fold::ExprTree;
+use analyzer::pattern_helper::add_pattern_values;
 use analyzer::pattern_helper::add_pattern_variables;
-use analyzer::type_analyzer::get_type;
+use analyzer::type_check_expression;
 use types::CurriedFunc;
 use types::Definition;
 use types::Expr;
@@ -11,9 +10,9 @@ use types::Literal;
 use types::Pattern;
 use types::Type;
 use types::Value;
+use util::expression_fold::create_expr_tree;
+use util::expression_fold::ExprTree;
 use util::StringConversion;
-use analyzer::pattern_helper::add_pattern_values;
-
 
 pub fn eval(env: &mut Environment, expr: &Expr) -> Result<Value, String> {
     let res: Value = match expr {
@@ -66,7 +65,7 @@ pub fn eval(env: &mut Environment, expr: &Expr) -> Result<Value, String> {
             }
         }
         Expr::Lambda(patt, _expr) => {
-            let ty = get_type(env, expr).map_err(|it| format!("{:?}", it))?;
+            let ty = type_check_expression(env, expr).map_err(|it| format!("{:?}", it))?;
 
             Value::Fun(CurriedFunc {
                 args: vec![],
@@ -230,14 +229,14 @@ fn builtin_fun(id: u32, args: &[Value]) -> Result<Value, String> {
 
 #[cfg(test)]
 mod tests {
-    use analyzer::environment::builtin_fun_of;
     use nom::*;
     use nom::verbose_errors::*;
+    use parsers::from_code;
     use super::*;
     use tokenizer::tokenize;
     use types::Pattern;
     use types::Type;
-    use parsers::from_code;
+    use util::builtin_fun_of;
 
     #[test]
     fn check_unit() {
@@ -272,7 +271,7 @@ mod tests {
                     vec![Pattern::Var("x".s())],
                     Expr::Literal(Literal::Int(1)),
                     Type::Fun(
-                        Box::new(Type::Var("x".s())),
+                        Box::new(Type::Var("a".s())),
                         Box::new(Type::Tag("Int".s(), vec![])),
                     ),
                 ),

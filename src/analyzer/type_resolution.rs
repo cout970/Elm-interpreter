@@ -187,11 +187,22 @@ pub fn calculate_common_type<'a>(env: &Environment, types: &[&'a Type]) -> Resul
     Ok(first)
 }
 
+pub fn check_common_type(types: &[Type]) -> Result<&Type, (&Type, &Type)> {
+    let first = types.first().unwrap();
+
+    for i in 1..types.len() {
+        if &types[i] != first {
+            return Err((first, &types[i]));
+        }
+    }
+    Ok(first)
+}
+
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use run_line;
+    use super::*;
 
     #[test]
     fn check_identity() {

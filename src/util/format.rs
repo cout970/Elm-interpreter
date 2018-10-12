@@ -1,4 +1,4 @@
-use analyzer::expression_fold::create_expr_tree;
+use util::expression_fold::create_expr_tree;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;

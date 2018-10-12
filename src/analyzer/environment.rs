@@ -1,5 +1,10 @@
-use analyzer::type_analyzer::get_type;
-use analyzer::type_analyzer::TypeError;
+use analyzer::pattern_helper::add_pattern_variables;
+use analyzer::type_resolution::particularize_type;
+use analyzer::TypeError;
+use analyzer::TypeError::ConstantEvaluationError;
+use analyzer::TypeError::UnableToCalculateFunctionType;
+use analyzer::TypeError::VariableAlreadyDeclared;
+use interpreter::eval;
 use std::collections::HashMap;
 use types::Adt;
 use types::CurriedFunc;
@@ -7,15 +12,11 @@ use types::Definition;
 use types::Fun;
 use types::Type;
 use types::Value;
+use util::arg_count;
 use util::build_fun_type;
+use util::builtin_fun_of;
 use util::StringConversion;
-use analyzer::type_analyzer::TypeError::UnableToCalculateFunctionType;
-use interpreter::eval;
-use analyzer::type_analyzer::TypeError::ConstantEvaluationError;
-use analyzer::pattern_helper::pattern_to_type;
-use analyzer::pattern_helper::add_pattern_variables;
-use analyzer::type_analyzer::TypeError::VariableAlreadyDeclared;
-use analyzer::type_resolution::particularize_type;
+use analyzer::expression_analyzer::analyze_expression;
 
 #[derive(Clone)]
 pub struct Environment(Vec<Block>);
@@ -28,32 +29,8 @@ struct Block {
     variables: HashMap<String, Type>,
 }
 
-pub fn builtin_fun_of(id: u32, ty: Type) -> Value {
-    Value::Fun(CurriedFunc {
-        args: vec![],
-        arg_count: arg_count(&ty),
-        fun: Fun::Builtin(id, ty),
-    })
-}
-
-pub fn arg_count(ty: &Type) -> u32 {
-    match ty {
-        Type::Fun(_, ref out) => {
-            1 + arg_count(out)
-        }
-        _ => 0
-    }
-}
-
 pub fn default_lang_env() -> Environment {
     let mut env = Environment::new();
-
-//    env.add_def_type("True", &Type::Tag("Bool".s(), vec![]));
-//    env.add_def_type("False", &Type::Tag("Bool".s(), vec![]));
-//
-//    env.add_def_type("::", &build_fun_type(&vec![
-//        Type::Var("a".s()), Type::Tag("List".s(), vec![Type::Var("a".s())]), Type::Tag("List".s(), vec![Type::Var("a".s())])
-//    ]));
 
     env.add("+", builtin_fun_of(1, build_fun_type(&vec![
         Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
@@ -131,38 +108,34 @@ impl Environment {
 }
 
 pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), TypeError> {
-    for Definition(opt_ty, value) in defs {
-        env.enter_block();
-        for patt in &value.patterns {
-            add_pattern_variables(env, patt).map_err(|e| VariableAlreadyDeclared(e))?;
-        }
-        let expr_ty = get_type(env, &value.expr);
-        env.exit_block();
-
-        let val: Value = if value.patterns.is_empty() {
-            eval(env, &value.expr).map_err(|e| ConstantEvaluationError(e))?
-        } else {
-            let mut args_ty = (&value.patterns).iter()
-                .map(|p| pattern_to_type(p))
-                .collect::<Result<Vec<Type>, _>>()
-                .map_err(|e| UnableToCalculateFunctionType(e))?;
-
-            args_ty.push(expr_ty?);
-            let fun_ty = build_fun_type(&args_ty);
-
-            let ty = opt_ty.clone()
-                .map(|t| particularize_type(&t, &fun_ty))
-                .unwrap_or(fun_ty);
-
-            Value::Fun(CurriedFunc {
-                args: vec![],
-                arg_count: arg_count(&ty),
-                fun: Fun::Expr(value.patterns.clone(), value.expr.clone(), ty),
-            })
-        };
-
-        env.add(&value.name, val);
-    }
+//    for Definition(opt_ty, value) in defs {
+//
+//        let expr_ty = analyze_expression(env, vars, &value.expr, None);
+//
+//        let val: Value = if value.patterns.is_empty() {
+//            eval(env, &value.expr).map_err(|e| ConstantEvaluationError(e))?
+//        } else {
+//            let mut args_ty = (&value.patterns).iter()
+//                .map(|p| pattern_to_type(p))
+//                .collect::<Result<Vec<Type>, _>>()
+//                .map_err(|e| UnableToCalculateFunctionType(e))?;
+//
+//            args_ty.push(expr_ty?);
+//            let fun_ty = build_fun_type(&args_ty);
+//
+//            let ty = opt_ty.clone()
+//                .map(|t| particularize_type(&t, &fun_ty))
+//                .unwrap_or(fun_ty);
+//
+//            Value::Fun(CurriedFunc {
+//                args: vec![],
+//                arg_count: arg_count(&ty),
+//                fun: Fun::Expr(value.patterns.clone(), value.expr.clone(), ty),
+//            })
+//        };
+//
+//        env.add(&value.name, val);
+//    }
 
     Ok(())
 }

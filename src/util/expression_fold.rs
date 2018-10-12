@@ -1,4 +1,4 @@
-use analyzer::expression_fold::ExprTreeError::*;
+use util::expression_fold::ExprTreeError::*;
 use types::Expr;
 use util::StringConversion;
 
@@ -174,15 +174,15 @@ pub fn get_operator_associativity(op: &str) -> Associativity {
 
 #[cfg(test)]
 mod tests {
-    use analyzer::expression_fold::ExprTree::*;
     use nom::*;
     use nom::verbose_errors::*;
+    use parsers::from_code;
     use super::*;
+    use super::ExprTree::*;
     use tokenizer::tokenize;
     use types::Expr;
     use types::Expr::Ref;
     use util::StringConversion;
-    use parsers::from_code;
 
     #[test]
     fn check_operator_precedence() {
