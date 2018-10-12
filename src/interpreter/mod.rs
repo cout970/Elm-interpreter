@@ -13,6 +13,7 @@ use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::StringConversion;
+use analyzer::static_env::StaticEnv;
 
 pub fn eval(env: &mut Environment, expr: &Expr) -> Result<Value, String> {
     let res: Value = match expr {
@@ -65,7 +66,8 @@ pub fn eval(env: &mut Environment, expr: &Expr) -> Result<Value, String> {
             }
         }
         Expr::Lambda(patt, _expr) => {
-            let ty = type_check_expression(env, expr).map_err(|it| format!("{:?}", it))?;
+            let mut static_env = StaticEnv::new();
+            let ty = type_check_expression(&mut static_env, expr).map_err(|it| format!("{:?}", it))?;
 
             Value::Fun(CurriedFunc {
                 args: vec![],

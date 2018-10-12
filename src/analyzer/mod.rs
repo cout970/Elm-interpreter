@@ -8,12 +8,16 @@ use types::Fun;
 use types::Type;
 use types::Value;
 use util::StringConversion;
+use types::Definition;
+use analyzer::function_analyzer::analyze_function;
+use analyzer::static_env::StaticEnv;
 
 pub mod environment;
 pub mod pattern_helper;
 pub mod type_resolution;
 mod function_analyzer;
 mod expression_analyzer;
+pub mod static_env;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
@@ -37,7 +41,10 @@ pub enum TypeError {
     InternalError,
 }
 
-pub fn type_check_expression(env: &mut Environment, expr: &Expr) -> Result<Type, TypeError> {
-    let mut vars = HashMap::new();
-    analyze_expression(env, &mut vars, expr, None)
+pub fn type_check_expression(env: &mut StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
+    analyze_expression(env, None, expr)
+}
+
+pub fn type_check_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
+    analyze_function(env, fun)
 }

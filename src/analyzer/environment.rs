@@ -107,7 +107,7 @@ impl Environment {
     }
 }
 
-pub fn expand_env(env: &mut Environment, defs: Vec<&Definition>) -> Result<(), TypeError> {
+pub fn expand_env(_env: &mut Environment, _defs: Vec<&Definition>) -> Result<(), TypeError> {
 //    for Definition(opt_ty, value) in defs {
 //
 //        let expr_ty = analyze_expression(env, vars, &value.expr, None);

@@ -29,6 +29,7 @@ use tokenizer::*;
 use types::*;
 use util::*;
 use analyzer::type_check_expression;
+use analyzer::static_env::StaticEnv;
 
 mod types;
 #[macro_use]
@@ -76,9 +77,10 @@ pub fn run_line(env: &mut Environment, line: &[u8]) -> Result<String, String> {
             }
         }
         Err(_) => {
+            let mut static_env = StaticEnv::new();
             let expr = parse_expr(&tokens).map_err(|e| format!("{:?}", e))?;
             // check expr type
-            type_check_expression(env, &expr).map_err(|e| format!("{:?}", e))?;
+            type_check_expression(&mut static_env, &expr).map_err(|e| format!("{:?}", e))?;
             env.enter_block();
             let value = eval(env, &expr);
             env.exit_block();

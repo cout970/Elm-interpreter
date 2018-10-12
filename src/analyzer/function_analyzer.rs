@@ -1,4 +1,3 @@
-use analyzer::environment::Environment;
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError::*;
 use analyzer::type_resolution::calculate_common_type;
@@ -19,6 +18,8 @@ use util::build_fun_type;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
 use util::VecExt;
+use analyzer::static_env::StaticEnv;
+use util::create_vec_inv;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternMatchingError {
@@ -28,18 +29,23 @@ pub enum PatternMatchingError {
     PatternNotExhaustive(Pattern),
 }
 
-pub fn analyze_function(env: &mut Environment, fun: &Definition) -> Result<Type, TypeError> {
-    let Definition(_, value_def) = fun;
-    let ValueDefinition { name, patterns, expr } = value_def;
+pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
+    let ValueDefinition { name, patterns, expr } = &fun.1;
 
-    let (mut arguments, argument_vars) = analyze_function_arguments(&patterns)?;
-    let mut vars = HashMap::new();
+    let (mut arguments, argument_vars) = analyze_function_arguments(patterns)?;
 
-    for (name, value) in &argument_vars {
-        vars.insert(name.clone(), value.clone());
+    env.enter_block();
+    for (arg_name, value) in &argument_vars {
+        env.add(arg_name, value.clone());
     }
 
-    arguments.push(analyze_expression(env, &mut vars, expr, None)?);
+    let self_type = create_vec_inv(&arguments, Type::Var("a".s()));
+    env.add(name, build_fun_type(&self_type));
+
+    let expr_type = analyze_expression(env, None, expr);
+    env.enter_block();
+
+    arguments.push(expr_type?);
 
     Ok(build_fun_type(&arguments))
 }
@@ -68,17 +74,17 @@ pub fn analyze_function_arguments(patterns: &Vec<Pattern>) -> Result<(Vec<Type>,
 
 fn is_exhaustive(pattern: &Pattern) -> bool {
     match pattern {
-        Pattern::Var(name) => true,
-        Pattern::Adt(name, sub_patterns) => true,
+        Pattern::Var(_) => true,
+        Pattern::Adt(_, _) => true,
         Pattern::Wildcard => true,
         Pattern::Unit => true,
         Pattern::Tuple(sub_patterns) => {
             sub_patterns.iter().all(|p| is_exhaustive(p))
         }
-        Pattern::List(sub_patterns) => false,
-        Pattern::BinaryOp(operand, left, right) => false,
-        Pattern::Record(entry_names) => true,
-        Pattern::Literal(literal) => false,
+        Pattern::List(_) => false,
+        Pattern::BinaryOp(_, _, _) => false,
+        Pattern::Record(_) => true,
+        Pattern::Literal(_) => false,
     }
 }
 

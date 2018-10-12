@@ -82,6 +82,12 @@ pub fn create_vec<T>(first: T, rest: Vec<T>) -> Vec<T> {
     vec
 }
 
+pub fn create_vec_inv<T: Clone>(start: &Vec<T>, last: T) -> Vec<T> {
+    let mut vec: Vec<T> = start.clone();
+    vec.push(last);
+    vec
+}
+
 pub fn parse_int(negative: bool, digits: Vec<char>) -> Int {
     let s: String = digits.into_iter().collect();
     let value = s.parse::<Int>().unwrap();

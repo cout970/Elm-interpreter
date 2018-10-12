@@ -1,12 +1,7 @@
-use analyzer::environment::Environment;
-use analyzer::environment::expand_env;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::PatternMatchingError;
-use analyzer::pattern_helper::add_pattern_variables;
-use analyzer::type_resolution::calculate_common_type;
-use analyzer::type_resolution::get_value_type;
-use analyzer::type_resolution::type_assignable_from;
+use analyzer::static_env::StaticEnv;
 use analyzer::TypeError::*;
 use analyzer::TypeError;
 use interpreter::eval;
@@ -27,7 +22,7 @@ use util::expression_fold::ExprTree;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
 
-pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type>, expr: &Expr, expected: Option<&Type>) -> Result<Type, TypeError> {
+pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
         Expr::Unit => {
             Ok(Type::Unit)
@@ -42,54 +37,47 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
             Ok(Type::Tag(name, vec![]))
         }
         Expr::Adt(name) => {
-            env.find(name)
-                .map(|val| get_value_type(&val))
-                .ok_or(MissingAdt(format!("Missing ADT {}", name)))
+            env.find(name).ok_or(MissingAdt(format!("Missing ADT {}", name)))
         }
         Expr::Ref(name) => {
-            if vars.contains_key(name) {
-                Ok(vars.get(name).unwrap().clone())
-            } else {
-                env.find(name)
-                    .map(|val| get_value_type(&val))
-                    .ok_or(MissingDefinition(format!("Missing def {}", name)))
-            }
+            env.find(name).ok_or(MissingDefinition(format!("Missing def {}", name)))
         }
         Expr::QualifiedRef(_path, name) => {
             // TODO resolve path
             let is_adt = name.chars().next().unwrap().is_uppercase();
 
             if is_adt {
-                analyze_expression(env, vars, &Expr::Adt(name.to_owned()), expected)
+                analyze_expression(env, expected, &Expr::Adt(name.to_owned()))
             } else {
-                analyze_expression(env, vars, &Expr::Ref(name.to_owned()), expected)
+                analyze_expression(env, expected, &Expr::Ref(name.to_owned()))
             }
         }
         Expr::Application(i, o) => {
-            let function = analyze_expression(env, vars, i, None)?;
+            let function = analyze_expression(env, None, i)?;
 
             if let Type::Fun(ref argument, ref result) = function {
-                let input = analyze_expression(env, vars, o, Some(result))?;
+                let input = analyze_expression(env, Some(result), o)?;
 
-                if !type_assignable_from(env, &input, &**argument) {
-                    Err(ArgumentsDoNotMatch(format!("Expected argument: {}, found: {}", argument, input)))
-                } else {
+                if is_assignable(&**argument, &input) {
                     Ok(*result.clone())
+                } else {
+                    Err(ArgumentsDoNotMatch(format!("Expected argument: {}, found: {}", argument, input)))
                 }
             } else {
                 Err(NotAFunction(format!("Expected function found: {}, (in: {}, out: {})", function, i, o)))
             }
         }
         Expr::If(cond, a, b) => {
-            let cond = analyze_expression(env, vars, cond, Some(&Type::Tag("Bool".s(), vec![])))?;
-            let true_branch = analyze_expression(env, vars, a, expected)?;
-            let false_branch = analyze_expression(env, vars, b, expected)?;
+            let cond = analyze_expression(env, Some(&Type::Tag("Bool".s(), vec![])), cond)?;
+            let true_branch = analyze_expression(env, expected, a)?;
+            let false_branch = analyze_expression(env, expected, b)?;
 
-            if !type_assignable_from(env, &Type::Tag("Bool".s(), vec![]), &cond) {
+            if !is_assignable(&Type::Tag("Bool".s(), vec![]), &cond) {
                 return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {}", cond)));
             }
 
-            let ret_ty = calculate_common_type(env, &[&true_branch, &false_branch]);
+            let branches = vec![true_branch, false_branch];
+            let ret_ty = calculate_common_type(&branches);
             match ret_ty {
                 Ok(ty) => Ok(ty.clone()),
                 Err((a, b)) => Err(
@@ -100,19 +88,18 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
         Expr::Lambda(patterns, expr) => {
             let (tys, new_vars) = analyze_function_arguments(patterns)?;
 
+            env.enter_block();
             for (name, value) in &new_vars {
-                if vars.contains_key(name) {
+                if env.find(name).is_some() {
+                    env.exit_block();
                     return Err(VariableNameShadowed(name.clone()));
                 }
 
-                vars.insert(name.clone(), value.clone());
+                env.add(name, value.clone());
             }
 
-            let out = analyze_expression(env, vars, expr, expected);
-
-            for (ref name, ref value) in new_vars {
-                vars.remove(name);
-            }
+            let out = analyze_expression(env, expected, expr);
+            env.exit_block();
 
             let mut var = tys.clone();
             var.push(out?);
@@ -124,10 +111,10 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
                 Ok(Type::Tag("List".s(), vec![Type::Var("a".s())]))
             } else {
                 let types: Vec<Type> = exprs.iter()
-                    .map(|e| analyze_expression(env, vars, e, None))
+                    .map(|e| analyze_expression(env, None, e))
                     .collect::<Result<_, _>>()?;
 
-                let ret_ty = calculate_common_type(env, &types.iter().collect::<Vec<&Type>>());
+                let ret_ty = calculate_common_type(&types);
                 match ret_ty {
                     Ok(ty) => {
                         Ok(Type::Tag("List".s(), vec![ty.clone()]))
@@ -153,7 +140,7 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
 
                 match def_ty {
                     Ok(ty) => {
-                        env.add_variable(&def.1.name, ty);
+                        env.add(&def.1.name, ty);
                     }
                     Err(e) => {
                         env.exit_block();
@@ -161,20 +148,20 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
                     }
                 }
             }
-            let res = analyze_expression(env, vars, expr, expected);
+            let res = analyze_expression(env, expected, expr);
             env.exit_block();
 
             res
         }
         Expr::OpChain(exprs, ops) => {
             match create_expr_tree(exprs, ops) {
-                Ok(tree) => get_tree_type(env, vars, tree, expected),
+                Ok(tree) => get_tree_type(env, expected, tree),
                 Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
             }
         }
         Expr::Record(entries) => {
             let types: Vec<(String, Type)> = entries.iter()
-                .map(|(name, expr)| analyze_expression(env, vars, expr, None).map(|ty| (name.clone(), ty)))
+                .map(|(name, expr)| analyze_expression(env, None, expr).map(|ty| (name.clone(), ty)))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Record(types))
@@ -189,7 +176,7 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
             let exp_ty = Type::Record(vec![
                 (name.clone(), expected.map(|e| e.clone()).unwrap_or(Type::Var("a".s())))
             ]);
-            let record = match analyze_expression(env, vars, expr, Some(&exp_ty)) {
+            let record = match analyze_expression(env, Some(&exp_ty), expr) {
                 Ok(t) => t.clone(),
                 Err(e) => { return Err(e); }
             };
@@ -210,7 +197,7 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
         }
         Expr::Tuple(items) => {
             let types: Vec<Type> = items.iter()
-                .map(|e| analyze_expression(env, vars, e, None))
+                .map(|e| analyze_expression(env, None, e))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Tuple(types))
@@ -218,11 +205,11 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
         Expr::RecordUpdate(name, updates) => {
             let mut update_types = vec![];
             for (name, expr) in updates {
-                update_types.push((name.clone(), analyze_expression(env, vars, expr, None)?));
+                update_types.push((name.clone(), analyze_expression(env, None, expr)?));
             }
             let exp_ty = Type::Record(update_types);
 
-            let record_type = analyze_expression(env, vars, &Expr::Ref(name.to_owned()), Some(&exp_ty))?;
+            let record_type = analyze_expression(env, Some(&exp_ty), &Expr::Ref(name.to_owned()))?;
 
             if let Type::Record(fields) = &record_type {
                 for (field_name, _) in updates {
@@ -244,42 +231,41 @@ pub fn analyze_expression(env: &mut Environment, vars: &mut HashMap<String, Type
         Expr::Case(expr, branches) => {
             let mut iter = branches.iter();
             let (_, e) = iter.next().unwrap();
-            let first_type = analyze_expression(env, vars, e, None)?;
+            let first_type = analyze_expression(env, None, e)?;
 
             while let Some((_, e)) = iter.next() {
-                let ret = analyze_expression(env, vars, e, None)?;
-                if !type_assignable_from(env, &ret, &first_type) {
+                let ret = analyze_expression(env, None, e)?;
+                if !is_assignable(&first_type, &ret) {
                     return Err(CaseBranchDontMatchReturnType("".s()));
                 }
             }
 
             // check that the case expression has a valid type
-            analyze_expression(env, vars, expr, Some(&first_type))?;
+            analyze_expression(env, Some(&first_type), expr)?;
 
             Ok(first_type)
         }
     }
 }
 
-fn get_tree_type(env: &mut Environment, vars: &mut HashMap<String, Type>, tree: ExprTree,
-                 expected: Option<&Type>) -> Result<Type, TypeError> {
+fn get_tree_type(env: &mut StaticEnv, expected: Option<&Type>, tree: ExprTree) -> Result<Type, TypeError> {
     match tree {
-        ExprTree::Leaf(e) => analyze_expression(env, vars, &e, expected),
+        ExprTree::Leaf(e) => analyze_expression(env, expected, &e),
         ExprTree::Branch(op, left, right) => {
-            let op_type = analyze_expression(env, vars, &Expr::Ref(op.to_owned()), None)?;
+            let op_type = analyze_expression(env, None, &Expr::Ref(op.to_owned()))?;
 
             if let Type::Fun(ref argument, ref next_func) = op_type {
-                let left_value = get_tree_type(env, vars, *left, Some(next_func)).map(|t| t.clone())?;
+                let left_value = get_tree_type(env, Some(next_func), *left).map(|t| t.clone())?;
 
-                if !type_assignable_from(env, &left_value, &**argument) {
+                if !is_assignable(&**argument, &left_value) {
                     return Err(ArgumentsDoNotMatch(
                         format!("Expected argument: {}, found: {}", argument, left_value)
                     ));
                 }
                 if let Type::Fun(ref argument, ref result) = **next_func {
-                    let right_value = get_tree_type(env, vars, *right, Some(result)).map(|t| t.clone())?;
+                    let right_value = get_tree_type(env, Some(result), *right).map(|t| t.clone())?;
 
-                    if !type_assignable_from(env, &right_value, &**argument) {
+                    if !is_assignable(&**argument, &right_value) {
                         return Err(ArgumentsDoNotMatch(
                             format!("Expected argument: {}, found: {}", argument, right_value)
                         ));
@@ -293,6 +279,78 @@ fn get_tree_type(env: &mut Environment, vars: &mut HashMap<String, Type>, tree: 
                 Err(NotAFunction(format!("Expected infix operator but found: {}", op_type)))
             }
         }
+    }
+}
+
+fn calculate_common_type(types: &[Type]) -> Result<&Type, (&Type, &Type)> {
+    let first = types.first().unwrap();
+
+    for i in 1..types.len() {
+        if !is_assignable(first, &types[i]) {
+            return Err((first, &types[i]));
+        }
+    }
+    Ok(first)
+}
+
+fn is_assignable(expected: &Type, found: &Type) -> bool {
+    if expected == found { return true; }
+    match expected {
+        Type::Var(name) => {
+            match name.as_str() {
+                "number" => {
+                    match found {
+                        Type::Tag(ty_name, _) => ty_name == "Int" || ty_name == "Float",
+                        _ => false
+                    }
+                }
+                _ => false
+            }
+        }
+        Type::Tag(name, sub) => {
+            match found {
+                Type::Tag(ty_name, ty_sub) => {
+                    ty_name == name && sub.iter().zip(ty_sub).all(|(a, b)| is_assignable(a, b))
+                }
+                _ => false
+            }
+        }
+        Type::Fun(input, output) => {
+            match found {
+                Type::Fun(a, b) => is_assignable(input, a) && is_assignable(output, b),
+                _ => false
+            }
+        }
+        Type::Tuple(sub) => {
+            match found {
+                Type::Tuple(ty_sub) => {
+                    sub.iter().zip(ty_sub).all(|(a, b)| is_assignable(a, b))
+                }
+                _ => false
+            }
+        }
+        Type::Record(entries) => {
+            match found {
+                Type::Record(entries_ty) => {
+                    entries.iter().all(|(name, ty)| entries_ty.iter().any(|(n, t)|
+                        n == name && is_assignable(ty, t)
+                    ))
+                }
+                _ => false
+            }
+        }
+        Type::RecExt(name, entries) => {
+            match found {
+                Type::RecExt(name_ty, entries_ty) => {
+                    name == name_ty && entries.iter()
+                        .all(|(name, ty)| entries_ty.iter().any(|(n, t)|
+                            n == name && is_assignable(ty, t)
+                        ))
+                }
+                _ => false
+            }
+        }
+        _ => false
     }
 }
 
@@ -312,55 +370,47 @@ mod tests {
     #[test]
     fn check_unit() {
         let expr = from_code(b"()");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
-
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Unit));
+        let mut env = StaticEnv::new();
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
         let expr = from_code(b"123");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_fun() {
         let expr = from_code(b"fun 123");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        env.add("fun", builtin_fun_of(0, Type::Fun(
+        env.add("fun", Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Tag("Int".s(), vec![])),
-        )));
+        ));
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_if() {
         let expr = from_code(b"if True then 1 else 0");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        env.add("True", builtin_fun_of(
-            0, Type::Tag("Bool".s(), vec![]),
-        ));
+        env.add("True", Type::Tag("Bool".s(), vec![]));
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_lambda() {
         let expr = from_code(b"\\x -> 1");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Fun(
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Fun(
             Box::new(Type::Var("a".s())),
             Box::new(Type::Tag("Int".s(), vec![])),
         )));
@@ -369,10 +419,9 @@ mod tests {
     #[test]
     fn check_list() {
         let expr = from_code(b"[1, 2, 3]");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag(
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag(
             "List".s(), vec![Type::Tag("Int".s(), vec![])],
         )));
     }
@@ -380,10 +429,9 @@ mod tests {
     #[test]
     fn check_bad_list() {
         let expr = from_code(b"[1, 2, 'a']");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Err(
+        assert_eq!(analyze_expression(&mut env, None, &expr), Err(
             ListNotHomogeneous(
                 "List of 'Int', but found element 'Char' at index: 2".s()
             )
@@ -393,10 +441,9 @@ mod tests {
     #[test]
     fn check_record() {
         let expr = from_code(b"{ a = 1, b = \"Hi\" }");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
             Type::Record(vec![
                 ("a".s(), Type::Tag("Int".s(), vec![])),
                 ("b".s(), Type::Tag("String".s(), vec![])),
@@ -407,18 +454,17 @@ mod tests {
     #[test]
     fn check_operator_chain() {
         let expr = from_code(b"1 + 2");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        env.add("+", builtin_fun_of(0, Type::Fun(
+        env.add("+", Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Fun(
                 Box::new(Type::Tag("Int".s(), vec![])),
                 Box::new(Type::Tag("Int".s(), vec![])),
             )),
-        )));
+        ));
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
             Type::Tag("Int".s(), vec![])
         ));
     }
@@ -426,10 +472,9 @@ mod tests {
     #[test]
     fn check_tuple() {
         let expr = from_code(b"(1, \"a\", ())");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
             Type::Tuple(vec![
                 Type::Tag("Int".s(), vec![]),
                 Type::Tag("String".s(), vec![]),
@@ -441,33 +486,30 @@ mod tests {
     #[test]
     fn check_record_update() {
         let expr = from_code(b"{ x | a = 0}");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
         let record_type = Type::Record(vec![
             ("a".s(), Type::Tag("Int".s(), vec![]))
         ]);
 
-        env.add("x", builtin_fun_of(0, record_type.clone()));
+        env.add("x", record_type.clone());
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(record_type));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(record_type));
     }
 
     #[test]
     fn check_case() {
         let expr = from_code(b"case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Ok(Type::Tag("String".s(), vec![])));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("String".s(), vec![])));
     }
 
     #[test]
     fn check_case2() {
         let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
-        let mut env = Environment::new();
-        let mut vars: HashMap<String, Type> = Default::default();
+        let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, &mut vars, &expr, None), Err(CaseBranchDontMatchReturnType("".s())));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Err(CaseBranchDontMatchReturnType("".s())));
     }
 }
