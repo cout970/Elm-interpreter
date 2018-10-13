@@ -1,5 +1,6 @@
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError::*;
+use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use analyzer::TypeError::InternalError;
 use analyzer::TypeError::UnableToCalculateFunctionType;
@@ -12,11 +13,10 @@ use types::Type;
 use types::Value;
 use types::ValueDefinition;
 use util::build_fun_type;
+use util::create_vec_inv;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
 use util::VecExt;
-use analyzer::static_env::StaticEnv;
-use util::create_vec_inv;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternMatchingError {
@@ -29,35 +29,62 @@ pub enum PatternMatchingError {
 pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
     let ValueDefinition { name, patterns, expr } = &fun.1;
 
-    let (mut arguments, argument_vars) = analyze_function_arguments(patterns)?;
+    let save = env.name_seq.save();
+    let (argument_types, local_vars) = analyze_function_arguments(&mut env.name_seq, patterns)?;
 
     env.enter_block();
-    for (arg_name, value) in &argument_vars {
+    for (arg_name, value) in &local_vars {
         env.add(arg_name, value.clone());
     }
 
-    let self_type = create_vec_inv(&arguments, Type::Var("a".s()));
+    // Enable recursivity
+    let self_type = create_vec_inv(&argument_types, Type::Var("z".s()));
     env.add(name, build_fun_type(&self_type));
 
-    let expr_type = analyze_expression(env, None, expr);
-    env.enter_block();
+    // Infer return type and update env replacing var types with concrete types
+    let return_type = analyze_expression(env, None, expr);
+    let mut final_arg_types: Vec<Type> = vec![];
 
-    arguments.push(expr_type?);
+    // Update argument variable with concrete types
+    'outer: for arg in &argument_types {
+        if let Type::Var(arg_var_name) = arg {
 
-    Ok(build_fun_type(&arguments))
+            // search in local variables for the type of this variable,
+            // this is needed because the number of arguments and local variables can be different
+            for (name, ty) in &local_vars {
+                if let Type::Var(local_var_name) = ty {
+                    if local_var_name == arg_var_name {
+                        final_arg_types.push(env.find(name).unwrap());
+                        continue 'outer;
+                    }
+                }
+            }
+
+            panic!("Unable to find variable '{}' in {:?}", &arg, local_vars);
+        } else {
+            final_arg_types.push(arg.clone());
+        }
+    }
+
+    env.exit_block();
+    env.name_seq.restore(save);
+
+    // delayed ? to avoid inconsistent environment state
+    final_arg_types.push(return_type?);
+
+    Ok(build_fun_type(&final_arg_types))
 }
 
-pub fn analyze_function_arguments(patterns: &Vec<Pattern>) -> Result<(Vec<Type>, Vec<(String, Type)>), TypeError> {
+pub fn analyze_function_arguments(gen: &mut NameSequence, patterns: &Vec<Pattern>) -> Result<(Vec<Type>, Vec<(String, Type)>), TypeError> {
     let mut arguments: Vec<Type> = vec![];
     let mut argument_vars: Vec<(String, Type)> = vec![];
-    let mut gen = NameSequence::new();
 
     for patt in patterns {
         if !is_exhaustive(patt) {
             return Err(TypeError::InvalidPattern(PatternNotExhaustive(patt.clone())));
         }
 
-        let (ty, vars) = analyze_pattern(&mut gen, patt)
+        let (ty, vars) = analyze_pattern(gen, patt)
             .map_err(|e| TypeError::InvalidPattern(e))?;
 
         arguments.push(ty);
@@ -200,11 +227,12 @@ pub fn is_assignable(expected: &Type, found: &Type) -> bool {
             match name.as_str() {
                 "number" => {
                     match found {
+                        Type::Var(_) => true,
                         Type::Tag(ty_name, _) => ty_name == "Int" || ty_name == "Float",
                         _ => false
                     }
                 }
-                _ => false
+                _ => true
             }
         }
         Type::Tag(name, sub) => {
@@ -251,5 +279,115 @@ pub fn is_assignable(expected: &Type, found: &Type) -> bool {
             }
         }
         _ => false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nom::*;
+    use nom::verbose_errors::*;
+    use parsers::from_code_stm;
+    use super::*;
+    use types::Statement;
+
+    fn from_code_def(code: &[u8]) -> Definition {
+        let stm = from_code_stm(code);
+        match stm {
+            Statement::Def(def) => def,
+            _ => panic!("Expected definition but found: {:?}", stm)
+        }
+    }
+
+    fn format_type(env: &mut StaticEnv, def: &Definition) -> String {
+        format!("{}", analyze_function(env, def).expect("Run into type error"))
+    }
+
+    #[test]
+    fn check_constant() {
+        let def = from_code_def(b"const = 1");
+        let mut env = StaticEnv::new();
+
+        assert_eq!(format_type(&mut env, &def), "number");
+    }
+
+    #[test]
+    fn check_identity() {
+        let def = from_code_def(b"id arg1 = arg1");
+        let mut env = StaticEnv::new();
+
+        assert_eq!(format_type(&mut env, &def), "a -> a");
+    }
+
+    #[test]
+    fn check_var_to_number() {
+        let def = from_code_def(b"sum arg1 arg2 = arg1 + arg2");
+        let mut env = StaticEnv::new();
+
+        env.add("+", build_fun_type(&vec![
+            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
+        ]));
+
+        assert_eq!(format_type(&mut env, &def), "number -> number -> number");
+    }
+
+    #[test]
+    fn check_number_to_float() {
+        let def = from_code_def(b"sum arg1 = arg1 + 1.5");
+        let mut env = StaticEnv::new();
+
+        env.add("+", build_fun_type(&vec![
+            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
+        ]));
+
+        assert_eq!(format_type(&mut env, &def), "Float -> Float");
+    }
+
+    #[test]
+    fn check_from_number_to_float() {
+        let def = from_code_def(b"sum = (+) 1.5");
+        let mut env = StaticEnv::new();
+
+        env.add("+", build_fun_type(&vec![
+            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
+        ]));
+
+        assert_eq!(format_type(&mut env, &def), "Float -> Float");
+    }
+
+    #[test]
+    fn check_list_coercion() {
+        let def = from_code_def(b"my = [1, 1.5]");
+        let mut env = StaticEnv::new();
+
+        assert_eq!(format_type(&mut env, &def), "List Float");
+    }
+
+    #[test]
+    fn check_list_coercion2() {
+        let def = from_code_def(b"my b = [1, 1.5, b]");
+        let mut env = StaticEnv::new();
+
+        assert_eq!(format_type(&mut env, &def), "Float -> List Float");
+    }
+
+    #[test]
+    fn check_variable_separation() {
+        let def = from_code_def(b"my a b = [a, b]");
+        let mut env = StaticEnv::new();
+
+        assert_eq!(format_type(&mut env, &def), "a -> a -> List a");
+    }
+
+    #[test]
+    fn check_variable_separation2() {
+        let def = from_code_def(b"my = (func, func)");
+        let mut env = StaticEnv::new();
+
+        env.add("func", Type::Fun(
+            Box::from(Type::Var("a".s())),
+            Box::from(Type::Var("a".s())),
+        ));
+
+        assert_eq!(format_type(&mut env, &def), "( a -> a, b -> b )");
     }
 }

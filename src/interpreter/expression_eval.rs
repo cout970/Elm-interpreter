@@ -369,7 +369,7 @@ mod tests {
                     Expr::Literal(Literal::Int(1)),
                     Type::Fun(
                         Box::new(Type::Var("a".s())),
-                        Box::new(Type::Tag("Int".s(), vec![])),
+                        Box::new(Type::Var("number".s())),
                     ),
                 ),
             }

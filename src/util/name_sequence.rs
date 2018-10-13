@@ -1,3 +1,5 @@
+
+#[derive(Clone, Debug)]
 pub struct NameSequence {
     last: u32
 }
@@ -31,6 +33,14 @@ impl NameSequence {
         } else {
             panic!("To many names!");
         }
+    }
+
+    pub fn save(&self) -> u32 {
+        self.last
+    }
+
+    pub fn restore(&mut self, save: u32) {
+        self.last = save;
     }
 }
 
