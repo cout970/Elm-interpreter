@@ -150,6 +150,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
             Value::Unit => write!(f, "()")?,
+            Value::Number(it) => write!(f, "{}", it)?,
             Value::Int(it) => write!(f, "{}", it)?,
             Value::Float(it) => write!(f, "{}", it)?,
             Value::String(it) => write!(f, "\"{}\"", it)?,
@@ -169,8 +170,11 @@ impl Display for Value {
                 print_pairs(f, items)?;
                 write!(f, " }}")?;
             }
-            Value::Adt(name, items) => {
-                write!(f, "{} ", name)?;
+            Value::Adt(name, items, _) => {
+                write!(f, "{}", name)?;
+                if !items.is_empty() {
+                    write!(f, " ")?;
+                }
                 print_vec(f, items)?;
             }
             Value::Fun { .. } => write!(f, "<function>")?,

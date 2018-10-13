@@ -1,9 +1,11 @@
-use util::OptionExt;
-use util::StringConversion;
 use analyzer::static_env::StaticEnv;
 use std::collections::HashMap;
 use types::Type;
 use types::Value;
+use util::build_fun_type;
+use util::builtin_fun_of;
+use util::OptionExt;
+use util::StringConversion;
 
 #[derive(Clone)]
 pub struct DynamicEnv {
@@ -45,25 +47,24 @@ impl DynamicEnv {
     }
 
     pub fn default_lang_env() -> DynamicEnv {
-        let env = DynamicEnv::new();
+        let mut env = DynamicEnv::new();
 
 
-//
-//        env.add("+", builtin_fun_of(1, build_fun_type(&vec![
-//            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
-//        ])));
-//        env.add("-", builtin_fun_of(2, build_fun_type(&vec![
-//            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
-//        ])));
-//        env.add("*", builtin_fun_of(3, build_fun_type(&vec![
-//            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
-//        ])));
-//        env.add("/", builtin_fun_of(4, build_fun_type(&vec![
-//            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
-//        ])));
-//        env.add("//", builtin_fun_of(5, build_fun_type(&vec![
-//            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
-//        ])));
+        let num_ty = build_fun_type(&vec![
+            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
+        ]);
+        let int_ty = build_fun_type(&vec![
+            Type::Tag("Int".s(), vec![]), Type::Tag("Int".s(), vec![]), Type::Tag("Int".s(), vec![])
+        ]);
+        let float_ty = build_fun_type(&vec![
+            Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![])
+        ]);
+
+        env.add("+", builtin_fun_of(1, num_ty.clone()), num_ty.clone());
+        env.add("-", builtin_fun_of(2, num_ty.clone()), num_ty.clone());
+        env.add("*", builtin_fun_of(3, num_ty.clone()), num_ty.clone());
+        env.add("/", builtin_fun_of(4, float_ty.clone()), float_ty.clone());
+        env.add("//", builtin_fun_of(5, int_ty.clone()), int_ty.clone());
 
         env
     }

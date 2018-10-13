@@ -35,8 +35,8 @@ pub enum Pattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
-    Alias(Vec<String>, Type),
-    Adt(Vec<String>, Vec<(String, Vec<Type>)>),
+    Alias(String, Vec<String>, Type),
+    Adt(String, Vec<String>, Vec<(String, Vec<Type>)>),
     Port(String, Type),
     Def(Definition),
 }
@@ -65,6 +65,7 @@ pub enum Expr {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Unit,
+    Number(i32),
     Int(i32),
     Float(f32),
     String(String),
@@ -72,7 +73,7 @@ pub enum Value {
     List(Vec<Value>),
     Tuple(Vec<Value>),
     Record(Vec<(String, Value)>),
-    Adt(String, Vec<Value>),
+    Adt(String, Vec<Value>, String),
     Fun {
         arg_count: u32,
         args: Vec<Value>,

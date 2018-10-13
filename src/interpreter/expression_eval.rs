@@ -1,17 +1,17 @@
 use analyzer::type_check_expression;
+use interpreter::builtins::builtin_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use types::Expr;
 use types::Fun;
 use types::Literal;
+use types::Pattern;
 use types::Type;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::StringConversion;
-use interpreter::builtins::builtin_function;
-use types::Pattern;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
     let res: Value = match expr {
@@ -51,10 +51,10 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             let cond = eval_expr(env, cond)?;
 
             match cond {
-                Value::Adt(name, vals) => {
+                Value::Adt(name, vals, _) => {
                     if name == "True" && vals.is_empty() {
                         eval_expr(env, a)?
-                    } else if name == "True" && vals.is_empty() {
+                    } else if name == "False" && vals.is_empty() {
                         eval_expr(env, b)?
                     } else {
                         return Err(TODO(format!("Invalid If condition: {}", name)));
@@ -68,7 +68,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![],
-                arg_count: 1,
+                arg_count: patt.len() as u32,
                 fun: Fun::Expr(patt.clone(), (&**_expr).clone(), ty),
             }
         }
@@ -81,7 +81,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         }
         Expr::Literal(lit) => {
             match lit {
-                Literal::Int(i) => Value::Int(*i),
+                Literal::Int(i) => Value::Number(*i),
                 Literal::Float(i) => Value::Float(*i),
                 Literal::String(i) => Value::String(i.clone()),
                 Literal::Char(i) => Value::Char(*i),
@@ -187,7 +187,7 @@ pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value
             }
         }
         Pattern::Adt(_, ref items) => {
-            if let Value::Adt(_, vars) = value {
+            if let Value::Adt(_, vars, _) = value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val)?;
                 }
@@ -248,6 +248,9 @@ pub fn get_value_type(value: &Value) -> Type {
         Value::Unit => {
             Type::Unit
         }
+        Value::Number(_) => {
+            Type::Var("number".s())
+        }
         Value::Int(_) => {
             Type::Tag("Int".s(), vec![])
         }
@@ -273,8 +276,8 @@ pub fn get_value_type(value: &Value) -> Type {
         Value::Record(items) => {
             Type::Record(items.iter().map(|(s, i)| (s.to_owned(), get_value_type(i))).collect())
         }
-        Value::Adt(name, items) => {
-            Type::Tag(name.to_owned(), items.iter().map(|i| get_value_type(i)).collect())
+        Value::Adt(_, items, ty) => {
+            Type::Tag(ty.to_owned(), items.iter().map(|i| get_value_type(i)).collect())
         }
         Value::Fun { fun, args, .. } => {
             let fun_ty = match fun {
@@ -346,9 +349,9 @@ mod tests {
         let mut env = DynamicEnv::new();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::List(vec![
-            Value::Int(1),
-            Value::Int(2),
-            Value::Int(3),
+            Value::Number(1),
+            Value::Number(2),
+            Value::Number(3),
         ])));
     }
 
@@ -378,7 +381,7 @@ mod tests {
         let expr = from_code(b"{ a = 0 }.a");
         let mut env = DynamicEnv::new();
 
-        assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Int(0)));
+        assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Number(0)));
     }
 
     #[test]
@@ -394,5 +397,59 @@ mod tests {
         env.add("fun", builtin_fun_of(0, ty.clone()), ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Unit));
+    }
+
+    #[test]
+    fn check_number() {
+        let expr = from_code(b" 1 / 3");
+        let mut env = DynamicEnv::new();
+
+        let ty = Type::Fun(
+            Box::new(Type::Tag("Float".s(), vec![])),
+            Box::new(Type::Fun(
+                Box::new(Type::Tag("Float".s(), vec![])),
+                Box::new(Type::Tag("Float".s(), vec![])),
+            )),
+        );
+
+        env.add("/", builtin_fun_of(4, ty.clone()), ty);
+
+        assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Float(0.3333333333333333)));
+    }
+
+    #[test]
+    fn check_number2() {
+        let expr = from_code(b" 4 // 3");
+        let mut env = DynamicEnv::new();
+
+        let ty = Type::Fun(
+            Box::new(Type::Tag("Int".s(), vec![])),
+            Box::new(Type::Fun(
+                Box::new(Type::Tag("Int".s(), vec![])),
+                Box::new(Type::Tag("Int".s(), vec![])),
+            )),
+        );
+
+        env.add("//", builtin_fun_of(5, ty.clone()), ty);
+
+        assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Int(1)));
+    }
+
+    #[test]
+    fn check_number3() {
+        let expr = from_code(b" 4 + 3");
+        let mut env = DynamicEnv::new();
+
+        let ty = Type::Fun(
+            Box::new(Type::Var("number".s())),
+            Box::new(Type::Fun(
+                Box::new(Type::Var("number".s())),
+                Box::new(Type::Var("number".s())),
+            )),
+        );
+
+        env.add("+", builtin_fun_of(1, ty.clone()), ty);
+
+        assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Number(7)));
     }
 }

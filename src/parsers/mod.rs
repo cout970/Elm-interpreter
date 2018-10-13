@@ -47,3 +47,21 @@ pub fn from_code(code: &[u8]) -> Expr {
         }
     }
 }
+
+pub fn from_code_stm(code: &[u8]) -> Statement {
+    use nom::*;
+
+    let stream = tokenize(code);
+    let stm: IResult<Tk, Statement> = read_statement(&stream);
+
+    match stm {
+        Ok((_, e)) => e,
+        Err(e) => {
+            match e {
+                Err::Incomplete(need) => panic!("Tokens needed: {:?}", need),
+                Err::Failure(ctx) => panic!("Parsing failure: {:#?}", ctx),
+                Err::Error(ctx) => panic!("Syntax error: {:#?}", ctx),
+            };
+        }
+    }
+}

@@ -54,7 +54,7 @@ named!(adt<Tk, Statement>, do_parse!(
     many0!(indent!()) >>
     tk!(Equals) >>
     entries: separated_nonempty_list!(pipe_separator, adt_def) >>
-    (Statement::Adt(create_vec(a, b), entries))
+    (Statement::Adt(a, b, entries))
 ));
 
 named!(pipe_separator<Tk, ()>, do_parse!(
@@ -89,7 +89,7 @@ named!(alias<Tk, Statement>, do_parse!(
     tk!(Equals) >>
     many0!(indent!()) >>
     ty: read_type >>
-    (Statement::Alias(create_vec(a, b), ty))
+    (Statement::Alias(a, b, ty))
 ));
 
 #[cfg(test)]
@@ -103,7 +103,7 @@ mod tests {
         let stream = tokenize(b"\ntype alias Html = MyHtml");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Alias(
-            vec!["Html".s()],
+            "Html".s(), vec![],
             Type::Tag("MyHtml".s(), vec![])
         ));
     }
@@ -113,7 +113,7 @@ mod tests {
         let stream = tokenize(b"\ntype Boolean = True | False");
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Adt(
-            vec!["Boolean".s()],
+            "Boolean".s(), vec![],
             vec![("True".s(), vec![]), ("False".s(), vec![])],
         ));
     }

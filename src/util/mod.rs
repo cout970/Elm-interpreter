@@ -128,7 +128,11 @@ pub fn parse_float2(minus: bool, integer_part: Vec<char>, decimal_part: Vec<char
 }
 
 pub fn build_fun_type(types: &[Type]) -> Type {
-    assert!(types.len() >= 2);
+    assert!(!types.is_empty());
+
+    if types.len() == 1 {
+        return types[0].clone();
+    }
 
     if types.len() == 2 {
         Type::Fun(
