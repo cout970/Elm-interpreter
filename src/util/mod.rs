@@ -29,12 +29,32 @@ impl StringConversion for str {
     }
 }
 
+pub trait OptionExt<A> {
+    fn zip<B>(self, other: Option<B>) -> Option<(A, B)>;
+}
+
+impl<A> OptionExt<A> for Option<A> {
+    fn zip<B>(self, other: Option<B>) -> Option<(A, B)> {
+        match self {
+            Some(a) => {
+                match other {
+                    Some(b) => {
+                        Some((a, b))
+                    }
+                    None => None
+                }
+            }
+            None => None
+        }
+    }
+}
+
 pub trait VecExt<A> {
     fn map<B, F: FnMut(&A) -> B>(&self, f: F) -> Vec<B>;
     fn join_vec(&self, other: &[A]) -> Vec<A>;
 }
 
-impl <A: Clone> VecExt<A> for Vec<A> {
+impl<A: Clone> VecExt<A> for Vec<A> {
     fn map<B, F: FnMut(&A) -> B>(&self, f: F) -> Vec<B> {
         self.iter().map(f).collect()
     }
@@ -52,11 +72,11 @@ impl <A: Clone> VecExt<A> for Vec<A> {
 }
 
 pub fn builtin_fun_of(id: u32, ty: Type) -> Value {
-    Value::Fun(CurriedFunc {
+    Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
         fun: Fun::Builtin(id, ty),
-    })
+    }
 }
 
 pub fn arg_count(ty: &Type) -> u32 {

@@ -1,4 +1,3 @@
-use util::expression_fold::create_expr_tree;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -8,6 +7,7 @@ use types::Literal;
 use types::Pattern;
 use types::Type;
 use types::Value;
+use util::expression_fold::create_expr_tree;
 
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -158,22 +158,22 @@ impl Display for Value {
                 write!(f, "[")?;
                 print_vec(f, items)?;
                 write!(f, "]")?;
-            },
+            }
             Value::Tuple(items) => {
                 write!(f, "(")?;
                 print_vec(f, items)?;
                 write!(f, ")")?;
-            },
+            }
             Value::Record(items) => {
                 write!(f, "{{ ")?;
                 print_pairs(f, items)?;
                 write!(f, " }}")?;
-            },
+            }
             Value::Adt(name, items) => {
                 write!(f, "{} ", name)?;
                 print_vec(f, items)?;
-            },
-            Value::Fun(_) => write!(f, "<function>")?,
+            }
+            Value::Fun { .. } => write!(f, "<function>")?,
         }
         Ok(())
     }

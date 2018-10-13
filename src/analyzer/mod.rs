@@ -1,8 +1,6 @@
-use analyzer::environment::Environment;
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError;
 use std::collections::HashMap;
-use types::CurriedFunc;
 use types::Expr;
 use types::Fun;
 use types::Type;
@@ -12,9 +10,6 @@ use types::Definition;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::static_env::StaticEnv;
 
-pub mod environment;
-pub mod pattern_helper;
-pub mod type_resolution;
 mod function_analyzer;
 mod expression_analyzer;
 pub mod static_env;

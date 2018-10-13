@@ -29,7 +29,7 @@ impl StaticEnv {
     }
 
     pub fn exit_block(&mut self) {
-        let vec = self.saved.pop().expect("Tried to pop the grovel environment");
+        let vec = self.saved.pop().expect("Tried to pop the global environment");
         for var in vec {
             self.variables.remove(&var);
         }

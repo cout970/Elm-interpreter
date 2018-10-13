@@ -1,12 +1,9 @@
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError::*;
-use analyzer::type_resolution::calculate_common_type;
-use analyzer::type_resolution::check_common_type;
 use analyzer::TypeError;
 use analyzer::TypeError::InternalError;
 use analyzer::TypeError::UnableToCalculateFunctionType;
 use std::collections::HashMap;
-use types::CurriedFunc;
 use types::Definition;
 use types::Expr;
 use types::Literal;
@@ -140,7 +137,7 @@ fn analyze_pattern(gen: &mut NameSequence, pattern: &Pattern) -> Result<(Type, V
                 }
             }
 
-            let ty = check_common_type(&sub_input)
+            let ty = calculate_common_type(&sub_input)
                 .map_err(|(expected, found)| ListPatternsAreNotHomogeneous(expected.clone(), found.clone()))?;
 
             Ok((Type::Tag("List".s(), vec![ty.clone()]), sub_vars))
@@ -181,5 +178,78 @@ fn analyze_pattern(gen: &mut NameSequence, pattern: &Pattern) -> Result<(Type, V
                 Literal::Char(_) => Ok((Type::Tag("Char".s(), vec![]), vec![])),
             }
         }
+    }
+}
+
+
+pub fn calculate_common_type(types: &[Type]) -> Result<&Type, (&Type, &Type)> {
+    let first = types.first().unwrap();
+
+    for i in 1..types.len() {
+        if !is_assignable(first, &types[i]) {
+            return Err((first, &types[i]));
+        }
+    }
+    Ok(first)
+}
+
+pub fn is_assignable(expected: &Type, found: &Type) -> bool {
+    if expected == found { return true; }
+    match expected {
+        Type::Var(name) => {
+            match name.as_str() {
+                "number" => {
+                    match found {
+                        Type::Tag(ty_name, _) => ty_name == "Int" || ty_name == "Float",
+                        _ => false
+                    }
+                }
+                _ => false
+            }
+        }
+        Type::Tag(name, sub) => {
+            match found {
+                Type::Tag(ty_name, ty_sub) => {
+                    ty_name == name && sub.iter().zip(ty_sub).all(|(a, b)| is_assignable(a, b))
+                }
+                _ => false
+            }
+        }
+        Type::Fun(input, output) => {
+            match found {
+                Type::Fun(a, b) => is_assignable(input, a) && is_assignable(output, b),
+                _ => false
+            }
+        }
+        Type::Tuple(sub) => {
+            match found {
+                Type::Tuple(ty_sub) => {
+                    sub.iter().zip(ty_sub).all(|(a, b)| is_assignable(a, b))
+                }
+                _ => false
+            }
+        }
+        Type::Record(entries) => {
+            match found {
+                Type::Record(entries_ty) => {
+                    entries.iter().all(|(name, ty)| entries_ty.iter().any(|(n, t)|
+                        n == name && is_assignable(ty, t)
+                    ))
+                }
+                _ => false
+            }
+        }
+        Type::RecExt(name, entries) => {
+            match found {
+                Type::RecExt(name_ty, entries_ty) => {
+                    name == name_ty && entries.iter()
+                        .all(|(name, ty)| entries_ty.iter().any(|(n, t)|
+                            n == name && is_assignable(ty, t)
+                        ))
+                }
+                _ => false
+            }
+        }
+        _ => false
     }
 }

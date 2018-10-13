@@ -73,14 +73,11 @@ pub enum Value {
     Tuple(Vec<Value>),
     Record(Vec<(String, Value)>),
     Adt(String, Vec<Value>),
-    Fun(CurriedFunc),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct CurriedFunc {
-    pub args: Vec<Value>,
-    pub fun: Fun,
-    pub arg_count: u32,
+    Fun {
+        arg_count: u32,
+        args: Vec<Value>,
+        fun: Fun,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]
