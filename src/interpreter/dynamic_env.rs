@@ -7,48 +7,49 @@ use util::builtin_fun_of;
 use util::OptionExt;
 use util::StringConversion;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DynamicEnv {
     pub types: StaticEnv,
-    values: HashMap<String, Value>,
-    saved: Vec<Vec<String>>,
+    values: Vec<HashMap<String, Value>>,
 }
 
 impl DynamicEnv {
     pub fn new() -> Self {
         DynamicEnv {
             types: StaticEnv::new(),
-            values: HashMap::new(),
-            saved: vec![vec![]],
+            values: vec![HashMap::new()],
         }
     }
 
     pub fn add(&mut self, name: &str, val: Value, ty: Type) {
         self.types.add(name, ty);
-        self.values.insert(name.to_owned(), val);
-        self.saved.last_mut().unwrap().push(name.to_owned());
+        self.values.last_mut().unwrap().insert(name.to_owned(), val);
     }
 
     pub fn find(&self, name: &str) -> Option<(Value, Type)> {
-        self.values.get(name).map(|i| i.clone()).zip(self.types.find(name))
+        for map in self.values.iter().rev() {
+            let opt = map.get(name).cloned();
+            if let Some(_) = &opt {
+                return opt.zip(self.types.find(name));
+            }
+        }
+        None
     }
 
     pub fn enter_block(&mut self) {
+        println!("Enter block: {}", self.values.len());
         self.types.enter_block();
-        self.saved.push(vec![]);
+        self.values.push(HashMap::new());
     }
 
     pub fn exit_block(&mut self) {
         self.types.exit_block();
-        let vec = self.saved.pop().expect("Tried to pop the global environment");
-        for val in vec {
-            self.values.remove(&val);
-        }
+        self.values.pop().expect("Tried to pop the global environment");
+        println!("Exit block: {}", self.values.len());
     }
 
     pub fn default_lang_env() -> DynamicEnv {
         let mut env = DynamicEnv::new();
-
 
         let num_ty = build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())

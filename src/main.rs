@@ -8,6 +8,12 @@ extern crate nom;
 #[macro_use]
 extern crate pretty_assertions;
 
+use analyzer::static_env::StaticEnv;
+use analyzer::type_check_expression;
+use interpreter::dynamic_env::DynamicEnv;
+use interpreter::eval_expression;
+use interpreter::eval_statement;
+use interpreter::type_of_value;
 use nom::ExtendInto;
 use nom::IResult;
 use nom::verbose_errors::Context;
@@ -23,8 +29,6 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
-use analyzer::type_check_expression;
-use analyzer::static_env::StaticEnv;
 
 mod types;
 #[macro_use]
@@ -34,11 +38,76 @@ mod parsers;
 mod tokenizer;
 mod analyzer;
 mod interpreter;
+/*
+fib num = case num of \
+ 0 -> 0 \
+ 1 -> 1 \
+ _ -> fib (num - 1) + fib (num - 2)
+*/
 
 fn main() {
-//    interpret_stdin();
+    let mut env = DynamicEnv::default_lang_env();
+    loop {
+        // Read
+        let line = read_terminal_line().expect("new line from terminal");
+
+        // Eval
+        let result = eval_statement(&mut env, &line);
+
+        // Print
+        match result {
+            Ok(opt) => {
+                match opt {
+                    Some(value) => {
+                        println!("{} : {}", value, type_of_value(&value));
+                    }
+                    None => {
+                        // No error
+                    }
+                }
+            }
+            Err(_) => {
+                let result = eval_expression(&mut env, &line);
+                match result {
+                    Ok(value) => {
+                        println!("{} : {}", value, type_of_value(&value));
+                    }
+                    Err(error) => {
+                        println!("Error: {:#?}", error);
+                    }
+                }
+            }
+        }
+
+        // Loop back to the start
+    }
 }
-//
+
+fn read_terminal_line() -> Result<String, ()> {
+    let stdin = stdin();
+    let mut line = String::new();
+
+    print!("> ");
+    stdout().flush().unwrap();
+
+    loop {
+        stdin.lock().read_line(&mut line).map_err(|_| ())?;
+        if !line.is_empty() && line.as_bytes()[line.len() - 2] != b'\\' {
+            break;
+        }
+
+        line.pop().unwrap();
+        line.pop().unwrap();
+        line.push('\n');
+
+        print!("| ");
+        stdout().flush().unwrap();
+    }
+
+    Ok(line)
+}
+
+
 //fn interpret_stdin() {
 //    print!("> ");
 //    stdout().flush().unwrap();

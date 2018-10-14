@@ -2,29 +2,40 @@ use std::collections::HashMap;
 use types::Type;
 use util::name_sequence::NameSequence;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StaticEnv {
-    variables: HashMap<String, Type>,
+    variables: Vec<HashMap<String, Type>>,
     pub name_seq: NameSequence,
-    saved: Vec<Vec<String>>,
 }
 
 impl StaticEnv {
     pub fn new() -> Self {
         Self {
-            variables: HashMap::new(),
+            variables: vec![HashMap::new()],
             name_seq: NameSequence::new(),
-            saved: vec![vec![]],
         }
     }
 
     pub fn add(&mut self, name: &str, var: Type) {
-        self.saved.last_mut().unwrap().push(name.to_owned());
-        self.variables.insert(name.to_owned(), var);
+        self.variables.last_mut().unwrap().insert(name.to_owned(), var);
+    }
+
+    pub fn replace(&mut self, name: &str, var: Type) {
+        if self.variables.last().unwrap().contains_key(name) {
+            self.variables.last_mut().unwrap().insert(name.to_owned(), var);
+        }
     }
 
     pub fn find(&self, name: &str) -> Option<Type> {
-        self.variables.get(name).cloned()
+        for map in self.variables.iter().rev() {
+            let opt = map.get(name).cloned();
+
+            if let Some(_) = &opt {
+                return opt;
+            }
+        }
+
+        None
     }
 
     pub fn next_name(&mut self) -> String {
@@ -32,17 +43,14 @@ impl StaticEnv {
     }
 
     pub fn is_local(&self, name: &str) -> bool {
-        self.saved[self.saved.len()-1].iter().any(|n| n == name)
+        self.variables.last().unwrap().get(name).is_some()
     }
 
     pub fn enter_block(&mut self) {
-        self.saved.push(vec![]);
+        self.variables.push(HashMap::new());
     }
 
     pub fn exit_block(&mut self) {
-        let vec = self.saved.pop().expect("Tried to pop the global environment");
-        for var in vec {
-            self.variables.remove(&var);
-        }
+        self.variables.pop().expect("Tried to pop the global environment");
     }
 }

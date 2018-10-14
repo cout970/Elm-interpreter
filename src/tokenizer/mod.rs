@@ -18,7 +18,6 @@ pub enum Token {
     LitChar(char),
     LitString(String),
     Indent(u32),
-    LineStart,
     BackSlash,
     Let,
     If,
@@ -106,7 +105,7 @@ fn next_token<'a>(i: Input) -> IResult<Input, Token> {
             indentation += 1;
         }
 
-        let tk = if indentation == 0 { LineStart } else { Indent(indentation) };
+        let tk = Indent(indentation);
         return Ok((i.advance(ptr), tk));
     }
 
@@ -171,7 +170,7 @@ mod tests {
             Case, Id("i".s()), Of,
             Indent(2), LitInt(1),
             Indent(2), LitInt(2),
-            LineStart,
+            Indent(0),
             Id("my_func".s()),
             Eof
         ]);

@@ -387,7 +387,7 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
         Expr::Ref(variable) => {
             match env.find(variable) {
                 Some(variable_type) => {
-                    env.add(variable, replace_vars_with_concrete_types(vars, &variable_type))
+                    env.replace(variable, replace_vars_with_concrete_types(vars, &variable_type))
                 }
                 None => {}
             }

@@ -13,7 +13,7 @@ use util::build_fun_type;
 use util::create_vec_inv;
 use util::StringConversion;
 
-pub fn eval_statement(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
+pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
         Statement::Alias(name, _, ty) => {
             env.types.add(name, ty.clone());
@@ -66,9 +66,10 @@ pub fn eval_statement(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Va
                 fun: Fun::Expr(patterns.clone(), expr.clone(), def_ty.clone()),
             };
 
-            env.add(name, value.clone(), def_ty);
-
             let ret = if patterns.len() == 0 { eval_expr(env, expr)? } else { value };
+
+            env.add(name, ret.clone(), def_ty);
+
             return Ok(Some(ret));
         }
     }
@@ -88,9 +89,10 @@ mod tests {
     use types::Type;
     use util::builtin_fun_of;
     use util::StringConversion;
+    use interpreter::eval_statement;
 
     fn formatted(env: &mut DynamicEnv, stm: &Statement) -> String {
-        let result = eval_statement(env, stm);
+        let result = eval_stm(env, stm);
         let option = result.unwrap();
         let value = option.unwrap();
         let ty = get_value_type(&value);
@@ -135,7 +137,7 @@ mod tests {
         let decl = from_code_stm(b"type Adt = A | B");
         let mut env = DynamicEnv::default_lang_env();
 
-        eval_statement(&mut env, &decl).unwrap();
+        eval_stm(&mut env, &decl).unwrap();
 
         assert_eq!(formatted_expr(&mut env, &from_code(b"A")), "A : Adt".s());
         assert_eq!(formatted_expr(&mut env, &from_code(b"B")), "B : Adt".s());
@@ -146,11 +148,27 @@ mod tests {
 //        let decl = from_code_stm(b"type Adt a = A a | B Int");
 //        let mut env = DynamicEnv::default_lang_env();
 //
-//        eval_statement(&mut env, &decl).unwrap();
+//        eval_stm(&mut env, &decl).unwrap();
 //
 //        assert_eq!(formatted_expr(&mut env, &from_code(b"A")), "<function> : a -> Adt a".s());
 //        assert_eq!(formatted_expr(&mut env, &from_code(b"B")), "<function> : Int -> Adt a".s());
 //        assert_eq!(formatted_expr(&mut env, &from_code(b"A 1")), "A 1 : Adt number".s());
 //        assert_eq!(formatted_expr(&mut env, &from_code(b"B 1")), "B 1 : Adt a".s());
 //    }
+
+    #[test]
+    fn check_fib() {
+        let decl = from_code_stm(b"fib num = case num of \n0 -> 0 \n1 -> 1 \n_ -> fib (num - 1) + fib (num - 2)");
+        let mut env = DynamicEnv::default_lang_env();
+
+        eval_stm(&mut env, &decl).unwrap();
+
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib")), "<function> : number -> number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 0")), "0 : number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 1")), "1 : number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 2")), "1 : number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 3")), "2 : number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 4")), "3 : number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 5")), "5 : number".s());
+    }
 }

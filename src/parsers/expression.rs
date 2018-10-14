@@ -371,6 +371,20 @@ mod tests {
         ));
     }
 
+
+    #[test]
+    fn check_binop_chain_multiline() {
+        let stream = tokenize(b"1 + \n2 + \n3 + \n4");
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::OpChain(vec![
+            Expr::Literal(Literal::Int(1)),
+            Expr::Literal(Literal::Int(2)),
+            Expr::Literal(Literal::Int(3)),
+            Expr::Literal(Literal::Int(4)),
+        ], vec!["+".s(), "+".s(), "+".s()]
+        ));
+    }
+
     #[test]
     fn check_priorities() {
         let stream = tokenize(b"1 * 2 + 3 * 4");

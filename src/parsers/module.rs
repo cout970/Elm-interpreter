@@ -23,7 +23,7 @@ named!(pub read_ref<Tk, String>, alt!(
 ));
 
 named!(pub read_module<Tk, Module>, do_parse!(
-    opt!(tk!(LineStart)) >>
+    opt!(indent!(0)) >>
     header: opt!(module_header) >>
     imports: many0!(import) >>
     statements: many0!(top_level_statement) >>
@@ -76,7 +76,7 @@ named!(exposing<Tk, Vec<Export>>, do_parse!(
 ));
 
 named!(import<Tk, Import>, do_parse!(
-    opt!(tk!(LineStart)) >>
+    opt!(indent!(0)) >>
     tk!(ImportTk) >>
     path: upper_ids >>
     alias: opt!(do_parse!(tk!(As) >> n: upper_id!() >> (n))) >>

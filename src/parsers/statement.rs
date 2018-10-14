@@ -8,7 +8,7 @@ use parsers::Tk;
 // Definitions
 
 named!(pub top_level_statement<Tk, Statement>, do_parse!(
-    tk!(LineStart) >>
+    indent!(0) >>
     s: read_statement >>
     (s)
 ));
@@ -30,7 +30,7 @@ named!(read_type_def<Tk, (String, Type)>, do_parse!(
     name: read_type_def_name >>
     tk!(Colon) >>
     ty: read_type >>
-    opt!(tk!(LineStart)) >>
+    opt!(indent!(0)) >>
     ((name, ty))
 ));
 

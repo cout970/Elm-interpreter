@@ -14,6 +14,7 @@ use util::expression_fold::ExprTree;
 use util::StringConversion;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
+//    println!("eval: {}", expr);
     let res: Value = match expr {
         Expr::Unit => Value::Unit,
         Expr::Tuple(items) => {
@@ -88,7 +89,9 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             }
         }
         Expr::Ref(name) | Expr::Adt(name) => {
-            env.find(name).map(|(val, _)| val).ok_or(TODO(format!("Missing definition for {}", name)))?
+            env.find(name)
+                .map(|(val, _)| val)
+                .ok_or(MissingDef(name.clone(), env.clone()))?
         }
         Expr::QualifiedRef(_, name) => {
             // TODO
@@ -117,7 +120,16 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 arg_count: 1,
             }
         }
-        Expr::Case(_, _) => Value::Unit, // TODO
+        Expr::Case(cond, branches) => {
+            let cond_val = eval_expr(env, cond)?;
+            for (patt, expr) in branches {
+                if matches_pattern(patt, &cond_val) {
+                    return eval_expr(env, expr);
+                }
+            }
+
+            return Err(TODO(format!("case values does not match any branch: {}", cond_val)));
+        }
         Expr::Let(_, _) => Value::Unit, // TODO
 
         Expr::Application(fun, input) => {
@@ -154,6 +166,7 @@ fn exec_fun(env: &mut DynamicEnv, fun: &Fun, args: &[Value]) -> Result<Value, Ru
             builtin_function(*id, args)
         }
         Fun::Expr(ref patterns, ref expr, _) => {
+//            println!("exec: {:?}", fun);
             env.enter_block();
             assert_eq!(patterns.len(), args.len());
 
@@ -164,6 +177,84 @@ fn exec_fun(env: &mut DynamicEnv, fun: &Fun, args: &[Value]) -> Result<Value, Ru
             let res = eval_expr(env, expr);
             env.exit_block();
             Ok(res?)
+        }
+    }
+}
+
+fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
+    match pattern {
+        Pattern::Var(_) => true,
+        Pattern::Wildcard => true,
+        Pattern::Adt(p_name, p_sub) => {
+            if let Value::Adt(v_name, v_sub, _) = value {
+                p_name == v_name && p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
+            } else {
+                false
+            }
+        }
+        Pattern::Unit => value == &Value::Unit,
+        Pattern::Tuple(p_sub) => {
+            if let Value::Tuple(v_sub) = value {
+                p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
+            } else {
+                false
+            }
+        }
+        Pattern::List(p_sub) => {
+            if let Value::List(v_sub) = value {
+                p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
+            } else {
+                false
+            }
+        }
+        Pattern::BinaryOp(op, first, rest) => {
+            assert_eq!(op.as_str(), "::");
+
+            if let Value::List(v_sub) = value {
+                if !v_sub.is_empty() {
+                    matches_pattern(first, &v_sub[0]) &&
+                        matches_pattern(rest, &Value::List(v_sub[1..].to_vec()))
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        Pattern::Record(fields) => {
+            if let Value::Record(entries) = value {
+                fields.iter().all(|field_name| {
+                    entries.iter().find(|(name, _)| name == field_name).is_some()
+                })
+            } else {
+                false
+            }
+        }
+        Pattern::Literal(lit) => {
+            match lit {
+                Literal::Int(p) => {
+                    match value {
+                        Value::Int(v) => {
+                            (*p) == (*v)
+                        },
+                        Value::Number(v) => {
+                            (*p) == (*v)
+                        },
+                        _ => {
+                            false
+                        }
+                    }
+                }
+                Literal::Float(p) => {
+                    if let Value::Float(v) = value { *p == *v } else { false }
+                }
+                Literal::String(p) => {
+                    if let Value::String(v) = value { p == v } else { false }
+                }
+                Literal::Char(p) => {
+                    if let Value::Char(v) = value { *p == *v } else { false }
+                }
+            }
         }
     }
 }
