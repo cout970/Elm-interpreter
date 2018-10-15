@@ -1,5 +1,7 @@
 use analyzer::static_env::StaticEnv;
 use std::collections::HashMap;
+use types::FunCall;
+use types::FunId;
 use types::Type;
 use types::Value;
 use util::build_fun_type;
@@ -9,8 +11,11 @@ use util::StringConversion;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicEnv {
+    pub eval_calls: u32,
     pub types: StaticEnv,
     values: Vec<HashMap<String, Value>>,
+    next_fun_id: FunId,
+    cache: HashMap<FunCall, Value>,
 }
 
 impl DynamicEnv {
@@ -18,7 +23,16 @@ impl DynamicEnv {
         DynamicEnv {
             types: StaticEnv::new(),
             values: vec![HashMap::new()],
+            next_fun_id: 0,
+            cache: HashMap::new(),
+            eval_calls: 0,
         }
+    }
+
+    pub fn next_fun_id(&mut self) -> FunId {
+        let old = self.next_fun_id;
+        self.next_fun_id += 1;
+        old
     }
 
     pub fn add(&mut self, name: &str, val: Value, ty: Type) {
@@ -48,6 +62,14 @@ impl DynamicEnv {
         println!("Exit block: {}", self.values.len());
     }
 
+    pub fn get_from_cache(&self, call: &FunCall) -> Option<Value> {
+        self.cache.get(call).cloned()
+    }
+
+    pub fn add_to_cache(&mut self, call: FunCall, value: Value) {
+//        self.cache.insert(call, value);
+    }
+
     pub fn default_lang_env() -> DynamicEnv {
         let mut env = DynamicEnv::new();
 
@@ -61,11 +83,16 @@ impl DynamicEnv {
             Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![])
         ]);
 
-        env.add("+", builtin_fun_of(1, num_ty.clone()), num_ty.clone());
-        env.add("-", builtin_fun_of(2, num_ty.clone()), num_ty.clone());
-        env.add("*", builtin_fun_of(3, num_ty.clone()), num_ty.clone());
-        env.add("/", builtin_fun_of(4, float_ty.clone()), float_ty.clone());
-        env.add("//", builtin_fun_of(5, int_ty.clone()), int_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), 1, num_ty.clone());
+        env.add("+", fun, num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), 2, num_ty.clone());
+        env.add("-", fun, num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), 3, num_ty.clone());
+        env.add("*", fun, num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), 4, float_ty.clone());
+        env.add("/", fun, float_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), 5, int_ty.clone());
+        env.add("//", fun, int_ty.clone());
 
         env
     }

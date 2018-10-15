@@ -3,6 +3,7 @@ use interpreter::builtins::builtin_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
+use std::collections::HashMap;
 use types::Expr;
 use types::Fun;
 use types::Literal;
@@ -12,9 +13,11 @@ use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::StringConversion;
+use types::FunCall;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
-//    println!("eval: {}", expr);
+    env.eval_calls += 1;
+    println!("eval  : {}", expr);
     let res: Value = match expr {
         Expr::Unit => Value::Unit,
         Expr::Tuple(items) => {
@@ -70,7 +73,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             Value::Fun {
                 args: vec![],
                 arg_count: patt.len() as u32,
-                fun: Fun::Expr(patt.clone(), (&**_expr).clone(), ty),
+                fun: Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty),
             }
         }
 
@@ -116,7 +119,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![Value::String(field.to_owned())],
-                fun: Fun::Builtin(6, ty),
+                fun: Fun::Builtin(env.next_fun_id(), 6, ty),
                 arg_count: 1,
             }
         }
@@ -135,6 +138,12 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         Expr::Application(fun, input) => {
             let fun = eval_expr(env, fun)?;
             let input = eval_expr(env, input)?;
+            let fun_call = FunCall { function: fun.clone(), argument: input.clone() };
+
+            if let Some(val) = env.get_from_cache(&fun_call) {
+                println!("eval (cached): {:?} = {}", fun_call, val);
+                return Ok(val.clone());
+            }
 
             if let Value::Fun { arg_count, args, fun } = &fun {
                 let argc = args.len() as u32 + 1;
@@ -146,11 +155,14 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 let mut arg_vec = args.clone();
                 arg_vec.push(input);
 
-                if *arg_count == argc {
+                let value = if *arg_count == argc {
                     exec_fun(env, &fun, &arg_vec)?
                 } else {
                     Value::Fun { args: arg_vec, fun: fun.clone(), arg_count: *arg_count }
-                }
+                };
+
+                env.add_to_cache(fun_call, value.clone());
+                value
             } else {
                 return Err(TODO(format!("Expected a function but found: {}", fun)));
             }
@@ -162,10 +174,10 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
 fn exec_fun(env: &mut DynamicEnv, fun: &Fun, args: &[Value]) -> Result<Value, RuntimeError> {
     match fun {
-        Fun::Builtin(id, _) => {
+        Fun::Builtin(_, id, _) => {
             builtin_function(*id, args)
         }
-        Fun::Expr(ref patterns, ref expr, _) => {
+        Fun::Expr(_, ref patterns, ref expr, _) => {
 //            println!("exec: {:?}", fun);
             env.enter_block();
             assert_eq!(patterns.len(), args.len());
@@ -236,10 +248,10 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
                     match value {
                         Value::Int(v) => {
                             (*p) == (*v)
-                        },
+                        }
                         Value::Number(v) => {
                             (*p) == (*v)
-                        },
+                        }
                         _ => {
                             false
                         }
@@ -372,8 +384,8 @@ pub fn get_value_type(value: &Value) -> Type {
         }
         Value::Fun { fun, args, .. } => {
             let fun_ty = match fun {
-                Fun::Builtin(_, ty) => ty,
-                Fun::Expr(_, _, ty) => ty,
+                Fun::Builtin(_, _, ty) => ty,
+                Fun::Expr(_, _, _, ty) => ty,
             };
 
             strip_fun_args(args.len(), &fun_ty).clone()
@@ -456,6 +468,7 @@ mod tests {
                 arg_count: 1,
                 args: vec![],
                 fun: Fun::Expr(
+                    0,
                     vec![Pattern::Var("x".s())],
                     Expr::Literal(Literal::Int(1)),
                     Type::Fun(
@@ -485,7 +498,8 @@ mod tests {
             Box::new(Type::Unit),
         );
 
-        env.add("fun", builtin_fun_of(0, ty.clone()), ty);
+        let fun = builtin_fun_of(env.next_fun_id(),0, ty.clone());
+        env.add("fun", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Unit));
     }
@@ -503,7 +517,8 @@ mod tests {
             )),
         );
 
-        env.add("/", builtin_fun_of(4, ty.clone()), ty);
+        let fun = builtin_fun_of(env.next_fun_id(),4, ty.clone());
+        env.add("/", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Float(0.3333333333333333)));
     }
@@ -521,7 +536,8 @@ mod tests {
             )),
         );
 
-        env.add("//", builtin_fun_of(5, ty.clone()), ty);
+        let fun = builtin_fun_of(env.next_fun_id(),5, ty.clone());
+        env.add("//", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Int(1)));
     }
@@ -539,7 +555,8 @@ mod tests {
             )),
         );
 
-        env.add("+", builtin_fun_of(1, ty.clone()), ty);
+        let fun = builtin_fun_of(env.next_fun_id(),1, ty.clone());
+        env.add("+", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Number(7)));
     }

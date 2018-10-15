@@ -49,7 +49,7 @@ fn main() {
     let mut env = DynamicEnv::default_lang_env();
     loop {
         // Read
-        let line = read_terminal_line().expect("new line from terminal");
+        let line = read_terminal_line().unwrap_or(String::from(""));
 
         // Eval
         let result = eval_statement(&mut env, &line);
@@ -67,10 +67,12 @@ fn main() {
                 }
             }
             Err(_) => {
+                env.eval_calls = 0;
                 let result = eval_expression(&mut env, &line);
+
                 match result {
                     Ok(value) => {
-                        println!("{} : {}", value, type_of_value(&value));
+                        println!("{} : {} (in {} evals)", value, type_of_value(&value), env.eval_calls);
                     }
                     Err(error) => {
                         println!("Error: {:#?}", error);
@@ -92,7 +94,11 @@ fn read_terminal_line() -> Result<String, ()> {
 
     loop {
         stdin.lock().read_line(&mut line).map_err(|_| ())?;
-        if !line.is_empty() && line.as_bytes()[line.len() - 2] != b'\\' {
+        if line.len() < 2 {
+            return Err(());
+        }
+
+        if line.as_bytes()[line.len() - 2] != b'\\' {
             break;
         }
 
