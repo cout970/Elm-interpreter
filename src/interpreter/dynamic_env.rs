@@ -67,7 +67,7 @@ impl DynamicEnv {
     }
 
     pub fn add_to_cache(&mut self, call: FunCall, value: Value) {
-//        self.cache.insert(call, value);
+        self.cache.insert(call, value);
     }
 
     pub fn default_lang_env() -> DynamicEnv {
