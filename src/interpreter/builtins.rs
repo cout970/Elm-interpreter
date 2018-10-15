@@ -36,17 +36,13 @@ pub fn builtin_function(id: u32, args: &[Value]) -> Result<Value, RuntimeError> 
             }
         }
         7 => {
-            if let Value::String(var) = &args[0] {
-                if let Value::String(ty) = &args[1] {
-                    let mut vals: Vec<Value> = vec![];
-                    for i in 2..args.len() {
-                        vals.push(args[i].clone());
-                    }
-
-                    Value::Adt(var.to_owned(), vals, ty.to_owned())
-                } else {
-                    return Err(InternalError);
+            if let Value::Adt(var, _, adt) = &args[0] {
+                let mut vals: Vec<Value> = vec![];
+                for i in 1..args.len() {
+                    vals.push(args[i].clone());
                 }
+
+                Value::Adt(var.to_owned(), vals, adt.clone())
             } else {
                 return Err(InternalError);
             }

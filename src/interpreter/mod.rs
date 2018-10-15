@@ -8,7 +8,6 @@ use types::Value;
 use parsers::parse_statement;
 use interpreter::statement_eval::eval_stm;
 use types::Type;
-use interpreter::expression_eval::get_value_type;
 
 pub mod dynamic_env;
 mod builtins;
@@ -34,8 +33,4 @@ pub fn eval_expression(env: &mut DynamicEnv, code: &str) -> Result<Value, Runtim
     let tokens = tokenize(code.as_bytes());
     let expr = parse_expr(&tokens).map_err(|_| ParseError)?;
     eval_expr(env, &expr)
-}
-
-pub fn type_of_value(value: &Value) -> Type {
-    get_value_type(value)
 }

@@ -13,7 +13,6 @@ use analyzer::type_check_expression;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::eval_expression;
 use interpreter::eval_statement;
-use interpreter::type_of_value;
 use nom::ExtendInto;
 use nom::IResult;
 use nom::verbose_errors::Context;
@@ -29,6 +28,7 @@ use std::io::Write;
 use tokenizer::*;
 use types::*;
 use util::*;
+use analyzer::type_of_value;
 
 mod types;
 #[macro_use]
@@ -50,6 +50,8 @@ fn main() {
     loop {
         // Read
         let line = read_terminal_line().unwrap_or(String::from(""));
+
+        if line.is_empty() { continue; }
 
         // Eval
         let result = eval_statement(&mut env, &line);

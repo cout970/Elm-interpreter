@@ -1,6 +1,8 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem::transmute;
+use std::sync::Arc;
+use std::rc::Rc;
 
 pub type Int = i32;
 pub type Float = f32;
@@ -13,7 +15,7 @@ pub enum Literal {
     Char(char),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Type {
     Var(String),
     Tag(String, Vec<Type>),
@@ -83,7 +85,7 @@ pub enum Value {
     List(Vec<Value>),
     Tuple(Vec<Value>),
     Record(Vec<(String, Value)>),
-    Adt(String, Vec<Value>, String),
+    Adt(String, Vec<Value>, Rc<Adt>),
     Fun {
         arg_count: u32,
         args: Vec<Value>,
@@ -99,14 +101,14 @@ pub enum Fun {
     Expr(FunId, Vec<Pattern>, Expr, Type),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub struct Adt {
     pub name: String,
     pub types: Vec<Type>,
     pub variants: Vec<AdtVariant>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub struct AdtVariant {
     pub name: String,
     pub types: Vec<Type>,

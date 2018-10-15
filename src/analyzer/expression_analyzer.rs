@@ -14,12 +14,16 @@ use types::Fun;
 use types::Literal;
 use types::Pattern;
 use types::Type;
+use types::Value;
 use types::ValueDefinition;
 use util::build_fun_type;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
+use std::rc::Rc;
+use types::Adt;
+use analyzer::type_of_value;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
@@ -395,6 +399,18 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
     }
 }
 
+pub fn get_adt_type(name: &String, vars: &Vec<Value>, adt: Rc<Adt>) -> Type {
+    let variant = adt.variants.iter().find(|var| &var.name == name).unwrap();
+
+    let mut var_replacement: HashMap<String, Type> = HashMap::new();
+    let value_types: Vec<Type> = vars.iter().map(|v| type_of_value(v)).collect();
+
+    find_var_replacements(&mut var_replacement, &Type::Tuple(value_types), &Type::Tuple(variant.types.clone()));
+
+    let final_types = adt.types.iter().map(|ty| replace_vars_with_concrete_types(&var_replacement, ty)).collect();
+    Type::Tag(adt.name.clone(), final_types)
+}
+
 fn replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type) -> Type {
     match ty {
         Type::Var(name) => {
@@ -736,13 +752,3 @@ mod tests {
         assert_eq!(analyze_expression(&mut env, None, &expr), Err(CaseBranchDontMatchReturnType("".s())));
     }
 }
-
-/*
-
-fun: Int -> Int
-infer arg1 = fun arg1
-fun = Int -> Int
-arg1: a
-fun arg1: ((Int -> Int) a) => a : Int => arg1 : Int
-
-*/

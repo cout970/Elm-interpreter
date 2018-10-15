@@ -12,6 +12,9 @@ use types::ValueDefinition;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::StringConversion;
+use types::Adt;
+use types::AdtVariant;
+use std::rc::Rc;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -23,6 +26,19 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                 .map(|v| Type::Var(v.to_owned()))
                 .collect();
 
+            let variant_data = variants.iter().map(|(name, types)| {
+                AdtVariant{
+                    name: name.clone(),
+                    types: types.clone(),
+                }
+            }).collect();
+
+            let adt = Rc::new(Adt {
+                name: name.clone(),
+                types: vars.clone(),
+                variants: variant_data,
+            });
+
             let ty = Type::Tag(name.clone(), vars);
 
             env.types.add(name, ty.clone());
@@ -31,20 +47,17 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                 let var_ty = build_fun_type(&create_vec_inv(params, ty.clone()));
 
                 let value = if params.is_empty() {
-                    Value::Adt(var_name.clone(), vec![], name.clone())
+                    Value::Adt(var_name.clone(), vec![], adt.clone())
                 } else {
-                    let ty = Type::Fun(
-                        Box::from(Type::Tag("String".s(), vec![])),
-                        Box::from(Type::Fun(
-                            Box::from(Type::Tag("String".s(), vec![])),
-                            Box::from(var_ty.clone()),
-                        )),
+                    let fun_ty = Type::Fun(
+                        Box::from(Type::Tag(var_name.clone(), vec![])),
+                        Box::from(var_ty.clone())
                     );
 
                     Value::Fun {
-                        args: vec![Value::String(var_name.clone()), Value::String(name.clone())],
-                        arg_count: (params.len() + 2) as u32,
-                        fun: Fun::Builtin(env.next_fun_id(), 7, ty),
+                        args: vec![Value::Adt(var_name.clone(), vec![], adt.clone())],
+                        arg_count: (params.len() + 1) as u32,
+                        fun: Fun::Builtin(env.next_fun_id(), 7, fun_ty),
                     }
                 };
 
@@ -78,7 +91,6 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
 
 #[cfg(test)]
 mod tests {
-    use interpreter::expression_eval::get_value_type;
     use nom::*;
     use nom::verbose_errors::*;
     use parsers::from_code;
@@ -90,12 +102,13 @@ mod tests {
     use util::builtin_fun_of;
     use util::StringConversion;
     use interpreter::eval_statement;
+    use analyzer::type_of_value;
 
     fn formatted(env: &mut DynamicEnv, stm: &Statement) -> String {
         let result = eval_stm(env, stm);
         let option = result.unwrap();
         let value = option.unwrap();
-        let ty = get_value_type(&value);
+        let ty = type_of_value(&value);
 
         format!("{} : {}", value, ty)
     }
@@ -103,7 +116,7 @@ mod tests {
     fn formatted_expr(env: &mut DynamicEnv, expr: &Expr) -> String {
         let result = eval_expr(env, expr);
         let value = result.unwrap();
-        let ty = get_value_type(&value);
+        let ty = type_of_value(&value);
 
         format!("{} : {}", value, ty)
     }
