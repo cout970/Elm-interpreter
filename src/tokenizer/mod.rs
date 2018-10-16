@@ -1,6 +1,7 @@
 use nom::*;
 use self::Token::*;
 use tokenizer::input::Input;
+use tokenizer::input::Location;
 use tokenizer::token_parser::read_token_forced;
 use types::*;
 use util::*;
@@ -52,7 +53,14 @@ pub enum Token {
     Eof,
 }
 
-pub fn tokenize(stream: &[u8]) -> Vec<Token> {
+#[derive(PartialEq, Debug, Clone)]
+pub enum LexicalError {
+    Incomplete(Needed),
+    Error(Location, ErrorKind),
+    Failure(Location, ErrorKind),
+}
+
+pub fn tokenize(stream: &[u8]) -> Result<Vec<Token>, LexicalError> {
     let mut stream: Vec<u8> = stream.iter().map(|c| *c).collect();
     stream.push('\0' as u8);
     stream.push('\0' as u8);
@@ -69,14 +77,38 @@ pub fn tokenize(stream: &[u8]) -> Vec<Token> {
                 tokens.push(token);
                 current_input = rem;
             }
-            Err(_) => {
-                panic!("\n{:?}\n", res);
+            Result::Err(e) => {
+                match e {
+                    Err::Incomplete(needed) => {
+                        return Err(LexicalError::Incomplete(needed));
+                    }
+                    Err::Error(ctx) => {
+                        let (loc, kind) = match ctx {
+                            Context::Code(i, kind) => { (i.get_location(), kind.clone()) }
+                            Context::List(vec) => {
+                                let (i, k) = vec.first().unwrap();
+                                (i.get_location(), k.clone())
+                            }
+                        };
+                        return Err(LexicalError::Error(loc, kind));
+                    }
+                    Err::Failure(ctx) => {
+                        let (loc, kind) = match ctx {
+                            Context::Code(i, kind) => { (i.get_location(), kind.clone()) }
+                            Context::List(vec) => {
+                                let (i, k) = vec.first().unwrap();
+                                (i.get_location(), k.clone())
+                            }
+                        };
+                        return Err(LexicalError::Failure(loc, kind));
+                    }
+                }
             }
         };
     }
     tokens.push(Token::Eof);
 
-    tokens
+    Ok(tokens)
 }
 
 fn next_token<'a>(i: Input) -> IResult<Input, Token> {
@@ -117,7 +149,7 @@ fn next_token<'a>(i: Input) -> IResult<Input, Token> {
         match opt_tk {
             Some(pair) => pair,
             _ => return Err(Err::Failure(
-                Context::Code(i, ErrorKind::Custom(0))
+                Context::Code(i.advance(ptr), ErrorKind::Custom(0))
             ))
         }
     };
@@ -142,14 +174,14 @@ mod tests {
     #[test]
     fn check_tokens() {
         let code = b"identifier1234,123.45";
-        let tokens = tokenize(code);
+        let tokens = tokenize(code).unwrap();
         assert_eq!(tokens, vec![Id("identifier1234".s()), Comma, LitFloat(123.45), Eof]);
     }
 
     #[test]
     fn check_identifiers() {
         let code = b"i, _a, b123, cBAD, aghjh, get_something";
-        let tokens = tokenize(code);
+        let tokens = tokenize(code).unwrap();
         assert_eq!(tokens, vec![
             Id("i".s()), Comma,
             Underscore,
@@ -165,7 +197,7 @@ mod tests {
     #[test]
     fn check_indentation_token() {
         let code = b"case i of\n  1\n  2\nmy_func";
-        let tokens = tokenize(code);
+        let tokens = tokenize(code).unwrap();
         assert_eq!(tokens, vec![
             Case, Id("i".s()), Of,
             Indent(2), LitInt(1),

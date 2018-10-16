@@ -33,7 +33,7 @@ pub fn parse_statement(i: Tk) -> Result<Statement, ()> {
 pub fn from_code(code: &[u8]) -> Expr {
     use nom::*;
 
-    let stream = tokenize(code);
+    let stream = tokenize(code).unwrap();
     let expr: IResult<Tk, Expr> = read_expr(&stream);
 
     match expr {
@@ -51,7 +51,7 @@ pub fn from_code(code: &[u8]) -> Expr {
 pub fn from_code_stm(code: &[u8]) -> Statement {
     use nom::*;
 
-    let stream = tokenize(code);
+    let stream = tokenize(code).unwrap();
     let stm: IResult<Tk, Statement> = read_statement(&stream);
 
     match stm {

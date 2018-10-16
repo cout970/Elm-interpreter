@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn check_type_alias() {
-        let stream = tokenize(b"\ntype alias Html = MyHtml");
+        let stream = tokenize(b"\ntype alias Html = MyHtml").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Alias(
             "Html".s(), vec![],
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn check_adt() {
-        let stream = tokenize(b"\ntype Boolean = True | False");
+        let stream = tokenize(b"\ntype Boolean = True | False").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Adt(
             "Boolean".s(), vec![],
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn check_port() {
-        let stream = tokenize(b"\nport js_function : Int -> Int");
+        let stream = tokenize(b"\nport js_function : Int -> Int").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Port(
             "js_function".s(),
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn check_def() {
-        let stream = tokenize(b"\nmy_fun x = ()");
+        let stream = tokenize(b"\nmy_fun x = ()").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
             Definition(
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn check_def2() {
-        let stream = tokenize(b"\nx = 5");
+        let stream = tokenize(b"\nx = 5").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
             Definition(
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn check_def3() {
-        let stream = tokenize(b"\nmy_fun: Int\nmy_fun = 5");
+        let stream = tokenize(b"\nmy_fun: Int\nmy_fun = 5").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m,
             Statement::Def(
@@ -185,7 +185,7 @@ mod tests {
     fn check_def4() {
         let stream = tokenize(b"\n\
 update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
-        ");
+        ").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m,
             Statement::Def(

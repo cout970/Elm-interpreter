@@ -24,13 +24,13 @@ pub enum RuntimeError {
 }
 
 pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>, RuntimeError> {
-    let tokens = tokenize(code.as_bytes());
+    let tokens = tokenize(code.as_bytes()).unwrap();
     let stm = parse_statement(&tokens).map_err(|_| ParseError)?;
     eval_stm(env, &stm)
 }
 
 pub fn eval_expression(env: &mut DynamicEnv, code: &str) -> Result<Value, RuntimeError> {
-    let tokens = tokenize(code.as_bytes());
+    let tokens = tokenize(code.as_bytes()).unwrap();
     let expr = parse_expr(&tokens).map_err(|_| ParseError)?;
     eval_expr(env, &expr)
 }

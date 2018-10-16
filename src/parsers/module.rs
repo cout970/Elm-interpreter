@@ -92,35 +92,35 @@ mod tests {
 
     #[test]
     fn check_empty_module() {
-        let stream = tokenize(b"module My_module");
+        let stream = tokenize(b"module My_module").unwrap();
         let m = read_module(&stream);
         assert_ok!(m, Module::default());
     }
 
     #[test]
     fn check_module_name() {
-        let stream = tokenize(b"module Com.My_module.My_sub_module");
+        let stream = tokenize(b"module Com.My_module.My_sub_module").unwrap();
         let m = read_module(&stream);
         assert_ok!(m, Module::default());
     }
 
     #[test]
     fn check_module_exports() {
-        let stream = tokenize(b"module MyMod ( List, Maybe )");
+        let stream = tokenize(b"module MyMod ( List, Maybe )").unwrap();
         let m = read_module(&stream);
         assert_ok!(m, Module::default());
     }
 
     #[test]
     fn check_module_empty_exports() {
-        let stream = tokenize(b"module MyMod ( )");
+        let stream = tokenize(b"module MyMod ( )").unwrap();
         let m = read_module(&stream);
         assert_ok!(m, Module::default());
     }
 
     #[test]
     fn check_module_imports() {
-        let stream = tokenize(b"import Html exposing (Html, text)");
+        let stream = tokenize(b"import Html exposing (Html, text)").unwrap();
         let m = read_module(&stream);
         assert_ok!(m, Module {
             imports: vec![Import{

@@ -3,8 +3,23 @@ name = "elm-interpreter"
 version = "0.1.0"
 authors = ["cout970 <thecout970@gmail.com>"]
 
+[lib]
+name = "mylib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mybin"
+path = "src/main.rs"
+
 [dependencies.nom]
 version = "4.0.0"
 features = ["verbose-errors"]
+
 [dependencies]
 pretty_assertions = "*"
+
+[dev-dependencies]
+criterion = "0.2.5"
+[[bench]]
+name = "my_bench"
+harness = false

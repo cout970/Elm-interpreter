@@ -85,35 +85,35 @@ mod tests {
 
     #[test]
     fn check_unit() {
-        let stream = tokenize(b"()");
+        let stream = tokenize(b"()").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Unit);
     }
 
     #[test]
     fn check_variable() {
-        let stream = tokenize(b"a");
+        let stream = tokenize(b"a").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Var("a".s()));
     }
 
     #[test]
     fn check_tag() {
-        let stream = tokenize(b"List a");
+        let stream = tokenize(b"List a").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Tag("List".s(), vec![Type::Var("a".s())]));
     }
 
     #[test]
     fn check_tuple2() {
-        let stream = tokenize(b"(a,b)");
+        let stream = tokenize(b"(a,b)").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Tuple(vec![Type::Var("a".s()), Type::Var("b".s())]));
     }
 
     #[test]
     fn check_tuple6() {
-        let stream = tokenize(b"(a,b,c,d,e,f)");
+        let stream = tokenize(b"(a,b,c,d,e,f)").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Tuple(vec![
             Type::Var("a".s()),
@@ -127,35 +127,35 @@ mod tests {
 
     #[test]
     fn check_empty_record() {
-        let stream = tokenize(b"{}");
+        let stream = tokenize(b"{}").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Record(vec![]));
     }
 
     #[test]
     fn check_record() {
-        let stream = tokenize(b"{ a: b }");
+        let stream = tokenize(b"{ a: b }").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Record(vec![("a".s(), Type::Var("b".s()))]));
     }
 
     #[test]
     fn check_ext_record() {
-        let stream = tokenize(b"{ list | a: b }");
+        let stream = tokenize(b"{ list | a: b }").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::RecExt("list".s(), vec![("a".s(), Type::Var("b".s()))]));
     }
 
     #[test]
     fn check_paren() {
-        let stream = tokenize(b"(a)");
+        let stream = tokenize(b"(a)").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Var("a".s()));
     }
 
     #[test]
     fn check_function() {
-        let stream = tokenize(b"Int -> Float -> a");
+        let stream = tokenize(b"Int -> Float -> a").unwrap();
         let m = read_type(&stream);
         assert_ok!(m, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),

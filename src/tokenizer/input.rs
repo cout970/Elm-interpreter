@@ -5,6 +5,12 @@ pub struct Input<'a> {
     column: u32,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct Location {
+    line: u32,
+    column: u32,
+}
+
 impl<'a> Input<'a> {
     pub fn new(stream: &'a [u8]) -> Self {
         Input {
@@ -34,5 +40,9 @@ impl<'a> Input<'a> {
             line,
             column,
         }
+    }
+
+    pub fn get_location(&self) -> Location {
+        Location { line: self.line, column: self.column }
     }
 }
