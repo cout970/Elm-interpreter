@@ -57,7 +57,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                     Value::Fun {
                         args: vec![Value::Adt(var_name.clone(), vec![], adt.clone())],
                         arg_count: (params.len() + 1) as u32,
-                        fun: Fun::Builtin(env.next_fun_id(), 7, fun_ty),
+                        fun: Rc::new(Fun::Builtin(env.next_fun_id(), 7, fun_ty)),
                     }
                 };
 
@@ -76,7 +76,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
             let value = Value::Fun {
                 args: vec![],
                 arg_count: patterns.len() as u32,
-                fun: Fun::Expr(env.next_fun_id(), patterns.clone(), expr.clone(), def_ty.clone()),
+                fun: Rc::new(Fun::Expr(env.next_fun_id(), patterns.clone(), expr.clone(), def_ty.clone())),
             };
 
             let ret = if patterns.len() == 0 { eval_expr(env, expr)? } else { value };

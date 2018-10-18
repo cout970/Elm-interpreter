@@ -15,6 +15,7 @@ use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::StringConversion;
 use analyzer::type_of_value;
+use std::rc::Rc;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
 //    env.eval_calls += 1;
@@ -74,7 +75,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             Value::Fun {
                 args: vec![],
                 arg_count: patt.len() as u32,
-                fun: Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty),
+                fun: Rc::new(Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)),
             }
         }
 
@@ -120,7 +121,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![Value::String(field.to_owned())],
-                fun: Fun::Builtin(env.next_fun_id(), 6, ty),
+                fun: Rc::new(Fun::Builtin(env.next_fun_id(), 6, ty)),
                 arg_count: 1,
             }
         }
@@ -408,7 +409,7 @@ mod tests {
             Value::Fun {
                 arg_count: 1,
                 args: vec![],
-                fun: Fun::Expr(
+                fun: Rc::new(Fun::Expr(
                     0,
                     vec![Pattern::Var("x".s())],
                     Expr::Literal(Literal::Int(1)),
@@ -416,7 +417,7 @@ mod tests {
                         Box::new(Type::Var("a".s())),
                         Box::new(Type::Var("number".s())),
                     ),
-                ),
+                )),
             }
         ));
     }

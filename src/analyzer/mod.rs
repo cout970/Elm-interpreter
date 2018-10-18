@@ -12,6 +12,7 @@ use analyzer::static_env::StaticEnv;
 use std::rc::Rc;
 use types::Adt;
 use analyzer::expression_analyzer::get_adt_type;
+use std::ops::Deref;
 
 mod function_analyzer;
 mod expression_analyzer;
@@ -84,7 +85,7 @@ pub fn type_of_value(value: &Value) -> Type {
             get_adt_type(var_name, items, adt.clone())
         }
         Value::Fun { fun, args, .. } => {
-            let fun_ty = match fun {
+            let fun_ty = match fun.deref() {
                 Fun::Builtin(_, _, ty) => ty,
                 Fun::Expr(_, _, _, ty) => ty,
             };

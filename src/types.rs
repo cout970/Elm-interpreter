@@ -3,6 +3,7 @@ use std::hash::Hasher;
 use std::mem::transmute;
 use std::sync::Arc;
 use std::rc::Rc;
+use std::ops::Deref;
 
 pub type Int = i32;
 pub type Float = f32;
@@ -89,7 +90,7 @@ pub enum Value {
     Fun {
         arg_count: u32,
         args: Vec<Value>,
-        fun: Fun,
+        fun: Rc<Fun>,
     },
 }
 
@@ -195,7 +196,8 @@ impl Hash for Value {
             Value::Fun { arg_count, args, fun } => {
                 state.write_u32(*arg_count);
                 args.hash(state);
-                match fun {
+
+                match fun.deref() {
                     Fun::Builtin(id, _, _) => { state.write_u32(*id) }
                     Fun::Expr(id, _, _, _) => { state.write_u32(*id) }
                 }

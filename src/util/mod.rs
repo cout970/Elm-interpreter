@@ -1,5 +1,6 @@
 use tokenizer::Token;
 use types::*;
+use std::rc::Rc;
 
 pub mod name_sequence;
 pub mod format;
@@ -75,7 +76,7 @@ pub fn builtin_fun_of(fun_id: FunId, id: u32, ty: Type) -> Value {
     Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
-        fun: Fun::Builtin(fun_id, id, ty),
+        fun: Rc::new(Fun::Builtin(fun_id, id, ty)),
     }
 }
 
