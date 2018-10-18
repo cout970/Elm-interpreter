@@ -118,6 +118,29 @@ fn next_token<'a>(i: Input) -> IResult<Input, Token> {
         return Err(Err::Incomplete(Needed::Size(1)));
     }
 
+    let (i, opt) = trim_spaces(i.clone());
+
+    if let Some(tk) = opt {
+        return Ok((i, tk));
+    }
+
+    let (tk, len) = {
+        let rest = i.stream;
+
+        let opt_tk = map_result(rest, read_token_forced(rest));
+
+        match opt_tk {
+            Some(pair) => pair,
+            _ => return Err(Err::Failure(
+                Context::Code(i, ErrorKind::Custom(0))
+            ))
+        }
+    };
+
+    Ok((i.advance(len), tk))
+}
+
+fn trim_spaces(i: Input) -> (Input, Option<Token>) {
     let mut ptr = 0;
     let mut new_line = false;
 
@@ -138,26 +161,63 @@ fn next_token<'a>(i: Input) -> IResult<Input, Token> {
         }
 
         let tk = Indent(indentation);
-        return Ok((i.advance(ptr), tk));
+        return (i.advance(ptr), Some(tk));
     }
 
-    let (tk, len) = {
-        let rest = &i.stream[ptr..];
-
-        let opt_tk = map_result(rest, read_token_forced(rest));
-
-        match opt_tk {
-            Some(pair) => pair,
-            _ => return Err(Err::Failure(
-                Context::Code(i.advance(ptr), ErrorKind::Custom(0))
-            ))
-        }
-    };
-
-    Ok((i.advance(ptr + len), tk))
+    trim_comments(i.advance(ptr))
 }
 
-fn map_result(input: &[u8], res: IResult<&[u8], Token>) -> Option<(Token, usize)> {
+fn trim_comments(i: Input) -> (Input, Option<Token>) {
+    let offset = trim_multiline_comments(i.clone());
+
+    if offset == 0 {
+        trim_single_line_comments(i)
+    } else {
+        trim_spaces(i.advance(offset))
+    }
+}
+
+fn trim_multiline_comments(i: Input) -> usize {
+    let rest = i.stream;
+    let mut nesting = 0;
+    let mut offset = 0;
+
+    loop {
+        if rest[offset] == b'{' && rest[offset + 1] == b'-' {
+            nesting += 1;
+        }
+
+        if nesting == 0 { break; }
+
+        if rest[offset] == b'-' && rest[offset + 1] == b'}' {
+            nesting -= 1;
+            offset += 2;
+            if nesting == 0 { break; }
+        }
+
+        offset += 1;
+    }
+
+    offset
+}
+
+fn trim_single_line_comments(i: Input) -> (Input, Option<Token>) {
+    let rest = i.stream;
+
+    if rest[0] == b'-' && rest[1] == b'-' {
+        let mut ptr = 2;
+
+        while rest[ptr] != b'\n' && rest[ptr] != b'\r' {
+            ptr += 1;
+        }
+
+        trim_spaces(i.advance(ptr))
+    } else {
+        (i, None)
+    }
+}
+
+fn map_result<T>(input: &[u8], res: IResult<&[u8], T>) -> Option<(T, usize)> {
     match res {
         Ok((rest, ret)) => {
             Some((ret, input.len() - rest.len()))
@@ -176,6 +236,42 @@ mod tests {
         let code = b"identifier1234,123.45";
         let tokens = tokenize(code).unwrap();
         assert_eq!(tokens, vec![Id("identifier1234".s()), Comma, LitFloat(123.45), Eof]);
+    }
+
+    #[test]
+    fn check_multiline_comment() {
+        let code = b"1 + {- this is my comment -} 2";
+        let tokens = tokenize(code).unwrap();
+        assert_eq!(tokens, vec![
+            LitInt(1),
+            BinaryOperator("+".s()),
+            LitInt(2),
+            Eof
+        ]);
+    }
+
+    #[test]
+    fn check_multiline_comment_recursive() {
+        let code = b"1 + {- this {- is my -} comment -} 2";
+        let tokens = tokenize(code).unwrap();
+        assert_eq!(tokens, vec![
+            LitInt(1),
+            BinaryOperator("+".s()),
+            LitInt(2),
+            Eof
+        ]);
+    }
+
+    #[test]
+    fn check_line_comment() {
+        let code = b"1 --this is a comment\n2";
+        let tokens = tokenize(code).unwrap();
+        assert_eq!(tokens, vec![
+            LitInt(1),
+            Indent(0),
+            LitInt(2),
+            Eof
+        ]);
     }
 
     #[test]

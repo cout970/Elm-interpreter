@@ -1,8 +1,8 @@
+use nom::*;
+use tokenizer::Input;
 use tokenizer::Token::*;
 use tokenizer::Token;
-use nom::*;
 use util::*;
-use tokenizer::Input;
 
 named!(lower<char>, one_of!("abcdefghijklmnopqrstuvwxyz"));
 
@@ -88,21 +88,6 @@ named!(right_brace<Token>, map!(char!('}'), |_c| RightBrace));
 
 named!(colon<Token>, map!(char!(':'), |_c| Colon));
 
-named!(ignore_spaces<()>, do_parse!(
-    many0!(alt!(char!(' ') | char!('\t'))) >> (())
-));
-
-// the Token::NewLine gets ignored
-named!(comment_first_char<()>, not!(alt!(newline | binop_char)));
-
-named!(line_comment<()>, do_parse!(
-    tag!("--") >>
-    comment_first_char >>
-    many0!(none_of!("\n\r")) >>
-    newline >>
-    ()
-));
-
 named!(basic_binop_string<String>, map!(
     many1!(binop_char),
     |v| v.into_iter().collect::<String>()
@@ -141,7 +126,6 @@ named!(pub read_token_forced<Token>, alt!(
     | right_brace
     | eof_marker
 ));
-
 
 fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
     let (o, binop): (&[u8], String) = basic_binop_string(input)?;
@@ -231,15 +215,6 @@ mod tests {
         assert_ok!(read_float(b"1.2|"), LitFloat(1.2));
         assert_ok!(read_float(b"99999.0|"), LitFloat(99999.0));
         assert_ok!(read_float(b"-1234.0|"), LitFloat(-1234.0));
-    }
-
-    #[test]
-    fn check_comment() {
-        assert_ok!(line_comment(b"-- \n"), ());
-        assert_ok!(line_comment(b"-- aghf\n"), ());
-        assert_ok!(line_comment(b"--sss\n"), ());
-        assert_ok!(line_comment(b"--srtga\n"), ());
-        assert_ok!(line_comment(b"-- er ert -- eyr\n"), ());
     }
 
     #[test]
