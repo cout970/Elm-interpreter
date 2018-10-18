@@ -4,6 +4,10 @@ extern crate mylib;
 
 use criterion::Criterion;
 use mylib::tokenizer::tokenize;
+use mylib::parsers::parse_module;
+use mylib::interpreter::eval_expression;
+use mylib::interpreter::eval_statement;
+use mylib::interpreter::dynamic_env::DynamicEnv;
 
 fn bench_tokenize_small_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
@@ -15,5 +19,34 @@ fn bench_tokenize_medium_file(c: &mut Criterion) {
     c.bench_function("tokenizer_2", move |b| b.iter(|| tokenize(code)));
 }
 
-criterion_group!(benches, bench_tokenize_small_file, bench_tokenize_medium_file);
-criterion_main!(benches);
+fn bench_parser_small_file(c: &mut Criterion) {
+    let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
+    let tokens = tokenize(code).unwrap();
+    c.bench_function("parser_1", move |b| b.iter(|| parse_module(&tokens)));
+}
+
+fn bench_parser_medium_file(c: &mut Criterion) {
+    let code: &'static [u8] = include_bytes!("data/tokenizer_2.elm");
+    let tokens = tokenize(code).unwrap();
+    c.bench_function("parser_2", move |b| b.iter(|| parse_module(&tokens)));
+}
+
+fn bench_eval_expr_1(c: &mut Criterion) {
+    let mut env = DynamicEnv::default_lang_env();
+    eval_statement(&mut env, "fib num = case num of \n 0 -> 0 \n 1 -> 1 \n _ -> fib (num - 1) + fib (num - 2)").unwrap();
+
+    c.bench_function("eval_1", move |b| b.iter(|| eval_expression(&mut env, "fib 50")));
+}
+
+fn bench_eval_expr_2(c: &mut Criterion) {
+    let mut env = DynamicEnv::default_lang_env();
+    let code = "1 + 2 * 3 / 4 + 5 * 4 / 5 - 6 + 7 * 123 / 234 - 876 + 938 * 2 / 3";
+
+    c.bench_function("eval_2", move |b| b.iter(|| eval_expression(&mut env, code)));
+}
+
+criterion_group!(tokenizer_benches, bench_tokenize_small_file, bench_tokenize_medium_file);
+criterion_group!(parser_benches, bench_parser_small_file, bench_parser_medium_file);
+criterion_group!(eval_benches, bench_eval_expr_1, bench_eval_expr_2);
+
+criterion_main!(tokenizer_benches, parser_benches, eval_benches);

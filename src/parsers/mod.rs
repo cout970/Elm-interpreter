@@ -1,9 +1,11 @@
 use parsers::expression::read_expr;
 use parsers::statement::read_statement;
+use parsers::module::read_module;
 use tokenizer::Token;
 use tokenizer::tokenize;
 use types::Expr;
 use types::Statement;
+use types::Module;
 
 pub type Tk<'a> = &'a [Token];
 
@@ -25,6 +27,13 @@ pub fn parse_expr(i: Tk) -> Result<Expr, ()> {
 
 pub fn parse_statement(i: Tk) -> Result<Statement, ()> {
     match read_statement(i) {
+        Ok((_, e)) => Ok(e),
+        Err(_) => Err(())
+    }
+}
+
+pub fn parse_module(i: Tk) -> Result<Module, ()> {
+    match read_module(i) {
         Ok((_, e)) => Ok(e),
         Err(_) => Err(())
     }

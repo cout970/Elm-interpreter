@@ -51,7 +51,7 @@ impl DynamicEnv {
     }
 
     pub fn enter_block(&mut self) {
-        println!("Enter block: {}", self.values.len());
+//        println!("Enter block: {}", self.values.len());
         self.types.enter_block();
         self.values.push(HashMap::new());
     }
@@ -59,7 +59,7 @@ impl DynamicEnv {
     pub fn exit_block(&mut self) {
         self.types.exit_block();
         self.values.pop().expect("Tried to pop the global environment");
-        println!("Exit block: {}", self.values.len());
+//        println!("Exit block: {}", self.values.len());
     }
 
     pub fn get_from_cache(&self, call: &FunCall) -> Option<Value> {

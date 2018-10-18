@@ -17,8 +17,8 @@ use util::StringConversion;
 use analyzer::type_of_value;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
-    env.eval_calls += 1;
-    println!("eval  : {}", expr);
+//    env.eval_calls += 1;
+//    println!("eval  : {}", expr);
     let res: Value = match expr {
         Expr::Unit => Value::Unit,
         Expr::Tuple(items) => {
@@ -142,7 +142,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             let fun_call = FunCall { function: fun.clone(), argument: input.clone() };
 
             if let Some(val) = env.get_from_cache(&fun_call) {
-                println!("eval (cached): {:?} = {}", fun_call, val);
+//                println!("eval (cached): {:?} = {}", fun_call, val);
                 return Ok(val.clone());
             }
 
