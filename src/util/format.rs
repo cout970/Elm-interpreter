@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::fmt::Error;
+use std::fmt::Write;
 use std::fmt::Formatter;
 use types::Definition;
 use types::Expr;
@@ -196,7 +197,7 @@ impl Display for Definition {
     }
 }
 
-fn print_vec<T: Display>(f: &mut Formatter, v: &Vec<T>) -> Result<(), Error> {
+pub fn print_vec<T: Display, F: Write>(f: &mut F, v: &Vec<T>) -> Result<(), Error> {
     for (i, item) in v.iter().enumerate() {
         write!(f, "{}", item)?;
 
