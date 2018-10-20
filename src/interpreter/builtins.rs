@@ -1,6 +1,5 @@
 use interpreter::RuntimeError;
-use interpreter::RuntimeError::InternalError;
-use interpreter::RuntimeError::TODO;
+use interpreter::RuntimeError::*;
 use types::Type;
 use types::Value;
 use util::StringConversion;
@@ -14,7 +13,7 @@ pub fn builtin_function(id: u32, args: &[Value]) -> Result<Value, RuntimeError> 
         3 => number_op(&args[0], &args[1], |a, b| a * b)?,
         4 => Value::Float(float_of(&args[0])? / float_of(&args[1])?),
         5 => Value::Int(int_of(&args[0])? / int_of(&args[1])?),
-        6 => {
+        6 => { // Record access function (.x)
             match &args[0] {
                 Value::Record(entries) => {
                     if let Value::String(field) = &args[1] {
@@ -25,17 +24,17 @@ pub fn builtin_function(id: u32, args: &[Value]) -> Result<Value, RuntimeError> 
                         match opt {
                             Some(val) => val.clone(),
                             None => {
-                                return Err(TODO(format!("Field '{}' not found in record: {}", field, &args[0])));
+                                return Err(RecordFieldNotFound(field.clone(), args[0].clone()));
                             }
                         }
                     } else {
-                        return Err(TODO(format!("Internal error, expecting String found: {}", &args[1])));
+                        return Err(InternalErrorRecordAccess(args[1].clone()));
                     }
                 }
-                _ => { return Err(TODO(format!("Expecting record but found: {}", id))); }
+                _ => { return Err(ExpectedRecord(args[0].clone())); }
             }
         }
-        7 => {
+        7 => { // Adt constructor
             if let Value::Adt(var, _, adt) = &args[0] {
                 let mut vals: Vec<Value> = vec![];
                 for i in 1..args.len() {
@@ -44,10 +43,10 @@ pub fn builtin_function(id: u32, args: &[Value]) -> Result<Value, RuntimeError> 
 
                 Value::Adt(var.to_owned(), vals, adt.clone())
             } else {
-                return Err(InternalError);
+                return Err(InternalErrorAdtCreation(args[0].clone()));
             }
         }
-        _ => { return Err(TODO(format!("Invalid builtin function: {}", id))); }
+        _ => { return Err(UnknownBuiltinFunction(id)); }
     };
 
     Ok(ret)
@@ -58,7 +57,7 @@ fn float_of(value: &Value) -> Result<f32, RuntimeError> {
         Value::Number(a) => Ok(*a as f32),
         Value::Float(a) => Ok(*a),
         _ => {
-            Err(TODO(format!("Expected Float but found: {}", value)))
+            Err(ExpectedFloat(value.clone()))
         }
     }
 }
@@ -68,7 +67,7 @@ fn int_of(value: &Value) -> Result<i32, RuntimeError> {
         Value::Number(a) => Ok(*a),
         Value::Int(a) => Ok(*a),
         _ => {
-            Err(TODO(format!("Expected Int but found: {}", value)))
+            Err(ExpectedInt(value.clone()))
         }
     }
 }
@@ -97,25 +96,25 @@ fn number_op<F: FnOnce(f32, f32) -> f32>(val_a: &Value, val_b: &Value, op: F) ->
             *a
         }
         _ => {
-            return Err(TODO(format!("Expected number but found: {}", val_a)));
+            return Err(ExpectedNumber(val_a.clone()));
         }
     };
 
     let b = match val_b {
         Value::Number(a) => {
-            strong_type = merge(strong_type, NumberState::Number)?;
+            strong_type = merge(strong_type, NumberState::Number, val_b)?;
             *a as f32
         }
         Value::Int(a) => {
-            strong_type = merge(strong_type, NumberState::Int)?;
+            strong_type = merge(strong_type, NumberState::Int, val_b)?;
             *a as f32
         }
         Value::Float(a) => {
-            strong_type = merge(strong_type, NumberState::Float)?;
+            strong_type = merge(strong_type, NumberState::Float, val_b)?;
             *a
         }
         _ => {
-            return Err(TODO(format!("Expected number but found: {}", val_b)));
+            return Err(ExpectedNumber(val_a.clone()));
         }
     };
 
@@ -128,25 +127,6 @@ fn number_op<F: FnOnce(f32, f32) -> f32>(val_a: &Value, val_b: &Value, op: F) ->
     })
 }
 
-fn merge(a: NumberState, b: NumberState) -> Result<NumberState, RuntimeError> {
-    match a {
-        NumberState::Number => Ok(b),
-        NumberState::Int => {
-            if b == NumberState::Int || b == NumberState::Number {
-                Ok(a)
-            } else {
-                Err(TODO(format!("Expected Int but found: {:?}", b)))
-            }
-        }
-        NumberState::Float => {
-            if b == NumberState::Float || b == NumberState::Number {
-                Ok(a)
-            } else {
-                Err(TODO(format!("Expected Float but found: {:?}", b)))
-            }
-        }
-    }
-}
 /*
 Truth table of number for:
 (+) : number, number -> number
@@ -161,5 +141,23 @@ Int, number -> Int
 
 Int, Float -> error
 Float, Int -> error
-
 */
+fn merge(a: NumberState, b: NumberState, value: &Value) -> Result<NumberState, RuntimeError> {
+    match a {
+        NumberState::Number => Ok(b),
+        NumberState::Int => {
+            if b == NumberState::Int || b == NumberState::Number {
+                Ok(a)
+            } else {
+                Err(ExpectedInt(value.clone()))
+            }
+        }
+        NumberState::Float => {
+            if b == NumberState::Float || b == NumberState::Number {
+                Ok(a)
+            } else {
+                Err(ExpectedFloat(value.clone()))
+            }
+        }
+    }
+}

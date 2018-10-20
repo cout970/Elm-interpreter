@@ -39,4 +39,5 @@ pub mod tokenizer;
 pub mod parsers;
 pub mod analyzer;
 pub mod interpreter;
+pub mod errors;
 

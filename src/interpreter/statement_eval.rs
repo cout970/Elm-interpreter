@@ -2,7 +2,6 @@ use analyzer::type_check_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use interpreter::RuntimeError;
-use interpreter::RuntimeError::TODO;
 use types::Expr;
 use types::Fun;
 use types::Statement;
@@ -69,7 +68,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
         }
         Statement::Def(def) => {
             let def_ty = type_check_function(&mut env.types, def)
-                .map_err(|e| TODO(format!("{:?}", e)))?;
+                .map_err(|e| RuntimeError::IncorrectDefType(e))?;
 
             let ValueDefinition { name, patterns, expr } = &def.1;
 

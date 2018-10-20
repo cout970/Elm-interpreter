@@ -6,6 +6,7 @@ use tokenizer::tokenize;
 use types::Expr;
 use types::Statement;
 use types::Module;
+use parsers::SyntaxError::Unknown;
 
 pub type Tk<'a> = &'a [Token];
 
@@ -18,24 +19,29 @@ mod statement;
 mod expression;
 mod pattern;
 
-pub fn parse_expr(i: Tk) -> Result<Expr, ()> {
+#[derive(PartialEq, Debug, Clone)]
+pub enum SyntaxError {
+    Unknown
+}
+
+pub fn parse_expr(i: Tk) -> Result<Expr, SyntaxError> {
     match read_expr(i) {
         Ok((_, e)) => Ok(e),
-        Err(_) => Err(())
+        Err(_) => Err(Unknown)
     }
 }
 
-pub fn parse_statement(i: Tk) -> Result<Statement, ()> {
+pub fn parse_statement(i: Tk) -> Result<Statement, SyntaxError> {
     match read_statement(i) {
         Ok((_, e)) => Ok(e),
-        Err(_) => Err(())
+        Err(_) => Err(Unknown)
     }
 }
 
-pub fn parse_module(i: Tk) -> Result<Module, ()> {
+pub fn parse_module(i: Tk) -> Result<Module, SyntaxError> {
     match read_module(i) {
         Ok((_, e)) => Ok(e),
-        Err(_) => Err(())
+        Err(_) => Err(Unknown)
     }
 }
 

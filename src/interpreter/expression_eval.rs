@@ -1,9 +1,11 @@
 use analyzer::type_check_expression;
+use analyzer::type_of_value;
 use interpreter::builtins::builtin_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use std::collections::HashMap;
+use std::rc::Rc;
 use types::Expr;
 use types::Fun;
 use types::FunCall;
@@ -14,12 +16,9 @@ use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::StringConversion;
-use analyzer::type_of_value;
-use std::rc::Rc;
+use util::VecExt;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
-//    env.eval_calls += 1;
-//    println!("eval  : {}", expr);
     let res: Value = match expr {
         Expr::Unit => Value::Unit,
         Expr::Tuple(items) => {
@@ -50,37 +49,42 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                         .unwrap_or((name.clone(), value.clone()))
                 }).collect())
             } else {
-                return Err(TODO(format!("Not a record: {}", name)));
+                return Err(RuntimeError::RecordUpdateOnNonRecord(name.to_owned(), val));
             }
         }
         Expr::If(cond, a, b) => {
             let cond = eval_expr(env, cond)?;
 
-            match cond {
-                Value::Adt(name, vals, _) => {
+            match &cond {
+                Value::Adt(ref name, ref vals, _) => {
                     if name == "True" && vals.is_empty() {
                         eval_expr(env, a)?
                     } else if name == "False" && vals.is_empty() {
                         eval_expr(env, b)?
                     } else {
-                        return Err(TODO(format!("Invalid If condition: {}", name)));
+                        return Err(InvalidIfCondition(cond.clone()));
                     }
                 }
-                _ => return Err(TODO(format!("Invalid If condition")))
+                _ => return Err(InvalidIfCondition(cond.clone()))
             }
         }
         Expr::Lambda(patt, _expr) => {
-            let ty = type_check_expression(&mut env.types, expr).map_err(|it| TODO(format!("{:?}", it)))?;
+            let ty = type_check_expression(&mut env.types, expr)
+                .map_err(|e| IncorrectDefType(e))?;
 
             Value::Fun {
                 args: vec![],
                 arg_count: patt.len() as u32,
-                fun: Rc::new(Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)),
+                fun: Rc::new(
+                    Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
+                ),
             }
         }
 
         Expr::OpChain(exprs, ops) => {
-            let tree = create_expr_tree(exprs, ops).map_err(|e| TODO(format!("{:?}", e)))?;
+            let tree = create_expr_tree(exprs, ops)
+                .map_err(|e| InvalidExpressionChain(e))?;
+
             let expr = tree_as_expr(env, &tree);
 
             eval_expr(env, &expr)?
@@ -96,21 +100,36 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         Expr::Ref(name) | Expr::Adt(name) => {
             env.find(name)
                 .map(|(val, _)| val)
-                .ok_or(MissingDef(name.clone(), env.clone()))?
+                .ok_or(MissingDefinition(name.clone(), env.clone()))?
         }
-        Expr::QualifiedRef(_, name) => {
-            // TODO
-            eval_expr(env, &Expr::Ref(name.clone()))?
+        Expr::QualifiedRef(path, name) => {
+            let mut full_name = String::new();
+            for x in path {
+                full_name.push_str(x);
+                full_name.push('.');
+            }
+            full_name.push_str(name);
+
+            let is_adt = name.chars().next().unwrap().is_uppercase();
+
+            let expr = if is_adt {
+                Expr::Adt(full_name)
+            } else {
+                Expr::Ref(full_name)
+            };
+
+            eval_expr(env, &expr)?
         }
         Expr::RecordField(record, field) => {
             let rec = eval_expr(env, record)?;
-            if let Value::Record(ref entries) = rec {
-                entries.iter()
+            if let Value::Record(ref entries) = &rec {
+                let (_, value) = entries.iter()
                     .find(|(name, _)| name == field)
-                    .ok_or(TODO(format!("Missing field with name {} in {}", field, rec)))?
-                    .1.clone()
+                    .ok_or(RecordFieldNotFound(field.to_owned(), rec.clone()))?;
+
+                value.clone()
             } else {
-                return Err(TODO(format!("Expected record but found {}", rec)));
+                return Err(ExpectedRecord(rec.clone()));
             }
         }
         Expr::RecordAccess(field) => {
@@ -133,7 +152,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 }
             }
 
-            return Err(TODO(format!("case values does not match any branch: {}", cond_val)));
+            return Err(CaseExpressionNonExhaustive(cond_val, branches.map(|(p, _)| p.clone())));
         }
         Expr::Let(_, _) => Value::Unit, // TODO
 
@@ -143,7 +162,6 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             let fun_call = FunCall { function: fun.clone(), argument: input.clone() };
 
             if let Some(val) = env.get_from_cache(&fun_call) {
-//                println!("eval (cached): {:?} = {}", fun_call, val);
                 return Ok(val.clone());
             }
 
@@ -151,7 +169,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 let argc = args.len() as u32 + 1;
 
                 if *arg_count < argc {
-                    return Err(TODO(format!("To much arguments, expected: {}, found: {}", arg_count, argc)));
+                    return Err(FunArgumentSizeMismatch(*arg_count, argc));
                 }
 
                 let mut arg_vec = args.clone();
@@ -166,7 +184,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 env.add_to_cache(fun_call, value.clone());
                 value
             } else {
-                return Err(TODO(format!("Expected a function but found: {}", fun)));
+                return Err(ExpectedFunction(fun.clone()));
             }
         }
     };
@@ -180,7 +198,6 @@ fn exec_fun(env: &mut DynamicEnv, fun: &Fun, args: &[Value]) -> Result<Value, Ru
             builtin_function(*id, args)
         }
         Fun::Expr(_, ref patterns, ref expr, _) => {
-//            println!("exec: {:?}", fun);
             env.enter_block();
             assert_eq!(patterns.len(), args.len());
 
@@ -279,53 +296,53 @@ pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value
             env.add(&n, value.clone(), type_of_value(value));
         }
         Pattern::Record(ref items) => {
-            if let Value::Record(vars) = value {
+            if let Value::Record(ref vars) = &value {
                 for patt in items {
                     let (name, val) = vars.iter()
                         .find(|(name, _)| name == patt)
-                        .ok_or(TODO(format!("Unable to find field {} in {}", patt, value)))?;
+                        .ok_or(RecordFieldNotFound(patt.clone(), value.clone()))?;
 
                     env.add(name, val.clone(), type_of_value(val));
                 }
             } else {
-                return Err(TODO(format!("Expected Record but found: {}", value)));
+                return Err(ExpectedRecord(value.clone()));
             }
         }
         Pattern::Adt(_, ref items) => {
-            if let Value::Adt(_, vars, _) = value {
+            if let Value::Adt(_, ref vars, _) = &value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val)?;
                 }
             } else {
-                return Err(TODO(format!("Expected Adt but found: {}", value)));
+                return Err(ExpectedAdt(value.clone()));
             }
         }
         Pattern::Tuple(ref items) => {
-            if let Value::Tuple(vars) = value {
+            if let Value::Tuple(ref vars) = &value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val)?;
                 }
             } else {
-                return Err(TODO(format!("Expected Tuple but found: {}", value)));
+                return Err(ExpectedTuple(value.clone()));
             }
         }
         Pattern::List(ref items) => {
-            if let Value::List(vars) = value {
+            if let Value::List(ref vars) = &value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val)?;
                 }
             } else {
-                return Err(TODO(format!("Expected List but found: {}", value)));
+                return Err(ExpectedList(value.clone()));
             }
         }
         Pattern::Literal(_) => {}
         Pattern::Wildcard => {}
         Pattern::Unit => {}
-        Pattern::BinaryOp(op, ref a, ref b) => {
+        Pattern::BinaryOp(ref op, ref a, ref b) => {
             if op == "::" {
-                if let Value::List(vars) = value {
+                if let Value::List(ref vars) = &value {
                     if vars.len() == 0 {
-                        return Err(TODO(format!("Expected Non Empty List but it was empty")));
+                        return Err(ExpectedNonEmptyList(value.clone()));
                     }
 
                     let first = vars[0].clone();
@@ -337,10 +354,10 @@ pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value
                     add_pattern_values(env, a, &first)?;
                     add_pattern_values(env, b, &Value::List(rest))?;
                 } else {
-                    return Err(TODO(format!("Expected List but found: {}", value)));
+                    return Err(ExpectedList(value.clone()));
                 }
             } else {
-                return Err(TODO(format!("Unknown operator pattern '{}'", op)));
+                return Err(UnknownOperatorPattern(op.clone()));
             }
         }
     }

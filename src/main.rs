@@ -16,6 +16,7 @@ use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
 use mylib::tokenizer::tokenize;
+use mylib::errors::format_error;
 
 /*
 fib num = case num of \
@@ -49,25 +50,19 @@ fn repl() {
         // Print
         match result {
             Ok(opt) => {
-                match opt {
-                    Some(value) => {
-                        println!("{} : {}", value, type_of_value(&value));
-                    }
-                    None => {
-                        // No error
-                    }
+                if let Some(value) = opt {
+                    println!("{} : {}", value, type_of_value(&value));
                 }
             }
             Err(_) => {
-                env.eval_calls = 0;
                 let result = eval_expression(&mut env, &line);
 
                 match result {
                     Ok(value) => {
-                        println!("{} : {} (in {} evals)", value, type_of_value(&value), env.eval_calls);
+                        println!("{} : {}", value, type_of_value(&value));
                     }
                     Err(error) => {
-                        println!("Error: {:#?}", error);
+                        println!("{}", format_error(error));
                     }
                 }
             }
