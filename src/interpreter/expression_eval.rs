@@ -5,7 +5,7 @@ use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 use types::Expr;
 use types::Fun;
 use types::FunCall;
@@ -75,7 +75,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             Value::Fun {
                 args: vec![],
                 arg_count: patt.len() as u32,
-                fun: Rc::new(
+                fun: Arc::new(
                     Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
                 ),
             }
@@ -140,7 +140,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![Value::String(field.to_owned())],
-                fun: Rc::new(Fun::Builtin(env.next_fun_id(), 6, ty)),
+                fun: Arc::new(Fun::Builtin(env.next_fun_id(), 6, ty)),
                 arg_count: 1,
             }
         }
@@ -426,7 +426,7 @@ mod tests {
             Value::Fun {
                 arg_count: 1,
                 args: vec![],
-                fun: Rc::new(Fun::Expr(
+                fun: Arc::new(Fun::Expr(
                     0,
                     vec![Pattern::Var("x".s())],
                     Expr::Literal(Literal::Int(1)),

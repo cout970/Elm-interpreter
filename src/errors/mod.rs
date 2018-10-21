@@ -149,7 +149,7 @@ pub fn format_runtime_error(error: RuntimeError) -> String {
         }
         RuntimeError::ExpectedNonEmptyList(value) => {
             write!(&mut msg, "-- PATTERN MATCHING ERROR -------------------------------------------------- elm\n\n").unwrap();
-            write!(&mut msg, "I was expecting a non empty list, but found:\n\n{}\n\n", expected, found).unwrap();
+            write!(&mut msg, "I was expecting a non empty list, but found:\n\n{}\n\n", value).unwrap();
             write!(&mut msg, "Try adding a extra branch for []").unwrap();
         }
         RuntimeError::UnknownOperatorPattern(name) => {

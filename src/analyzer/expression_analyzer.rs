@@ -21,7 +21,7 @@ use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::name_sequence::NameSequence;
 use util::StringConversion;
-use std::rc::Rc;
+use std::sync::Arc;
 use types::Adt;
 use analyzer::type_of_value;
 
@@ -399,7 +399,7 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
     }
 }
 
-pub fn get_adt_type(name: &String, vars: &Vec<Value>, adt: Rc<Adt>) -> Type {
+pub fn get_adt_type(name: &String, vars: &Vec<Value>, adt: Arc<Adt>) -> Type {
     let variant = adt.variants.iter().find(|var| &var.name == name).unwrap();
 
     let mut var_replacement: HashMap<String, Type> = HashMap::new();

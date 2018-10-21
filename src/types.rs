@@ -2,7 +2,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem::transmute;
 use std::sync::Arc;
-use std::rc::Rc;
 use std::ops::Deref;
 
 pub type Int = i32;
@@ -86,11 +85,11 @@ pub enum Value {
     List(Vec<Value>),
     Tuple(Vec<Value>),
     Record(Vec<(String, Value)>),
-    Adt(String, Vec<Value>, Rc<Adt>),
+    Adt(String, Vec<Value>, Arc<Adt>),
     Fun {
         arg_count: u32,
         args: Vec<Value>,
-        fun: Rc<Fun>,
+        fun: Arc<Fun>,
     },
 }
 

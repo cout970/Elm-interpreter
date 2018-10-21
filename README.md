@@ -19,3 +19,4 @@ Small Elm interpreter made in Rust with the library [Nom](https://github.com/Gea
 - Add builtin functions and types from elm-core
 - Add support for webassembly
 - Reduce the use of clone on immutable values (using Rc to share the data)
+- Fix - as unary operator

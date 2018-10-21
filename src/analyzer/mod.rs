@@ -9,7 +9,7 @@ use util::StringConversion;
 use types::Definition;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::static_env::StaticEnv;
-use std::rc::Rc;
+use std::sync::Arc;
 use types::Adt;
 use analyzer::expression_analyzer::get_adt_type;
 use std::ops::Deref;
