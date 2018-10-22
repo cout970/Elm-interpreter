@@ -7,7 +7,7 @@ use tokenizer::Token::*;
 use types::Expr;
 use parsers::Tk;
 
-// Expresions
+// Expressions
 
 struct ExprParser {
     indent: Vec<usize>
@@ -58,8 +58,16 @@ impl ExprParser {
     method!(read_expr_app<ExprParser, Tk, Expr>, mut self,
         do_parse!(
             first: call_m!(self.read_expr_aux) >>
-            rest: many0!(do_parse!(call_m!(self.spaces) >> e: call_m!(self.read_expr_aux) >> (e))) >>
+            rest: many0!(call_m!(self.read_next_arg)) >>
             (rest.into_iter().fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b))))
+        )
+    );
+
+    method!(read_next_arg<ExprParser, Tk, Expr>, mut self,
+        do_parse!(
+            call_m!(self.spaces) >>
+            e: call_m!(self.read_expr_aux)
+            >> (e)
         )
     );
 
@@ -94,6 +102,7 @@ impl ExprParser {
             | call_m!(self.record_access)
             | map!(literal!(), |c| Expr::Literal(c))
             | map!(read_ref,   |c| Expr::Ref(c))
+            | call_m!(self.unary_minus)
             | do_parse!(tk!(LeftParen) >> e: call_m!(self.read_expr) >> tk!(RightParen) >> (e))
         )
     );
@@ -212,6 +221,15 @@ impl ExprParser {
         tk!(Dot) >>
         id: id!() >>
         (Expr::RecordAccess(id))
+    ));
+
+    method!(unary_minus<ExprParser, Tk, Expr>, mut self, do_parse!(
+        minus!() >>
+        e: call_m!(self.read_expr) >>
+        (Expr::Application(
+            Box::new(Expr::Ref("-".s())),
+            Box::new(e),
+        ))
     ));
 
     method!(qualified_ref<ExprParser, Tk, Expr>, self, do_parse!(
@@ -531,5 +549,65 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                 ]
             )
         );
+    }
+
+    #[test]
+    fn check_prefix_minus() {
+        let stream = tokenize(b"-(1+2)").unwrap();
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::Application(
+            Box::from(Expr::Ref("-".s())),
+            Box::from(Expr::OpChain(
+                vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+                vec!["+".s()],
+            ))
+        ));
+    }
+
+    #[test]
+    fn check_infix_minus() {
+        let stream = tokenize(b"1 - 2").unwrap();
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::OpChain(
+            vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+            vec!["-".s()],
+        ));
+    }
+
+    #[test]
+    fn check_infix_minus_precedence() {
+        let stream = tokenize(b"1 -2").unwrap();
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::Application(
+            Box::new(Expr::Literal(Literal::Int(1))),
+            Box::new(Expr::Application(
+                Box::new(Expr::Ref("-".s())),
+                Box::new(Expr::Literal(Literal::Int(2))),
+            )),
+        ));
+    }
+
+    #[test]
+    fn check_infix_minus_validity() {
+        let stream = tokenize(b"1- 2").unwrap();
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::OpChain(
+            vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+            vec!["-".s()],
+        ));
+    }
+
+    /**
+     * This is a weird behavior of the lang, it's uncommon, so I will just ignore it
+     **/
+    #[test]
+    #[ignore]
+    fn check_infix_minus_edge_case() {
+        let stream = tokenize(b"1-2").unwrap();
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::OpChain(
+            vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+            vec!["-".s()],
+        ));
     }
 }

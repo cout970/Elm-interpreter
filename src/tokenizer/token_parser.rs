@@ -128,9 +128,12 @@ named!(pub read_token_forced<Token>, alt!(
 ));
 
 fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
-    let (o, binop): (&[u8], String) = basic_binop_string(input)?;
+    let (output, binop): (&[u8], String) = basic_binop_string(input)?;
+    if binop == "-" && !is_space(output[0]) {
+        return Ok((output, PrefixMinus));
+    }
     let op = from_binop(binop);
-    Ok((o, op))
+    Ok((output, op))
 }
 
 fn from_id(id: String) -> Token {

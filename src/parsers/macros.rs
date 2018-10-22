@@ -80,7 +80,33 @@ macro_rules! binop {
                 if let Token::BinaryOperator(str) = look {
                   Ok((&$i[1..], str.clone()))
                 } else {
-                  Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+                    if let Token::PrefixMinus = look {
+                        Ok((&$i[1..], "-".to_owned()))
+                    } else {
+                        Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
+                    }
+                }
+            }
+        }
+    );
+}
+
+#[macro_export]
+macro_rules! minus {
+    ($i:expr,) => (
+        {
+            use nom::*;
+            use nom::verbose_errors::Context;
+
+            if $i.len() == 0 {
+                Err(Err::Incomplete(Needed::Size(1)))
+            } else {
+                let look = &$i[0];
+
+                if let Token::PrefixMinus = look {
+                    Ok((&$i[1..], ()))
+                } else {
+                    Err(Err::Error(Context::Code($i, ErrorKind::Custom(0))))
                 }
             }
         }

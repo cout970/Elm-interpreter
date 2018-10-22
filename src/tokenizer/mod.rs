@@ -20,6 +20,7 @@ pub enum Token {
     LitString(String),
     Indent(u32),
     BackSlash,
+    PrefixMinus,
     Let,
     If,
     Else,
