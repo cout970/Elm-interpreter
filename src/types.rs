@@ -115,17 +115,12 @@ pub struct AdtVariant {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ValueDefinition {
+pub struct Definition {
+    pub header: Option<Type>,
     pub name: String,
     pub patterns: Vec<Pattern>,
     pub expr: Expr,
 }
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Definition(
-    pub Option<Type>,
-    pub ValueDefinition,
-);
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct Module {

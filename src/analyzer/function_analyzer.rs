@@ -11,7 +11,6 @@ use types::Literal;
 use types::Pattern;
 use types::Type;
 use types::Value;
-use types::ValueDefinition;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::name_sequence::NameSequence;
@@ -27,7 +26,7 @@ pub enum PatternMatchingError {
 }
 
 pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
-    let ValueDefinition { name, patterns, expr } = &fun.1;
+    let Definition { name, patterns, expr, .. } = &fun;
 
     let save = env.name_seq.save();
     let (argument_types, local_vars) = analyze_function_arguments(&mut env.name_seq, patterns)?;

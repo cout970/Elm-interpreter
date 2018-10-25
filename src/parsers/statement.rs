@@ -1,9 +1,9 @@
 use *;
 use parsers::expression::read_expr;
 use parsers::pattern::read_pattern;
+use parsers::Tk;
 use parsers::types::read_type;
 use tokenizer::Token::*;
-use parsers::Tk;
 
 // Definitions
 
@@ -22,8 +22,17 @@ named!(pub read_statement<Tk, Statement>, alt!(
 
 named!(pub read_definition<Tk, Definition>, do_parse!(
     t: opt!(read_type_def) >>
-    v: read_value_def >>
-    (Definition(t.map(|e| e.1), v))
+    a: id!() >>
+    p: many0!(read_pattern) >>
+    tk!(Equals) >>
+    many0!(indent!()) >>
+    e: read_expr >>
+    (Definition {
+        header: t.map(|e| e.1),
+        name: a,
+        patterns: p,
+        expr: e,
+    })
 ));
 
 named!(read_type_def<Tk, (String, Type)>, do_parse!(
@@ -36,15 +45,6 @@ named!(read_type_def<Tk, (String, Type)>, do_parse!(
 
 named!(read_type_def_name<Tk, String>, alt!(
     id!() | delimited!(tk!(LeftParen), binop!(), tk!(RightParen))
-));
-
-named!(read_value_def<Tk, ValueDefinition>, do_parse!(
-    a: id!() >>
-    p: many0!(read_pattern) >>
-    tk!(Equals) >>
-    many0!(indent!()) >>
-    e: read_expr >>
-    (ValueDefinition { name: a, patterns: p, expr: e })
 ));
 
 named!(adt<Tk, Statement>, do_parse!(
@@ -136,14 +136,12 @@ mod tests {
         let stream = tokenize(b"\nmy_fun x = ()").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
-            Definition(
-                None,
-                ValueDefinition {
-                    name: "my_fun".s(),
-                    patterns: vec![Pattern::Var("x".s())],
-                    expr: Expr::Unit
-                }
-            )
+            Definition {
+                header: None,
+                name: "my_fun".s(),
+                patterns: vec![Pattern::Var("x".s())],
+                expr: Expr::Unit,
+            }
         ));
     }
 
@@ -152,14 +150,12 @@ mod tests {
         let stream = tokenize(b"\nx = 5").unwrap();
         let m = top_level_statement(&stream);
         assert_ok!(m, Statement::Def(
-            Definition(
-                None,
-                ValueDefinition{
-                    name: "x".s(),
-                    patterns: vec![],
-                    expr: Expr::Literal(Literal::Int(5))
-                }
-            )
+            Definition {
+                header:None,
+                name: "x".s(),
+                patterns: vec![],
+                expr: Expr::Literal(Literal::Int(5))
+            }
         ));
     }
 
@@ -169,14 +165,12 @@ mod tests {
         let m = top_level_statement(&stream);
         assert_ok!(m,
             Statement::Def(
-                Definition(
-                    Some(Type::Tag("Int".s(), vec![])),
-                    ValueDefinition {
-                        name: "my_fun".s(),
-                        patterns: vec![],
-                        expr: Expr::Literal(Literal::Int(5))
-                    }
-                )
+                Definition {
+                    header:Some(Type::Tag("Int".s(), vec![])),
+                    name: "my_fun".s(),
+                    patterns: vec![],
+                    expr: Expr::Literal(Literal::Int(5))
+                }
             )
         );
     }
@@ -189,32 +183,30 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
         let m = top_level_statement(&stream);
         assert_ok!(m,
             Statement::Def(
-                Definition(
-                    None,
-                    ValueDefinition{
-                        name: "update".s(),
-                        patterns: vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
-                        expr: Expr::Case(
-                            Box::new(Expr::Ref("msg".s())),
-                            vec![
-                                (
-                                    Pattern::Adt("Increment".s(), vec![]),
-                                    Expr::OpChain(
-                                        vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
-                                        vec!["+".s()]
-                                    )
-                                ),
-                                (
-                                    Pattern::Adt("Decrement".s(), vec![]),
-                                    Expr::OpChain(
-                                        vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
-                                        vec!["-".s()]
-                                    )
+                Definition{
+                    header: None,
+                    name: "update".s(),
+                    patterns: vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
+                    expr: Expr::Case(
+                        Box::new(Expr::Ref("msg".s())),
+                        vec![
+                            (
+                                Pattern::Adt("Increment".s(), vec![]),
+                                Expr::OpChain(
+                                    vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                    vec!["+".s()]
                                 )
-                            ]
-                        )
-                    }
-                )
+                            ),
+                            (
+                                Pattern::Adt("Decrement".s(), vec![]),
+                                Expr::OpChain(
+                                    vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                    vec!["-".s()]
+                                )
+                            )
+                        ]
+                    )
+                }
             )
         );
     }

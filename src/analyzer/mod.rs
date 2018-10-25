@@ -16,6 +16,7 @@ use std::ops::Deref;
 
 mod function_analyzer;
 mod expression_analyzer;
+mod module_analyser;
 pub mod static_env;
 
 #[derive(Clone, Debug, PartialEq)]

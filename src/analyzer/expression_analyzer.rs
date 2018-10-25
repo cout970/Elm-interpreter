@@ -15,7 +15,6 @@ use types::Literal;
 use types::Pattern;
 use types::Type;
 use types::Value;
-use types::ValueDefinition;
 use util::build_fun_type;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
@@ -117,7 +116,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 
                 match def_ty {
                     Ok(ty) => {
-                        env.add(&def.1.name, ty);
+                        env.add(&def.name, ty);
                     }
                     Err(e) => {
                         env.exit_block();

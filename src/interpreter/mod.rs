@@ -15,6 +15,7 @@ pub mod dynamic_env;
 mod builtins;
 mod expression_eval;
 mod statement_eval;
+mod module_eval;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {

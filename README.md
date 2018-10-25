@@ -11,11 +11,10 @@ Small Elm interpreter made in Rust with the library [Nom](https://github.com/Gea
  
  
 ##### GTD
-- Improve error reporting encapsulating the job of creating user-readable strings in a separated module
 - Add modules and imports (loading and evaluation)
+- Improve error reporting encapsulating the job of creating user-readable strings in a separated module
 - Add better runtime exceptions
 - Add tests for incorrect code
 - Add code locations in tokenizer/parser/analyzer errors
 - Add builtin functions and types from elm-core
-- Add support for webassembly
 - Reduce the use of clone on immutable values (using Rc to share the data)

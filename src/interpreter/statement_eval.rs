@@ -7,13 +7,13 @@ use types::Fun;
 use types::Statement;
 use types::Type;
 use types::Value;
-use types::ValueDefinition;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::StringConversion;
 use types::Adt;
 use types::AdtVariant;
 use std::sync::Arc;
+use types::Definition;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -70,7 +70,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
             let def_ty = type_check_function(&mut env.types, def)
                 .map_err(|e| RuntimeError::IncorrectDefType(e))?;
 
-            let ValueDefinition { name, patterns, expr } = &def.1;
+            let Definition { name, patterns, expr, .. } = &def;
 
             let value = Value::Fun {
                 args: vec![],
