@@ -135,6 +135,12 @@ pub struct ModuleHeader {
     pub exports: Vec<Export>,
 }
 
+// TODO
+// exposing (..)
+// exposing (a, b, c)
+// exposing (A, B, c)
+// exposing (A(..), B, c)
+// exposing (A(Aa, Ab, Ac), B, c)
 #[derive(Debug, PartialEq, Clone)]
 pub enum Export {
     Adt(String, Vec<String>),

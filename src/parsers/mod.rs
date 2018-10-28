@@ -80,3 +80,21 @@ pub fn from_code_stm(code: &[u8]) -> Statement {
         }
     }
 }
+
+pub fn from_code_mod(code: &[u8]) -> Module {
+    use nom::*;
+
+    let stream = tokenize(code).unwrap();
+    let stm: IResult<Tk, Module> = read_module(&stream);
+
+    match stm {
+        Ok((_, e)) => e,
+        Err(e) => {
+            match e {
+                Err::Incomplete(need) => panic!("Tokens needed: {:?}", need),
+                Err::Failure(ctx) => panic!("Parsing failure: {:#?}", ctx),
+                Err::Error(ctx) => panic!("Syntax error: {:#?}", ctx),
+            };
+        }
+    }
+}

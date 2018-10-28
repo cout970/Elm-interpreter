@@ -126,14 +126,14 @@ ValueDef (* PrefixOpDef *) = "(", BINOP, ")", {Pattern}, "=", Expr
 
 (* Modules *)
 
-Module (* Module *) = "module", UpperIds, Exports, "where"
+Module (* Module *) = "module", UpperIds, "exposing", Exports,
                     , {Import}, TopLevelStatement, {TopLevelStatement}
        (* Main   *) | {Import}, TopLevelStatement, {TopLevelStatement}
 
-Exports (* ExportAll *) = ""
+Exports (* ExportAll *) = "(", "..", ")"
         (* Exports   *) | "(", [ Export, {",", Export} ], ")"
 
-Export (* ADT     *) = UPPERID, "(", [ ADTExport, {",", ADTExport} ], ")"
+Export (* ADT     *) = UPPERID, "(", [ ID, {",", ID} ], ")"
        (* ADTNone *) | UPPERID
        (* ADTAll  *) | UPPERID, "(", "..", ")"
                      | Ref
