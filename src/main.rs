@@ -1,22 +1,23 @@
+// TODO comment before publish crate
 // Development only {
 // cargo watch -s 'clear && cargo test'
 #![allow(dead_code, unused_imports)]
 // }
 
 
-extern crate mylib;
+extern crate elm_interpreter;
 
-use mylib::analyzer::type_of_value;
-use mylib::interpreter::dynamic_env::DynamicEnv;
-use mylib::interpreter::eval_expression;
-use mylib::interpreter::eval_statement;
+use elm_interpreter::analyzer::type_of_value;
+use elm_interpreter::errors::format_error;
+use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
+use elm_interpreter::interpreter::eval_expression;
+use elm_interpreter::interpreter::eval_statement;
+use elm_interpreter::tokenizer::tokenize;
 use std::io::BufRead;
 use std::io::Read;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
-use mylib::tokenizer::tokenize;
-use mylib::errors::format_error;
 
 /*
 fib num = case num of \

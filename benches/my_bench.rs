@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate criterion;
-extern crate mylib;
+extern crate elm_interpreter;
 
 use criterion::Criterion;
-use mylib::tokenizer::tokenize;
-use mylib::parsers::parse_module;
-use mylib::interpreter::eval_expression;
-use mylib::interpreter::eval_statement;
-use mylib::interpreter::dynamic_env::DynamicEnv;
+use elm_interpreter::tokenizer::tokenize;
+use elm_interpreter::parsers::parse_module;
+use elm_interpreter::interpreter::eval_expression;
+use elm_interpreter::interpreter::eval_statement;
+use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
 
 fn bench_tokenize_small_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");

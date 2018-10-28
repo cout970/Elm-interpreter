@@ -11,24 +11,26 @@ exclude = [
     "elm.ebnf",
     "example.elm",
 ]
+readme = "README.md"
+keywords = ["elm", "interpreter"]
+categories = ["parser-implementations"]
 
 [lib]
-name = "mylib"
+name = "elm_interpreter"
 path = "src/lib.rs"
 
 [[bin]]
-name = "mybin"
+name = "repl"
 path = "src/main.rs"
 
 [dependencies.nom]
 version = "4.0.0"
 features = ["verbose-errors"]
 
-[dependencies]
-pretty_assertions = "*"
-
 [dev-dependencies]
+pretty_assertions = "*"
 criterion = "0.2.5"
+
 [[bench]]
 name = "my_bench"
 harness = false
