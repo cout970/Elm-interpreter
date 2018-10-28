@@ -1,10 +1,11 @@
+use std::sync::Arc;
 use tokenizer::Token;
 use types::*;
-use std::sync::Arc;
 
 pub mod name_sequence;
 pub mod format;
 pub mod expression_fold;
+pub mod visitors;
 
 #[cfg(test)]
 macro_rules! assert_ok {
@@ -51,11 +52,16 @@ impl<A> OptionExt<A> for Option<A> {
 }
 
 pub trait VecExt<A> {
+    fn for_each<F: FnMut(&A)>(&self, f: F);
     fn map<B, F: FnMut(&A) -> B>(&self, f: F) -> Vec<B>;
     fn join_vec(&self, other: &[A]) -> Vec<A>;
 }
 
 impl<A: Clone> VecExt<A> for Vec<A> {
+    fn for_each<F: FnMut(&A)>(&self, f: F) {
+        self.iter().for_each(f);
+    }
+
     fn map<B, F: FnMut(&A) -> B>(&self, f: F) -> Vec<B> {
         self.iter().map(f).collect()
     }
@@ -146,4 +152,15 @@ pub fn build_fun_type(types: &[Type]) -> Type {
             Box::from(build_fun_type(&types[1..])),
         )
     }
+}
+
+pub fn qualified_name(path: &[String], name: &str) -> String {
+    let mut full_name = String::new();
+    for x in path {
+        full_name.push_str(x);
+        full_name.push('.');
+    }
+    full_name.push_str(name);
+
+    full_name
 }

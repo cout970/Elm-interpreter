@@ -1,8 +1,8 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem::transmute;
-use std::sync::Arc;
 use std::ops::Deref;
+use std::sync::Arc;
 
 pub type Int = i32;
 pub type Float = f32;
@@ -63,6 +63,10 @@ pub enum Expr {
     Lambda(Vec<Pattern>, Box<Expr>),
     Application(Box<Expr>, Box<Expr>),
     Let(Vec<Definition>, Box<Expr>),
+    /* OpChain stores a chain of binary operations,
+     * the order and associativity of the operations can be changed later
+     * to create a binary tree (with Expr::Application, see expression_fold.rs)
+     */
     OpChain(Vec<Expr>, Vec<String>),
     Literal(Literal),
     Ref(String),
@@ -131,29 +135,37 @@ pub struct Module {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ModuleHeader {
-    pub name: Vec<String>,
-    pub exports: Vec<Export>,
-}
-
-// TODO
-// exposing (..)
-// exposing (a, b, c)
-// exposing (A, B, c)
-// exposing (A(..), B, c)
-// exposing (A(Aa, Ab, Ac), B, c)
-#[derive(Debug, PartialEq, Clone)]
-pub enum Export {
-    Adt(String, Vec<String>),
-    AdtNone(String),
-    AdtAll(String),
-    AdtRef(String),
+    pub name: String,
+    pub exposing: ModuleExposing,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Import {
-    pub path: Vec<String>,
-    pub alias: Option<String>,
-    pub exposing: Vec<Export>,
+pub enum ModuleExposing {
+    All,
+    Just(Vec<Exposing>)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Exposing {
+    Adt(String, AdtExposing),
+    Type(String),
+    Definition(String)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum AdtExposing {
+    All,
+    Branches(Vec<String>)
+}
+
+// import Utils
+// import Utils as U
+// import Utils exposing (Adt, def)
+#[derive(Debug, PartialEq, Clone)]
+pub enum Import {
+    Module(Vec<String>),
+    Alias(Vec<String>, String),
+    Exposing(Vec<String>, ModuleExposing),
 }
 
 impl Eq for Fun {}

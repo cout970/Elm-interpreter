@@ -147,7 +147,7 @@ fn from_id(id: String) -> Token {
         b"in" => In,
         b"module" => ModuleTk,
         b"where" => Where,
-        b"exposing" => Exposing,
+        b"exposing" => ExposingTk,
         b"import" => ImportTk,
         b"as" => As,
         b"type" => TypeTk,

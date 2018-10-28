@@ -23,6 +23,7 @@ use util::StringConversion;
 use std::sync::Arc;
 use types::Adt;
 use analyzer::type_of_value;
+use util::qualified_name;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
@@ -47,12 +48,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             env.find(name).ok_or(MissingAdt(format!("Missing ADT {}", name)))
         }
         Expr::QualifiedRef(path, name) => {
-            let mut full_name = String::new();
-            for x in path {
-                full_name.push_str(x);
-                full_name.push('.');
-            }
-            full_name.push_str(name);
+            let full_name = qualified_name(path, name);
 
             let is_adt = name.chars().next().unwrap().is_uppercase();
 
@@ -372,12 +368,7 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
             }
         }
         Expr::QualifiedRef(path, name) => {
-            let mut full_name = String::new();
-            for x in path {
-                full_name.push_str(x);
-                full_name.push('.');
-            }
-            full_name.push_str(name);
+            let full_name = qualified_name(path, name);
 
             let is_adt = name.chars().next().unwrap().is_uppercase();
 

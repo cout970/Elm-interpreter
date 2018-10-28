@@ -88,7 +88,12 @@ pub fn from_code_mod(code: &[u8]) -> Module {
     let stm: IResult<Tk, Module> = read_module(&stream);
 
     match stm {
-        Ok((_, e)) => e,
+        Ok((rest, e)) => {
+            if rest.len() > 1 {
+                panic!("Unreaded part of the input: {:#?}", rest);
+            }
+            e
+        },
         Err(e) => {
             match e {
                 Err::Incomplete(need) => panic!("Tokens needed: {:?}", need),

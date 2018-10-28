@@ -15,7 +15,7 @@ struct ExprParser {
 
 impl ExprParser {
     pub fn new() -> Self {
-        ExprParser { indent: vec![] }
+        ExprParser { indent: vec![0] }
     }
 
     fn push(self, n: usize) -> Self {
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn check_binop_chain_multiline() {
-        let stream = tokenize(b"1 + \n2 + \n3 + \n4").unwrap();
+        let stream = tokenize(b"1 + \n 2 + \n 3 + \n 4").unwrap();
         let m = read_expr(&stream);
         assert_ok!(m, Expr::OpChain(vec![
             Expr::Literal(Literal::Int(1)),

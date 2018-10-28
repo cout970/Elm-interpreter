@@ -1,10 +1,9 @@
-use *;
 use nom::*;
 use parsers::statement::*;
+use parsers::Tk;
 use tokenizer::Token;
 use tokenizer::Token::*;
-use types::Module;
-use parsers::Tk;
+use types::*;
 use util::*;
 
 // Modules
@@ -30,58 +29,85 @@ named!(pub read_module<Tk, Module>, do_parse!(
     (Module { header, imports, statements })
 ));
 
-named!(adt_export<Tk, String>, alt!(id!() | map!(tk!(DoubleDot), |_c| "..".s())) );
-
-named!(export<Tk, Export>, alt!(
-    map!(read_ref, |c| Export::AdtRef(c)) |
-    do_parse!(
-        id: upper_id!() >>
-        tk!(LeftParen) >>
-        t: separated_nonempty_list!(tk!(Comma), adt_export) >>
-        tk!(RightParen) >>
-        (Export::Adt(id, t))
-    ) |
-    do_parse!(
-        id: upper_id!() >>
-        tk!(LeftParen) >>
-        tk!(DoubleDot) >>
-        tk!(RightParen) >>
-        (Export::AdtAll(id))
-    ) |
-    map!(upper_id!(), |c| Export::AdtNone(c))
-));
-
-named!(exports<Tk, Vec<Export>>, map!(opt!(do_parse!(
-    tk!(LeftParen) >>
-    l: separated_list!(tk!(Comma), export) >>
-    tk!(RightParen) >>
-    (l)
-
-)), |o| o.unwrap_or(Vec::new())));
-
 named!(module_header<Tk, ModuleHeader>, do_parse!(
     tk!(ModuleTk) >>
-    mod_id: upper_ids >>
-    e: exports >>
-    tk!(Where) >>
-    (ModuleHeader { name: mod_id, exports: e })
+    mod_id: upper_id!() >>
+    e: exposing >>
+    (ModuleHeader { name: mod_id, exposing: e })
 ));
 
-named!(exposing<Tk, Vec<Export>>, do_parse!(
-    tk!(Exposing) >>
+named!(exposing<Tk, ModuleExposing>, do_parse!(
+    tk!(ExposingTk) >>
     tk!(LeftParen) >>
-    e: separated_list!(tk!(Comma), export) >>
+    e: exposing_int >>
     tk!(RightParen) >>
     (e)
 ));
 
-named!(import<Tk, Import>, do_parse!(
+named!(exposing_int<Tk, ModuleExposing>, alt!(exposing_all | exposing_list));
+
+named!(exposing_all<Tk, ModuleExposing>, do_parse!(
+    tk!(DoubleDot) >>
+    (ModuleExposing::All)
+));
+
+named!(exposing_list<Tk, ModuleExposing>, do_parse!(
+    e: separated_nonempty_list!(tk!(Comma), exposing_item) >>
+    (ModuleExposing::Just(e))
+));
+
+named!(exposing_item<Tk, Exposing>, alt!(
+    do_parse!(
+        i: id!() >> (Exposing::Definition(i))
+    )
+    | do_parse!(
+        i: upper_id!() >>
+        e: adt_exposing >>
+        (Exposing::Adt(i, e))
+    )
+    | do_parse!(
+        i: upper_id!() >> (Exposing::Type(i))
+    )
+));
+
+named!(adt_exposing<Tk, AdtExposing>, alt!(
+    do_parse!(
+        tk!(LeftParen) >>
+        tk!(DoubleDot) >>
+        tk!(RightParen) >>
+        (AdtExposing::All)
+    )
+    | do_parse!(
+        tk!(LeftParen) >>
+        b: separated_list!(tk!(Comma), upper_id!()) >>
+        tk!(RightParen) >>
+        (AdtExposing::Branches(b))
+    )
+));
+
+named!(import<Tk, Import>, alt!(
+    do_parse!(
+        path: import_pre >>
+        exp: exposing >>
+        (Import::Exposing(path, exp))
+    )
+    | do_parse!(
+        path: import_pre >>
+        tk!(As) >>
+        alias: upper_id!() >>
+        (Import::Alias(path, alias))
+    )
+    | do_parse!(
+        path: import_pre >>
+        (Import::Module(path))
+    )
+));
+
+named!(import_pre<Tk, Vec<String>>, do_parse!(
     opt!(indent!(0)) >>
     tk!(ImportTk) >>
     path: upper_ids >>
-    alias: opt!(do_parse!(tk!(As) >> n: upper_id!() >> (n))) >>
-    exp: opt!(exposing)  >>
-    (Import{ path, alias, exposing: exp.unwrap_or(Vec::new()) })
+    (path)
 ));
 
 #[cfg(test)]
@@ -92,43 +118,98 @@ mod tests {
 
     #[test]
     fn check_empty_module() {
-        let stream = tokenize(b"module My_module").unwrap();
+        let stream = tokenize(b"module My_module exposing (..)").unwrap();
         let m = read_module(&stream);
-        assert_ok!(m, Module::default());
+        assert_ok!(m, Module {
+              header: Some(ModuleHeader{
+                    name: "My_module".s(),
+                    exposing: ModuleExposing::All,
+              }),
+              imports: vec![],
+              statements: vec![],
+        });
     }
 
     #[test]
-    fn check_module_name() {
-        let stream = tokenize(b"module Com.My_module.My_sub_module").unwrap();
+    fn check_only_defs() {
+        let stream = tokenize(b"func a = a + 1").unwrap();
         let m = read_module(&stream);
-        assert_ok!(m, Module::default());
+        assert_ok!(m, Module {
+            header: None,
+            imports: vec![],
+            statements: vec![
+                Statement::Def(Definition {
+                    header: None,
+                    name: "func".s(),
+                    patterns: vec![Pattern::Var("a".s())],
+                    expr: Expr::OpChain(
+                        vec![Expr::Ref("a".s()), Expr::Literal(Literal::Int(1))],
+                        vec!["+".s()]
+                    ),
+                })
+            ],
+        });
     }
 
     #[test]
     fn check_module_exports() {
-        let stream = tokenize(b"module MyMod ( List, Maybe )").unwrap();
+        let stream = tokenize(b"module MyMod exposing ( List, Maybe )").unwrap();
         let m = read_module(&stream);
-        assert_ok!(m, Module::default());
-    }
-
-    #[test]
-    fn check_module_empty_exports() {
-        let stream = tokenize(b"module MyMod ( )").unwrap();
-        let m = read_module(&stream);
-        assert_ok!(m, Module::default());
+        assert_ok!(m, Module {
+              header: Some(ModuleHeader{
+                    name: "MyMod".s(),
+                    exposing: ModuleExposing::Just(vec![
+                        Exposing::Type("List".s()),
+                        Exposing::Type("Maybe".s()),
+                    ]),
+              }),
+              imports: vec![],
+              statements: vec![],
+        });
     }
 
     #[test]
     fn check_module_imports() {
-        let stream = tokenize(b"import Html exposing (Html, text)").unwrap();
+        let stream = tokenize(b"import Html exposing (..)").unwrap();
+
         let m = read_module(&stream);
         assert_ok!(m, Module {
-            imports: vec![Import{
-                path: vec!["Html".s()],
-                alias: None,
-                exposing: vec![Export::AdtNone("Html".s()), Export::AdtRef("text".s())]
-            }],
-            ..Module::default()
+            header: None,
+            imports: vec![
+                Import::Exposing(vec!["Html".s()], ModuleExposing::All)
+            ],
+            statements: vec![],
+        });
+    }
+
+    #[test]
+    fn check_module_imports_adv() {
+        let stream = tokenize(b"\
+import Html exposing (..)\n\
+import Util\n\
+import Util as U\n\
+import Util exposing (..)\n\
+import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
+").unwrap();
+
+        let m = read_module(&stream);
+        assert_ok!(m, Module {
+            header: None,
+            imports: vec![
+                Import::Exposing(vec!["Html".s()], ModuleExposing::All),
+                Import::Module(vec!["Util".s()]),
+                Import::Alias(vec!["Util".s()], "U".s()),
+                Import::Exposing(vec!["Util".s()], ModuleExposing::All),
+                Import::Exposing(vec!["Util".s()], ModuleExposing::Just(vec![
+                    Exposing::Type("Enum".s()),
+                    Exposing::Definition("map".s()),
+                    Exposing::Adt("Sides".s(), AdtExposing::All),
+                    Exposing::Adt("UpDown".s(), AdtExposing::Branches(
+                        vec!["Up".s(), "Down".s()]
+                    )),
+                ])),
+            ],
+            statements: vec![],
         });
     }
 }

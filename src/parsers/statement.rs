@@ -8,7 +8,7 @@ use tokenizer::Token::*;
 // Definitions
 
 named!(pub top_level_statement<Tk, Statement>, do_parse!(
-    indent!(0) >>
+    many0!(indent!(0)) >>
     s: read_statement >>
     (s)
 ));

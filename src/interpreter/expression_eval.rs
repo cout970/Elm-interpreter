@@ -17,6 +17,7 @@ use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::StringConversion;
 use util::VecExt;
+use util::qualified_name;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
     let res: Value = match expr {
@@ -103,12 +104,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 .ok_or(MissingDefinition(name.clone(), env.clone()))?
         }
         Expr::QualifiedRef(path, name) => {
-            let mut full_name = String::new();
-            for x in path {
-                full_name.push_str(x);
-                full_name.push('.');
-            }
-            full_name.push_str(name);
+            let full_name = qualified_name(path, name);
 
             let is_adt = name.chars().next().unwrap().is_uppercase();
 

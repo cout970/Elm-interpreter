@@ -30,7 +30,7 @@ pub enum Token {
     In,
     ModuleTk,
     Where,
-    Exposing,
+    ExposingTk,
     ImportTk,
     As,
     TypeTk,
