@@ -2,6 +2,15 @@
 name = "elm-interpreter"
 version = "0.1.0"
 authors = ["cout970 <thecout970@gmail.com>"]
+description = "Small Elm interpreter"
+license = "MIT"
+license-file = "LICENSE.md"
+repository = "https://github.com/cout970/Elm-interpreter"
+exclude = [
+    "target/*",
+    "elm.ebnf",
+    "example.elm",
+]
 
 [lib]
 name = "mylib"
