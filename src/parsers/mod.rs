@@ -8,7 +8,7 @@ use ast::Statement;
 use ast::Module;
 use parsers::SyntaxError::Unknown;
 
-pub type Tk<'a> = &'a [Token];
+type Tk<'a> = &'a [Token];
 
 #[macro_use]
 mod macros;
@@ -19,26 +19,27 @@ mod statement;
 mod expression;
 mod pattern;
 
+// TODO
 #[derive(PartialEq, Debug, Clone)]
 pub enum SyntaxError {
     Unknown
 }
 
-pub fn parse_expr(i: Tk) -> Result<Expr, SyntaxError> {
+pub fn parse_expr(i: &[Token]) -> Result<Expr, SyntaxError> {
     match read_expr(i) {
         Ok((_, e)) => Ok(e),
         Err(_) => Err(Unknown)
     }
 }
 
-pub fn parse_statement(i: Tk) -> Result<Statement, SyntaxError> {
+pub fn parse_statement(i: &[Token]) -> Result<Statement, SyntaxError> {
     match read_statement(i) {
         Ok((_, e)) => Ok(e),
         Err(_) => Err(Unknown)
     }
 }
 
-pub fn parse_module(i: Tk) -> Result<Module, SyntaxError> {
+pub fn parse_module(i: &[Token]) -> Result<Module, SyntaxError> {
     match read_module(i) {
         Ok((_, e)) => Ok(e),
         Err(_) => Err(Unknown)
