@@ -86,7 +86,7 @@ pub fn builtin_fun_of(fun_id: FunId, id: u32, ty: Type) -> Value {
     }
 }
 
-pub fn arg_count(ty: &Type) -> u32 {
+fn arg_count(ty: &Type) -> u32 {
     match ty {
         Type::Fun(_, ref out) => {
             1 + arg_count(out)
