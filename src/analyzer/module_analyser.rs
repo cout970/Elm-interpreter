@@ -38,7 +38,6 @@ fn get_stm_name(stm: &Statement) -> &str {
     }
 }
 
-
 fn sort_statement_dependencies(stms: &[Statement]) -> Vec<&Statement> {
     let mut dependencies: HashMap<&str, (&Statement, Vec<String>)> = HashMap::new();
     let local_names: Vec<&str> = stms.iter()
@@ -145,7 +144,6 @@ fn get_type_dependencies(ty: &Type) -> Vec<String> {
     refs.into_iter().collect()
 }
 
-
 fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
     let mut local_refs: HashSet<String> = HashSet::new();
 
@@ -223,13 +221,6 @@ mod tests {
     use super::*;
     use types::Statement;
 
-
-//    #[test]
-//    fn check_constant() {
-//        let module = from_code_mod(b"module Main exposing (..)\n x = 0\n\n");
-//
-//        assert_eq!(analyze_module(&module), Ok(()));
-//    }
 
     #[test]
     fn check_expr_dependencies() {
