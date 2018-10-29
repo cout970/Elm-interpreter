@@ -2,11 +2,11 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Write;
 use std::fmt::Formatter;
-use types::Definition;
-use types::Expr;
-use types::Literal;
-use types::Pattern;
-use types::Type;
+use ast::Definition;
+use ast::Expr;
+use ast::Literal;
+use ast::Pattern;
+use ast::Type;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 

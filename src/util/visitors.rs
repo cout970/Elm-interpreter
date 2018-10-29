@@ -1,5 +1,5 @@
-use types::Expr;
-use types::Type;
+use ast::Expr;
+use ast::Type;
 
 pub fn type_visitor<S, F: Fn(&mut S, &Type)>(state: &mut S, root: &Type, f: &F) {
     f(state, root);

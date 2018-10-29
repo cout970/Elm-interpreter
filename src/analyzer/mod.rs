@@ -1,12 +1,12 @@
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError;
 use std::collections::HashMap;
-use types::Expr;
+use ast::Expr;
 use types::Fun;
-use types::Type;
+use ast::Type;
 use types::Value;
 use util::StringConversion;
-use types::Definition;
+use ast::Definition;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::static_env::StaticEnv;
 use std::sync::Arc;

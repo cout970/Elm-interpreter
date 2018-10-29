@@ -4,7 +4,7 @@ use parsers::module::upper_ids;
 use parsers::pattern::read_pattern;
 use parsers::statement::read_definition;
 use tokenizer::Token::*;
-use types::Expr;
+use ast::Expr;
 use parsers::Tk;
 
 // Expressions

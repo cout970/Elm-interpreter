@@ -3,9 +3,9 @@ use parsers::statement::read_statement;
 use parsers::module::read_module;
 use tokenizer::Token;
 use tokenizer::tokenize;
-use types::Expr;
-use types::Statement;
-use types::Module;
+use ast::Expr;
+use ast::Statement;
+use ast::Module;
 use parsers::SyntaxError::Unknown;
 
 pub type Tk<'a> = &'a [Token];

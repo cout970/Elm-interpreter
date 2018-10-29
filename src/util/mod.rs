@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tokenizer::Token;
+use ast::*;
 use types::*;
 
 pub mod name_sequence;

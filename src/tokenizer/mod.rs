@@ -3,6 +3,7 @@ use self::Token::*;
 use tokenizer::input::Input;
 use tokenizer::input::Location;
 use tokenizer::token_parser::read_token_forced;
+use ast::*;
 use types::*;
 use util::*;
 

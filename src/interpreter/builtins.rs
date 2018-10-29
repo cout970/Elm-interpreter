@@ -1,6 +1,6 @@
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
-use types::Type;
+use ast::Type;
 use types::Value;
 use util::StringConversion;
 

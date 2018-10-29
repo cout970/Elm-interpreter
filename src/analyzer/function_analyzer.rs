@@ -5,11 +5,11 @@ use analyzer::TypeError;
 use analyzer::TypeError::InternalError;
 use analyzer::TypeError::UnableToCalculateFunctionType;
 use std::collections::HashMap;
-use types::Definition;
-use types::Expr;
-use types::Literal;
-use types::Pattern;
-use types::Type;
+use ast::Definition;
+use ast::Expr;
+use ast::Literal;
+use ast::Pattern;
+use ast::Type;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
@@ -287,7 +287,7 @@ mod tests {
     use nom::verbose_errors::*;
     use parsers::from_code_stm;
     use super::*;
-    use types::Statement;
+    use ast::Statement;
 
     fn from_code_def(code: &[u8]) -> Definition {
         let stm = from_code_stm(code);

@@ -4,12 +4,12 @@ use analyzer::TypeError;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use types::Definition;
-use types::Expr;
-use types::Module;
-use types::Pattern;
-use types::Statement;
-use types::Type;
+use ast::Definition;
+use ast::Expr;
+use ast::Module;
+use ast::Pattern;
+use ast::Statement;
+use ast::Type;
 use util::name_sequence::NameSequence;
 use util::qualified_name;
 use util::VecExt;
@@ -219,7 +219,7 @@ mod tests {
     use parsers::from_code_mod;
     use parsers::from_code_stm;
     use super::*;
-    use types::Statement;
+    use ast::Statement;
 
 
     #[test]

@@ -1,5 +1,5 @@
 use util::expression_fold::ExprTreeError::*;
-use types::Expr;
+use ast::Expr;
 use util::StringConversion;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -180,8 +180,8 @@ mod tests {
     use super::*;
     use super::ExprTree::*;
     use tokenizer::tokenize;
-    use types::Expr;
-    use types::Expr::Ref;
+    use ast::Expr;
+    use ast::Expr::Ref;
     use util::StringConversion;
 
     #[test]

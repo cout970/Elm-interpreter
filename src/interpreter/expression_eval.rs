@@ -6,12 +6,12 @@ use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use types::Expr;
+use ast::Expr;
 use types::Fun;
 use types::FunCall;
-use types::Literal;
-use types::Pattern;
-use types::Type;
+use ast::Literal;
+use ast::Pattern;
+use ast::Type;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
@@ -389,8 +389,8 @@ mod tests {
     use parsers::from_code;
     use super::*;
     use tokenizer::tokenize;
-    use types::Pattern;
-    use types::Type;
+    use ast::Pattern;
+    use ast::Type;
     use util::builtin_fun_of;
 
     #[test]

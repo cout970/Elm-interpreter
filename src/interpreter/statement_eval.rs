@@ -2,10 +2,10 @@ use analyzer::type_check_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use interpreter::RuntimeError;
-use types::Expr;
+use ast::Expr;
 use types::Fun;
-use types::Statement;
-use types::Type;
+use ast::Statement;
+use ast::Type;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
@@ -13,7 +13,7 @@ use util::StringConversion;
 use types::Adt;
 use types::AdtVariant;
 use std::sync::Arc;
-use types::Definition;
+use ast::Definition;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -96,8 +96,8 @@ mod tests {
     use parsers::from_code_stm;
     use super::*;
     use tokenizer::tokenize;
-    use types::Pattern;
-    use types::Type;
+    use ast::Pattern;
+    use ast::Type;
     use util::builtin_fun_of;
     use util::StringConversion;
     use interpreter::eval_statement;

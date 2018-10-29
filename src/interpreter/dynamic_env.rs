@@ -2,7 +2,7 @@ use analyzer::static_env::StaticEnv;
 use std::collections::HashMap;
 use types::FunCall;
 use types::FunId;
-use types::Type;
+use ast::Type;
 use types::Value;
 use util::build_fun_type;
 use util::builtin_fun_of;

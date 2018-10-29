@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use types::Type;
+use ast::Type;
 use util::name_sequence::NameSequence;
 
 #[derive(Clone, Debug, PartialEq)]

@@ -19,6 +19,7 @@ use interpreter::eval_statement;
 use parsers::parse_expr;
 use parsers::parse_statement;
 use tokenizer::*;
+use ast::*;
 use types::*;
 use util::*;
 use nom::ExtendInto;
@@ -32,6 +33,7 @@ use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
 
+pub mod ast;
 pub mod types;
 #[macro_use]
 pub mod util;

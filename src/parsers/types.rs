@@ -1,5 +1,6 @@
 use *;
 use tokenizer::Token::*;
+use ast::*;
 use types::*;
 use parsers::Tk;
 use util::create_vec;

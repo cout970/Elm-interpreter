@@ -3,6 +3,7 @@ use parsers::statement::*;
 use parsers::Tk;
 use tokenizer::Token;
 use tokenizer::Token::*;
+use ast::*;
 use types::*;
 use util::*;
 
@@ -81,7 +82,7 @@ named!(adt_exposing<Tk, AdtExposing>, alt!(
         tk!(LeftParen) >>
         b: separated_list!(tk!(Comma), upper_id!()) >>
         tk!(RightParen) >>
-        (AdtExposing::Branches(b))
+        (AdtExposing::Variants(b))
     )
 ));
 
@@ -204,7 +205,7 @@ import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
                     Exposing::Type("Enum".s()),
                     Exposing::Definition("map".s()),
                     Exposing::Adt("Sides".s(), AdtExposing::All),
-                    Exposing::Adt("UpDown".s(), AdtExposing::Branches(
+                    Exposing::Adt("UpDown".s(), AdtExposing::Variants(
                         vec!["Up".s(), "Down".s()]
                     )),
                 ])),

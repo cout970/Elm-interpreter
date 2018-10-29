@@ -6,8 +6,8 @@ use interpreter::statement_eval::eval_stm;
 use parsers::parse_expr;
 use parsers::parse_statement;
 use tokenizer::tokenize;
-use types::Pattern;
-use types::Type;
+use ast::Pattern;
+use ast::Type;
 use types::Value;
 use util::expression_fold::ExprTreeError;
 
