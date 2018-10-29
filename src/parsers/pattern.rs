@@ -1,8 +1,5 @@
-use *;
-use tokenizer::Token;
 use tokenizer::Token::*;
 use ast::*;
-use types::*;
 use parsers::Tk;
 use util::create_vec;
 
@@ -70,9 +67,9 @@ named!(literal<Tk, Pattern>, map!(literal!(), |l| Pattern::Literal(l)));
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
     use tokenizer::tokenize;
+    use util::StringConversion;
 
     #[test]
     fn check_literal() {

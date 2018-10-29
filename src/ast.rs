@@ -1,8 +1,6 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem::transmute;
-use std::ops::Deref;
-use std::sync::Arc;
 
 // TODO add a crate feature to use 32 or 64 bits
 

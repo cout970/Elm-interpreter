@@ -1,6 +1,5 @@
 use util::expression_fold::ExprTreeError::*;
 use ast::Expr;
-use util::StringConversion;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprTree {
@@ -174,12 +173,9 @@ pub fn get_operator_associativity(op: &str) -> Associativity {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
-    use nom::verbose_errors::*;
     use parsers::from_code;
     use super::*;
     use super::ExprTree::*;
-    use tokenizer::tokenize;
     use ast::Expr;
     use ast::Expr::Ref;
     use util::StringConversion;

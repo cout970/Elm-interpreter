@@ -1,6 +1,5 @@
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError;
-use std::collections::HashMap;
 use ast::Expr;
 use types::Fun;
 use ast::Type;
@@ -9,8 +8,6 @@ use util::StringConversion;
 use ast::Definition;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::static_env::StaticEnv;
-use std::sync::Arc;
-use types::Adt;
 use analyzer::expression_analyzer::get_adt_type;
 use std::ops::Deref;
 

@@ -1,11 +1,12 @@
-use *;
+use ast::*;
+use nom::*;
+use util::create_vec;
 use parsers::module::read_ref;
 use parsers::module::upper_ids;
 use parsers::pattern::read_pattern;
 use parsers::statement::read_definition;
-use tokenizer::Token::*;
-use ast::Expr;
 use parsers::Tk;
+use tokenizer::Token::*;
 
 // Expressions
 
@@ -227,7 +228,7 @@ impl ExprParser {
         minus!() >>
         e: call_m!(self.read_expr) >>
         (Expr::Application(
-            Box::new(Expr::Ref("-".s())),
+            Box::new(Expr::Ref(String::from("-"))),
             Box::new(e),
         ))
     ));
@@ -265,9 +266,9 @@ fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
     use tokenizer::tokenize;
+    use util::StringConversion;
 
     #[test]
     fn check_unit() {

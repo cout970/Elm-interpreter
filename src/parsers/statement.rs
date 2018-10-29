@@ -1,7 +1,7 @@
-use *;
 use parsers::expression::read_expr;
 use parsers::pattern::read_pattern;
 use parsers::Tk;
+use ast::*;
 use parsers::types::read_type;
 use tokenizer::Token::*;
 
@@ -94,9 +94,9 @@ named!(alias<Tk, Statement>, do_parse!(
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
     use tokenizer::tokenize;
+    use util::StringConversion;
 
     #[test]
     fn check_type_alias() {

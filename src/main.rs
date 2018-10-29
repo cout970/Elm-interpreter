@@ -1,10 +1,3 @@
-// TODO comment before publish crate
-// Development only {
-// cargo watch -s 'clear && cargo test'
-#![allow(dead_code, unused_imports)]
-// }
-
-
 extern crate elm_interpreter;
 
 use elm_interpreter::analyzer::type_of_value;
@@ -12,9 +5,7 @@ use elm_interpreter::errors::format_error;
 use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
 use elm_interpreter::interpreter::eval_expression;
 use elm_interpreter::interpreter::eval_statement;
-use elm_interpreter::tokenizer::tokenize;
 use std::io::BufRead;
-use std::io::Read;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
@@ -27,14 +18,7 @@ fib num = case num of \
 */
 
 fn main() {
-    let code: &'static [u8] = include_bytes!("../benches/data/tokenizer_2.elm");
-    let result = tokenize(code);
-    match result {
-        Ok(_) => {},
-        Err(e) => {
-            println!("{:#?}", e);
-        },
-    }
+    repl();
 }
 
 fn repl() {

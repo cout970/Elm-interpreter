@@ -2,23 +2,15 @@ use analyzer::function_analyzer::analyze_function;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::calculate_common_type;
 use analyzer::function_analyzer::is_assignable;
-use analyzer::function_analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError::*;
 use analyzer::TypeError;
 use std::collections::HashMap;
-use std::ops::Deref;
-use ast::Definition;
-use ast::Expr;
-use types::Fun;
-use ast::Literal;
-use ast::Pattern;
-use ast::Type;
+use ast::*;
 use types::Value;
 use util::build_fun_type;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
-use util::name_sequence::NameSequence;
 use util::StringConversion;
 use std::sync::Arc;
 use types::Adt;
@@ -591,8 +583,6 @@ fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty:
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
-    use nom::verbose_errors::*;
     use parsers::from_code;
     use super::*;
 

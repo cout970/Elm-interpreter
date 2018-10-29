@@ -2,15 +2,7 @@ use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError::*;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
-use analyzer::TypeError::InternalError;
-use analyzer::TypeError::UnableToCalculateFunctionType;
-use std::collections::HashMap;
-use ast::Definition;
-use ast::Expr;
-use ast::Literal;
-use ast::Pattern;
-use ast::Type;
-use types::Value;
+use ast::*;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::name_sequence::NameSequence;
@@ -283,8 +275,6 @@ pub fn is_assignable(expected: &Type, found: &Type) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
-    use nom::verbose_errors::*;
     use parsers::from_code_stm;
     use super::*;
     use ast::Statement;

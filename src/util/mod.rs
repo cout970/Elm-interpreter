@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use tokenizer::Token;
 use ast::*;
 use types::*;
 

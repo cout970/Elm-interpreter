@@ -4,8 +4,6 @@ use tokenizer::input::Input;
 use tokenizer::input::Location;
 use tokenizer::token_parser::read_token_forced;
 use ast::*;
-use types::*;
-use util::*;
 
 mod input;
 mod token_parser;
@@ -230,8 +228,8 @@ fn map_result<T>(input: &[u8], res: IResult<&[u8], T>) -> Option<(T, usize)> {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
+    use util::StringConversion;
 
     #[test]
     fn check_tokens() {

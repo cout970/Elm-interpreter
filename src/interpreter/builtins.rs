@@ -1,9 +1,6 @@
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
-use ast::Type;
 use types::Value;
-use util::StringConversion;
-
 
 pub fn builtin_function(id: u32, args: &[Value]) -> Result<Value, RuntimeError> {
     let ret = match id {

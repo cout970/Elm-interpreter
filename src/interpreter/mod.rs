@@ -7,7 +7,6 @@ use parsers::parse_expr;
 use parsers::parse_statement;
 use tokenizer::tokenize;
 use ast::Pattern;
-use ast::Type;
 use types::Value;
 use util::expression_fold::ExprTreeError;
 

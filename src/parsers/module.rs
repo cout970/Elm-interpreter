@@ -1,11 +1,8 @@
 use nom::*;
 use parsers::statement::*;
 use parsers::Tk;
-use tokenizer::Token;
 use tokenizer::Token::*;
 use ast::*;
-use types::*;
-use util::*;
 
 // Modules
 // https://github.com/durkiewicz/elm-plugin/blob/master/src/main/java/org/elmlang/intellijplugin/Elm.bnf
@@ -113,9 +110,9 @@ named!(import_pre<Tk, Vec<String>>, do_parse!(
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
     use tokenizer::tokenize;
+    use util::StringConversion;
 
     #[test]
     fn check_empty_module() {

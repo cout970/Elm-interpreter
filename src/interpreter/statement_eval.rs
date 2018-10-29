@@ -1,19 +1,16 @@
 use analyzer::type_check_function;
+use ast::*;
+use ast::Definition;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use interpreter::RuntimeError;
-use ast::Expr;
+use std::sync::Arc;
+use types::Adt;
+use types::AdtVariant;
 use types::Fun;
-use ast::Statement;
-use ast::Type;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
-use util::StringConversion;
-use types::Adt;
-use types::AdtVariant;
-use std::sync::Arc;
-use ast::Definition;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -90,18 +87,11 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
-    use nom::verbose_errors::*;
+    use analyzer::type_of_value;
     use parsers::from_code;
     use parsers::from_code_stm;
     use super::*;
-    use tokenizer::tokenize;
-    use ast::Pattern;
-    use ast::Type;
-    use util::builtin_fun_of;
     use util::StringConversion;
-    use interpreter::eval_statement;
-    use analyzer::type_of_value;
 
     fn formatted(env: &mut DynamicEnv, stm: &Statement) -> String {
         let result = eval_stm(env, stm);

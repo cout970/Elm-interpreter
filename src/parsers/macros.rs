@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! tk {
     ($i:expr, $token: expr) => (
@@ -27,6 +26,7 @@ macro_rules! id {
         {
             use nom::*;
             use nom::verbose_errors::Context;
+            use tokenizer::Token;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -49,6 +49,7 @@ macro_rules! upper_id {
         {
             use nom::*;
             use nom::verbose_errors::Context;
+            use tokenizer::Token;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -71,6 +72,7 @@ macro_rules! binop {
         {
             use nom::*;
             use nom::verbose_errors::Context;
+            use tokenizer::Token;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -97,6 +99,7 @@ macro_rules! minus {
         {
             use nom::*;
             use nom::verbose_errors::Context;
+            use tokenizer::Token;
 
             if $i.len() == 0 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -143,6 +146,7 @@ macro_rules! indent {
     {
         use nom::*;
         use nom::verbose_errors::Context;
+        use tokenizer::Token;
 
         if $i.len() == 0 {
             Err(Err::Incomplete(Needed::Size(1)))
@@ -162,6 +166,7 @@ macro_rules! indent {
     {
         use nom::*;
         use nom::verbose_errors::Context;
+        use tokenizer::Token;
 
         if $i.len() == 0 {
             Err(Err::Incomplete(Needed::Size(1)))
@@ -183,6 +188,7 @@ macro_rules! indent_except {
     {
         use nom::*;
         use nom::verbose_errors::Context;
+        use tokenizer::Token;
 
         if $i.len() > 0 {
             let look = &$i[0];

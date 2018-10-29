@@ -1,6 +1,6 @@
 // Development only {
-// cargo watch -s 'clear && cargo test'
-#![allow(dead_code, unused_imports)]
+// cargo watch -s 'clear && cargo test --color always 2>&1'
+#![allow(dead_code)]
 // }
 
 #[macro_use]
@@ -9,29 +9,6 @@ extern crate nom;
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
-
-use analyzer::static_env::StaticEnv;
-use analyzer::type_check_expression;
-use analyzer::type_of_value;
-use interpreter::dynamic_env::DynamicEnv;
-use interpreter::eval_expression;
-use interpreter::eval_statement;
-use parsers::parse_expr;
-use parsers::parse_statement;
-use tokenizer::*;
-use ast::*;
-use types::*;
-use util::*;
-use nom::ExtendInto;
-use nom::IResult;
-use nom::verbose_errors::Context;
-use std::fs::File;
-use std::io;
-use std::io::BufRead;
-use std::io::Read;
-use std::io::stdin;
-use std::io::stdout;
-use std::io::Write;
 
 pub mod ast;
 pub mod types;

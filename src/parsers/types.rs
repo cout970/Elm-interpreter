@@ -1,7 +1,6 @@
 use *;
 use tokenizer::Token::*;
 use ast::*;
-use types::*;
 use parsers::Tk;
 use util::create_vec;
 
@@ -79,7 +78,6 @@ fn create_fun(a: Type, b: Vec<Type>) -> Type {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
     use tokenizer::tokenize;
     use util::StringConversion;

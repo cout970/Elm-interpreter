@@ -1,5 +1,4 @@
 use nom::*;
-use tokenizer::Input;
 use tokenizer::Token::*;
 use tokenizer::Token;
 use util::*;
@@ -173,7 +172,6 @@ fn from_binop(id: String) -> Token {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use super::*;
 
     #[test]

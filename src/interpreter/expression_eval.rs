@@ -4,14 +4,10 @@ use interpreter::builtins::builtin_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
-use std::collections::HashMap;
 use std::sync::Arc;
-use ast::Expr;
+use ast::*;
 use types::Fun;
 use types::FunCall;
-use ast::Literal;
-use ast::Pattern;
-use ast::Type;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
@@ -40,7 +36,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         Expr::RecordUpdate(name, items) => {
             let val = eval_expr(env, &Expr::Ref(name.clone()))?;
 
-            if let Value::Record(values) = val {
+            if let Value::Record(values) = &val {
                 Value::Record(values.iter().map(|(name, value)| {
                     items.iter()
                         .find(|(_name, _)| name == _name)
@@ -50,7 +46,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                         .unwrap_or((name.clone(), value.clone()))
                 }).collect())
             } else {
-                return Err(RuntimeError::RecordUpdateOnNonRecord(name.to_owned(), val));
+                return Err(RuntimeError::RecordUpdateOnNonRecord(name.to_owned(), val.clone()));
             }
         }
         Expr::If(cond, a, b) => {
@@ -384,11 +380,8 @@ fn tree_as_expr(env: &mut DynamicEnv, expr: &ExprTree) -> Expr {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
-    use nom::verbose_errors::*;
     use parsers::from_code;
     use super::*;
-    use tokenizer::tokenize;
     use ast::Pattern;
     use ast::Type;
     use util::builtin_fun_of;

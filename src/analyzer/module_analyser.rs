@@ -1,19 +1,10 @@
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use ast::Definition;
-use ast::Expr;
-use ast::Module;
-use ast::Pattern;
-use ast::Statement;
-use ast::Type;
-use util::name_sequence::NameSequence;
+use ast::*;
 use util::qualified_name;
-use util::VecExt;
-use util::visitors::expr_visitor;
 use util::visitors::expr_visitor_block;
 use util::visitors::type_visitor;
 
@@ -215,11 +206,8 @@ fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use nom::*;
     use parsers::from_code_mod;
-    use parsers::from_code_stm;
     use super::*;
-    use ast::Statement;
 
 
     #[test]
