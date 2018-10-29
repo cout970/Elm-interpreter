@@ -6,19 +6,16 @@ use std::sync::Arc;
 use ast::Type;
 use ast::Pattern;
 use ast::Expr;
+use ast::Int;
+use ast::Float;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct FunCall {
-    pub function: Value,
-    pub argument: Value,
-}
-
+// Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Unit,
-    Number(i32),
-    Int(i32),
-    Float(f32),
+    Number(Int),
+    Int(Int),
+    Float(Float),
     String(String),
     Char(char),
     List(Vec<Value>),
@@ -32,14 +29,26 @@ pub enum Value {
     },
 }
 
+/// Represents a function call,
+/// it has a Function and it's Argument
+/// it's used as key in caches for function memoization
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct FunCall {
+    pub function: Value,
+    pub argument: Value,
+}
+
+/// Unique id for fast comparison between functions
 pub type FunId = u32;
 
+/// Represents a function that can be a definition or builtin
 #[derive(Debug, Clone)]
 pub enum Fun {
     Builtin(FunId, u32, Type),
     Expr(FunId, Vec<Pattern>, Expr, Type),
 }
 
+/// Represents an Adt type with all the information about the variants
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub struct Adt {
     pub name: String,
@@ -47,13 +56,14 @@ pub struct Adt {
     pub variants: Vec<AdtVariant>,
 }
 
+/// Is a variant in an Adt
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub struct AdtVariant {
     pub name: String,
     pub types: Vec<Type>,
 }
 
-/* Fun are compared using only the FunId */
+// Fun are compared using only the FunId
 impl Eq for Fun {}
 
 impl PartialEq for Fun {
@@ -72,8 +82,10 @@ impl PartialEq for Fun {
     }
 }
 
+// Values are used in FunCall, so they must be valid map keys
 impl Eq for Value {}
 
+// Values are used in FunCall, so they must be valid map keys
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
