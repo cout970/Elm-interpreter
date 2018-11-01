@@ -12,6 +12,7 @@ use analyzer::expression_analyzer::get_adt_type;
 use std::ops::Deref;
 
 pub mod static_env;
+pub mod inter_mod_analyzer;
 mod function_analyzer;
 mod expression_analyzer;
 mod module_analyser;
@@ -19,6 +20,7 @@ mod dependency_sorter;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
+    MissingModule(Vec<String>),
     MissingAdt(String),
     MissingDefinition(String),
     ListNotHomogeneous(String),

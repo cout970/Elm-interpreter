@@ -34,7 +34,7 @@ impl DynamicEnv {
     }
 
     pub fn add(&mut self, name: &str, val: Value, ty: Type) {
-        self.types.add(name, ty);
+        self.types.add_definition(name, ty);
         self.values.last_mut().unwrap().insert(name.to_owned(), val);
     }
 
@@ -42,7 +42,7 @@ impl DynamicEnv {
         for map in self.values.iter().rev() {
             let opt = map.get(name).cloned();
             if let Some(_) = &opt {
-                return opt.zip(self.types.find(name));
+                return opt.zip(self.types.find_definition(name));
             }
         }
         None

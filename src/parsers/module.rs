@@ -24,6 +24,8 @@ named!(pub read_module<Tk, Module>, do_parse!(
     header: opt!(module_header) >>
     imports: many0!(import) >>
     statements: many0!(top_level_statement) >>
+    many0!(indent!(0)) >>
+    tk!(Eof) >>
     (Module { header, imports, statements })
 ));
 

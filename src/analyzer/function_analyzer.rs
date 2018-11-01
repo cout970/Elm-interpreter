@@ -25,12 +25,12 @@ pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, T
 
     env.enter_block();
     for (arg_name, value) in &local_vars {
-        env.add(arg_name, value.clone());
+        env.add_definition(arg_name, value.clone());
     }
 
     // Enable recursivity
     let self_type = create_vec_inv(&argument_types, Type::Var("z".s()));
-    env.add(name, build_fun_type(&self_type));
+    env.add_definition(name, build_fun_type(&self_type));
 
     // Infer return type and update env replacing var types with concrete types
     let return_type = analyze_expression(env, None, expr);
@@ -45,7 +45,7 @@ pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, T
             for (name, ty) in &local_vars {
                 if let Type::Var(local_var_name) = ty {
                     if local_var_name == arg_var_name {
-                        final_arg_types.push(env.find(name).unwrap());
+                        final_arg_types.push(env.find_definition(name).unwrap());
                         continue 'outer;
                     }
                 }
@@ -312,7 +312,7 @@ mod tests {
         let def = from_code_def(b"sum arg1 arg2 = arg1 + arg2");
         let mut env = StaticEnv::new();
 
-        env.add("+", build_fun_type(&vec![
+        env.add_definition("+", build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
         ]));
 
@@ -324,7 +324,7 @@ mod tests {
         let def = from_code_def(b"sum arg1 = arg1 + 1.5");
         let mut env = StaticEnv::new();
 
-        env.add("+", build_fun_type(&vec![
+        env.add_definition("+", build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
         ]));
 
@@ -336,7 +336,7 @@ mod tests {
         let def = from_code_def(b"sum = (+) 1.5");
         let mut env = StaticEnv::new();
 
-        env.add("+", build_fun_type(&vec![
+        env.add_definition("+", build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
         ]));
 
@@ -372,7 +372,7 @@ mod tests {
         let def = from_code_def(b"my = (func, func)");
         let mut env = StaticEnv::new();
 
-        env.add("func", Type::Fun(
+        env.add_definition("func", Type::Fun(
             Box::from(Type::Var("a".s())),
             Box::from(Type::Var("a".s())),
         ));

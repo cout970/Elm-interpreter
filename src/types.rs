@@ -52,7 +52,7 @@ pub enum Fun {
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub struct Adt {
     pub name: String,
-    pub types: Vec<Type>,
+    pub types: Vec<String>,
     pub variants: Vec<AdtVariant>,
 }
 

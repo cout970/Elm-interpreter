@@ -3,41 +3,42 @@ use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::calculate_common_type;
 use analyzer::function_analyzer::is_assignable;
 use analyzer::static_env::StaticEnv;
+use analyzer::type_of_value;
 use analyzer::TypeError::*;
 use analyzer::TypeError;
-use std::collections::HashMap;
 use ast::*;
+use std::collections::HashMap;
+use std::sync::Arc;
+use types::Adt;
 use types::Value;
 use util::build_fun_type;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
-use util::StringConversion;
-use std::sync::Arc;
-use types::Adt;
-use analyzer::type_of_value;
 use util::qualified_name;
+use util::StringConversion;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
-        Expr::Ref(name) => {
-            let ty = env.find(name).ok_or(MissingDefinition(format!("Missing def {}", name)))?;
+        Expr::Ref(name) | Expr::Adt(name) => {
+            let def =
+                env.find_definition(name)
+                    .or_else(|| env.find_alias(name))
+                    .ok_or(MissingDefinition(format!("Missing def {}", name)))?;
+
 
             if let Some(expected_ty) = expected {
-                let new_ty = type_from_expected(env, expected_ty, &ty);
-                env.add(name, new_ty.clone());
+                let new_ty = type_from_expected(env, expected_ty, &def);
+                env.replace(name, new_ty.clone());
 
                 Ok(new_ty)
             } else {
                 if !env.is_local(name) {
                     let mut vars = HashMap::new();
-                    Ok(rename_variables(env, &mut vars, ty))
+                    Ok(rename_variables(env, &mut vars, def))
                 } else {
-                    Ok(ty)
+                    Ok(def)
                 }
             }
-        }
-        Expr::Adt(name) => {
-            env.find(name).ok_or(MissingAdt(format!("Missing ADT {}", name)))
         }
         Expr::QualifiedRef(path, name) => {
             let full_name = qualified_name(path, name);
@@ -58,12 +59,12 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 
             env.enter_block();
             for (name, value) in &new_vars {
-                if env.find(name).is_some() {
+                if env.find_definition(name).is_some() {
                     env.exit_block();
                     return Err(VariableNameShadowed(name.clone()));
                 }
 
-                env.add(name, value.clone());
+                env.add_definition(name, value.clone());
             }
 
             let out = analyze_expression(env, expected, expr);
@@ -104,7 +105,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 
                 match def_ty {
                     Ok(ty) => {
-                        env.add(&def.name, ty);
+                        env.add_definition(&def.name, ty);
                     }
                     Err(e) => {
                         env.exit_block();
@@ -371,7 +372,7 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
             }
         }
         Expr::Ref(variable) => {
-            match env.find(variable) {
+            match env.find_definition(variable) {
                 Some(variable_type) => {
                     env.replace(variable, replace_vars_with_concrete_types(vars, &variable_type))
                 }
@@ -389,7 +390,12 @@ pub fn get_adt_type(name: &String, vars: &Vec<Value>, adt: Arc<Adt>) -> Type {
 
     find_var_replacements(&mut var_replacement, &Type::Tuple(value_types), &Type::Tuple(variant.types.clone()));
 
-    let final_types = adt.types.iter().map(|ty| replace_vars_with_concrete_types(&var_replacement, ty)).collect();
+    let final_types = adt.types.iter()
+        .map(|ty| {
+            var_replacement.get(ty).cloned().unwrap_or_else(|| Type::Var(ty.clone()))
+        })
+        .collect();
+
     Type::Tag(adt.name.clone(), final_types)
 }
 
@@ -606,7 +612,7 @@ mod tests {
         let expr = from_code(b"fun 123");
         let mut env = StaticEnv::new();
 
-        env.add("fun", Type::Fun(
+        env.add_definition("fun", Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Tag("Int".s(), vec![])),
         ));
@@ -619,7 +625,7 @@ mod tests {
         let expr = from_code(b"if True then 1 else 0");
         let mut env = StaticEnv::new();
 
-        env.add("True", Type::Tag("Bool".s(), vec![]));
+        env.add_definition("True", Type::Tag("Bool".s(), vec![]));
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Var("number".s())));
     }
@@ -675,7 +681,7 @@ mod tests {
         let expr = from_code(b"1 + 2");
         let mut env = StaticEnv::new();
 
-        env.add("+", Type::Fun(
+        env.add_definition("+", Type::Fun(
             Box::new(Type::Var("number".s())),
             Box::new(Type::Fun(
                 Box::new(Type::Var("number".s())),
@@ -711,7 +717,7 @@ mod tests {
             ("a".s(), Type::Var("number".s()))
         ]);
 
-        env.add("x", record_type.clone());
+        env.add_definition("x", record_type.clone());
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(record_type));
     }

@@ -15,10 +15,10 @@ use util::create_vec_inv;
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
         Statement::Alias(name, _, ty) => {
-            env.types.add(name, ty.clone());
+            env.types.add_definition(name, ty.clone());
         }
         Statement::Adt(name, vars, variants) => {
-            let vars: Vec<Type> = vars.iter()
+            let type_vars: Vec<Type> = vars.iter()
                 .map(|v| Type::Var(v.to_owned()))
                 .collect();
 
@@ -35,9 +35,9 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                 variants: variant_data,
             });
 
-            let ty = Type::Tag(name.clone(), vars);
+            let ty = Type::Tag(name.clone(), type_vars);
 
-            env.types.add(name, ty.clone());
+            env.types.add_definition(name, ty.clone());
 
             for (var_name, params) in variants {
                 let var_ty = build_fun_type(&create_vec_inv(params, ty.clone()));

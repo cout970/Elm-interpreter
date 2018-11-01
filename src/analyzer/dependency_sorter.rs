@@ -94,7 +94,7 @@ fn get_stm_dependencies(def: &Statement) -> Vec<String> {
 fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) {
     for (_, entries) in analyze_function_arguments(&mut env.name_seq, patterns) {
         for (name, _) in entries {
-            env.add(&name, Type::Unit);
+            env.add_definition(&name, Type::Unit);
         }
     }
 }
@@ -123,30 +123,30 @@ fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
     expr_visitor_block(&mut (env, &mut local_refs), expr, &|(env, refs), sub_expr| {
         match sub_expr {
             Expr::RecordUpdate(name, _) => {
-                if let None = env.find(name) {
+                if let None = env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }
             Expr::QualifiedRef(path, name) => {
                 let full_name = qualified_name(path, name);
-                if let None = env.find(&full_name) {
+                if let None = env.find_definition(&full_name) {
                     refs.insert(full_name);
                 }
             }
             Expr::OpChain(_, ops) => {
                 for op in ops {
-                    if let None = env.find(op) {
+                    if let None = env.find_definition(op) {
                         refs.insert(op.clone());
                     }
                 }
             }
             Expr::Adt(name) => {
-                if let None = env.find(name) {
+                if let None = env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }
             Expr::Ref(name) => {
-                if let None = env.find(name) {
+                if let None = env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }

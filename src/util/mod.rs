@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use ast::*;
+use std::sync::Arc;
 use types::*;
 
 pub mod name_sequence;
@@ -151,6 +151,14 @@ pub fn build_fun_type(types: &[Type]) -> Type {
             Box::from(types[0].clone()),
             Box::from(build_fun_type(&types[1..])),
         )
+    }
+}
+
+pub fn get_fun_return(ty: &Type) -> Type {
+    if let Type::Fun(_, ty) = ty {
+        get_fun_return(&*ty)
+    } else {
+        ty.clone()
     }
 }
 
