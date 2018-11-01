@@ -80,7 +80,7 @@ pub enum Statement {
 }
 
 /// The representation of a type
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum Type {
     Unit,
     Var(String),

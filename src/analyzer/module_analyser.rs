@@ -1,223 +1,174 @@
+use analyzer::dependency_sorter::sort_statement_dependencies;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
+use ast::*;
+use interpreter::RuntimeError;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use ast::*;
+use std::sync::Arc;
+use types::Adt;
+use types::AdtVariant;
+use types::Fun;
+use types::Value;
+use util::build_fun_type;
+use util::create_vec_inv;
 use util::qualified_name;
 use util::visitors::expr_visitor_block;
 use util::visitors::type_visitor;
+use analyzer::function_analyzer::analyze_function;
+
+#[derive(Debug, PartialEq)]
+enum Registration {
+    Def(String, Type),
+    Type(String, Type),
+}
+
+type Registrations = Vec<Registration>;
 
 pub fn analyze_module(module: &Module) -> Result<(), TypeError> {
     let stms = sort_statement_dependencies(&module.statements);
+    let mut env = StaticEnv::new();
+
     for stm in stms {
-        analyze_statement(stm)?;
+        let regs = analyze_statement(&mut env, stm)?;
+
+        for reg in regs.into_iter() {
+            match reg {
+                Registration::Def(name, ty) => {
+                    env.add(&name, ty);
+                }
+                Registration::Type(name, ty) => {
+                    env.add(&name, ty);
+                }
+            }
+        }
     }
+
     Ok(())
 }
 
-pub fn analyze_statement(_stm: &Statement) -> Result<(), TypeError> {
-    unimplemented!()
+fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Registrations, TypeError> {
+    let regs = match stm {
+        Statement::Alias(name, vars, ty) => {
+            analyze_type_alias(name, vars, ty)?
+        }
+        Statement::Adt(name, vars, variants) => {
+            analyze_adt(name, vars, variants)?
+        }
+        Statement::Port(name, ty) => {
+            analyze_port(name, ty)?
+        }
+        Statement::Def(def) => {
+            vec![
+                Registration::Def(def.name.clone(), analyze_function(env, def)?)
+            ]
+        }
+    };
+
+    Ok(regs)
 }
 
-fn get_stm_name(stm: &Statement) -> &str {
-    match stm {
-        Statement::Alias(name, _, _) => { name }
-        Statement::Adt(name, _, _) => { name }
-        Statement::Port(name, _) => { name }
-        Statement::Def(def) => { &def.name }
-    }
+fn analyze_port(name: &str, ty: &Type) -> Result<Registrations, TypeError> {
+    Ok(vec![
+        Registration::Def(name.to_owned(), ty.clone())
+    ])
 }
 
-fn sort_statement_dependencies(stms: &[Statement]) -> Vec<&Statement> {
-    let mut dependencies: HashMap<&str, (&Statement, Vec<String>)> = HashMap::new();
-    let local_names: Vec<&str> = stms.iter()
-        .map(|s| get_stm_name(s))
+fn analyze_adt(name: &str, decl_vars: &Vec<String>, variants: &Vec<(String, Vec<Type>)>) -> Result<Registrations, TypeError> {
+    let vars: Vec<Type> = decl_vars.iter()
+        .map(|v| Type::Var(v.to_owned()))
         .collect();
 
-    for stm in stms {
-        let deps: Vec<String> = get_stm_dependencies(stm)
-            .into_iter()
-            .filter(|i| local_names.contains(&i.as_str()))
-            .collect();
-
-        dependencies.insert(get_stm_name(stm), (stm, deps));
-    }
-
-    let mut res: Vec<&Statement> = Vec::new();
-
-    while !dependencies.is_empty() {
-        let leafs: Vec<(&str, &Statement)> = dependencies.iter()
-            .filter(|(_, (_, deps))| deps.is_empty())
-            .map(|(name, (stm, _))| (*name, *stm))
-            .collect();
-
-        if leafs.is_empty() {
-            // Cycle detected, the handling is done when the first
-            // statement is processed and invalid references are found
-
-            let missing: Vec<_> = stms.iter()
-                .filter(|it| !res.contains(it))
-                .collect();
-
-            for stm in missing {
-                res.push(stm);
-            }
-
-            return res;
-        }
-
-        for (leaf_name, leaf_stm) in leafs {
-            res.push(leaf_stm);
-            dependencies.remove(leaf_name);
-
-
-            for (_, (_, deps)) in dependencies.iter_mut() {
-                let indexes: Vec<usize> = deps.iter()
-                    .enumerate()
-                    .filter(|(_, dep)| dep.as_str() == leaf_name)
-                    .map(|(index, _)| index)
-                    .collect();
-
-                for index in indexes {
-                    deps.remove(index);
-                }
-            }
-        }
-    }
-
-    res
+    Ok(vec![
+        Registration::Type(name.to_owned(),  Type::Tag(name.to_owned(), vars))
+    ])
 }
 
-fn get_stm_dependencies(def: &Statement) -> Vec<String> {
-    match def {
-        Statement::Alias(_, _, ty) => { get_type_dependencies(ty) }
-        Statement::Port(_, ty) => { get_type_dependencies(ty) }
-        Statement::Def(def) => {
-            let mut fake_env = StaticEnv::new();
-            add_patterns(&mut fake_env, &def.patterns);
+fn analyze_type_alias(name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<Registrations, TypeError> {
+    let mut used_vars: HashSet<String> = HashSet::new();
 
-            get_expr_dependencies(&mut fake_env, &def.expr)
-        }
-        Statement::Adt(_, _, branches) =>
-            branches.iter()
-                .map(|(_, tys)| {
-                    tys.iter().map(|ty| get_type_dependencies(ty)).flatten()
-                })
-                .flatten()
-                .collect()
-    }
-}
-
-fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) {
-    for (_, entries) in analyze_function_arguments(&mut env.name_seq, patterns) {
-        for (name, _) in entries {
-            env.add(&name, Type::Unit);
-        }
-    }
-}
-
-fn get_type_dependencies(ty: &Type) -> Vec<String> {
-    let mut refs: HashSet<String> = HashSet::new();
-
-    type_visitor(&mut refs, ty, &|state, sub_ty| {
-        match sub_ty {
-            Type::Var(_) => {}
-            Type::Tag(name, _) => { state.insert(name.clone()); }
-            Type::Fun(_, _) => {}
-            Type::Unit => {}
-            Type::Tuple(_) => {}
-            Type::Record(_) => {}
-            Type::RecExt(name, _) => { state.insert(name.clone()); }
+    type_visitor(&mut used_vars, ty, &|set, node| {
+        if let Type::Var(var) = &node {
+            set.insert(var.clone());
         }
     });
 
-    refs.into_iter().collect()
+    if used_vars.len() < decl_vars.len() {
+        let unused_vars = decl_vars.into_iter()
+            .filter(|t| !used_vars.contains(*t))
+            .map(|t| t.clone())
+            .collect::<Vec<String>>();
+
+        return Err(TypeError::UnusedTypeVariables(unused_vars));
+    }
+
+    if used_vars.len() > decl_vars.len() {
+        let unknown_vars = used_vars.into_iter()
+            .filter(|t| !decl_vars.contains(t))
+            .map(|t| t.clone())
+            .collect::<Vec<String>>();
+
+        return Err(TypeError::UndeclaredTypeVariables(unknown_vars));
+    }
+
+
+    let mut regs: Registrations = vec![
+        Registration::Type(name.to_owned(), ty.clone())
+    ];
+
+    // If the type alias is for an record, a auxiliary constructor function is added
+    if let Type::Record(entries) = ty {
+        let mut args: Vec<Type> = entries.iter()
+            .map(|(_, ty)| ty.clone())
+            .collect();
+
+        args.push(ty.clone());
+
+        regs.push(Registration::Def(name.to_owned(), build_fun_type(&args)))
+    }
+
+    Ok(regs)
 }
-
-fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
-    let mut local_refs: HashSet<String> = HashSet::new();
-
-    expr_visitor_block(&mut (env, &mut local_refs), expr, &|(env, refs), sub_expr| {
-        match sub_expr {
-            Expr::RecordUpdate(name, _) => {
-                if let None = env.find(name) {
-                    refs.insert(name.clone());
-                }
-            }
-            Expr::QualifiedRef(path, name) => {
-                let full_name = qualified_name(path, name);
-                if let None = env.find(&full_name) {
-                    refs.insert(full_name);
-                }
-            }
-            Expr::OpChain(_, ops) => {
-                for op in ops {
-                    if let None = env.find(op) {
-                        refs.insert(op.clone());
-                    }
-                }
-            }
-            Expr::Adt(name) => {
-                if let None = env.find(name) {
-                    refs.insert(name.clone());
-                }
-            }
-            Expr::Ref(name) => {
-                if let None = env.find(name) {
-                    refs.insert(name.clone());
-                }
-            }
-
-            Expr::RecordField(_, _) => {}
-            Expr::RecordAccess(_) => {}
-            Expr::If(_, _, _) => {}
-            Expr::Case(_, _) => {}
-            Expr::Application(_, _) => {}
-            Expr::Literal(_) => {}
-
-            Expr::Lambda(patterns, _) => {
-                env.enter_block();
-                add_patterns(env, patterns);
-            }
-            Expr::Let(defs, _) => {
-                env.enter_block();
-                for def in defs {
-                    add_patterns(env, &def.patterns);
-                }
-            }
-            _ => {}
-        }
-    }, &|(env, _), sub_expr| {
-        match sub_expr {
-            Expr::Lambda(_, _) => {
-                env.exit_block();
-            }
-            Expr::Let(_, _) => {
-                env.exit_block();
-            }
-            _ => {}
-        }
-    });
-
-    local_refs.into_iter().collect()
-}
-
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code_mod;
     use super::*;
-
+    use util::StringConversion;
 
     #[test]
-    fn check_expr_dependencies() {
-        let module = from_code_mod(b"\ny = x + 1\n\nx = 0\n\nz = y");
-        let sorted = sort_statement_dependencies(&module.statements);
+    fn check_type_alias_base() {
+        let ty = Type::Unit;
+        assert_eq!(
+            analyze_type_alias("A", &vec![], &ty),
+            Ok(vec![Registration::Type("A".s(), ty)])
+        );
+    }
 
-        let names: Vec<_> = sorted.iter().map(|stm| get_stm_name(stm)).collect();
+    #[test]
+    fn check_type_alias_1_var() {
+        let ty = Type::Var("a".s());
+        assert_eq!(
+            analyze_type_alias("A", &vec!["a".s()], &ty),
+            Ok(vec![Registration::Type("A".s(), ty)])
+        );
+    }
 
+    #[test]
+    fn check_type_alias_missing_var() {
+        let ty = Type::Var("a".s());
+        assert_eq!(
+            analyze_type_alias("A", &vec![], &ty),
+            Err(TypeError::UndeclaredTypeVariables(vec!["a".s()]))
+        );
+    }
 
-        assert_eq!(names, vec!["x", "y", "z"]);
+    #[test]
+    fn check_type_alias_extra_var() {
+        let ty = Type::Var("a".s());
+        assert_eq!(
+            analyze_type_alias("A", &vec!["a".s(), "b".s()], &ty),
+            Err(TypeError::UnusedTypeVariables(vec!["b".s()]))
+        );
     }
 }

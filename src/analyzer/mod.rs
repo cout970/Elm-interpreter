@@ -11,10 +11,11 @@ use analyzer::static_env::StaticEnv;
 use analyzer::expression_analyzer::get_adt_type;
 use std::ops::Deref;
 
+pub mod static_env;
 mod function_analyzer;
 mod expression_analyzer;
 mod module_analyser;
-pub mod static_env;
+mod dependency_sorter;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
@@ -35,6 +36,8 @@ pub enum TypeError {
     VariableAlreadyDeclared(String),
     UnableToCalculateFunctionType(String),
     VariableNameShadowed(String),
+    UndeclaredTypeVariables(Vec<String>),
+    UnusedTypeVariables(Vec<String>),
     InternalError,
 }
 
