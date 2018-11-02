@@ -1,7 +1,7 @@
+use ast::*;
 use parsers::expression::read_expr;
 use parsers::pattern::read_pattern;
 use parsers::Tk;
-use ast::*;
 use parsers::types::read_type;
 use tokenizer::Token::*;
 
@@ -20,8 +20,13 @@ named!(pub read_statement<Tk, Statement>, alt!(
     | definition
 ));
 
+named!(definition<Tk, Statement>, map!(
+    read_definition, |c| Statement::Def(c)
+));
+
 named!(pub read_definition<Tk, Definition>, do_parse!(
     t: opt!(read_type_def) >>
+    many0!(indent!()) >>
     a: id!() >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
@@ -39,7 +44,6 @@ named!(read_type_def<Tk, (String, Type)>, do_parse!(
     name: read_type_def_name >>
     tk!(Colon) >>
     ty: read_type >>
-    opt!(indent!(0)) >>
     ((name, ty))
 ));
 
@@ -74,10 +78,6 @@ named!(port<Tk, Statement>, do_parse!(
     tk!(Port) >>
     t: read_type_def >>
     (Statement::Port(t.0, t.1))
-));
-
-named!(definition<Tk, Statement>, map!(
-    read_definition, |c| Statement::Def(c)
 ));
 
 named!(alias<Tk, Statement>, do_parse!(
@@ -209,5 +209,44 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
                 }
             )
         );
+    }
+
+
+    #[test]
+    fn check_function_header() {
+        let stream = tokenize(b"init: () -> (Model, Cmd Msg)\ninit flags = ({ grid = createGrid 32}, loadMap \"/src/map.txt\")").unwrap();
+        let (rest, ty) = read_type_def(&stream).unwrap();
+        let m = read_definition(&rest);
+
+        println!("{}", ty.1);
+
+        assert_ok!(m, Definition {
+            header: None,
+            name: "init".s(),
+            patterns: vec![
+                Pattern::Var("flags".s())
+            ],
+            expr: Expr::Tuple(
+                vec![
+                    Expr::Record(
+                        vec![
+                            (
+                                "grid".s(),
+                                Expr::Application(
+                                    Box::from(Expr::Ref("createGrid".s())),
+                                    Box::from(Expr::Literal(Literal::Int(32))),
+                                )
+                            )
+                        ]
+                    ),
+                    Expr::Application(
+                        Box::from(Expr::Ref("loadMap".s())),
+                        Box::from(Expr::Literal(Literal::String("/src/map.txt".s()))),
+                    )
+                ]
+            ),
+        });
+
+
     }
 }

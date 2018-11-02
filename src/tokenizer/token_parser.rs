@@ -11,7 +11,7 @@ named!(number<char>, one_of!("0123456789"));
 
 named!(newline<char>, one_of!("\r\n"));
 
-named!(binop_char<char>, one_of!(":~!@#$%^&*-+=<>/?\\._"));
+named!(binop_char<char>, one_of!(":~!@#$%^&*-+=<>/?._|"));
 
 named!(id_char<char>, alt!(lower | upper | number | one_of!("_'")));
 
@@ -102,7 +102,7 @@ named!(comma<Token>, map!(char!(','), |_c| Comma));
 
 named!(equals<Token>, map!(char!('='), |_c| Equals));
 
-named!(pipe<Token>, map!(char!('|'), |_c| Pipe));
+named!(back_slash<Token>, map!(char!('\\'), |_c| BackSlash));
 
 named!(left_arrow<Token>, map!(tag!("<-"), |_c| LeftArrow));
 
@@ -113,7 +113,7 @@ named!(eof_marker<Token>, alt!(map!(eof!(), |_c| Eof) | map!(char!('\0'), |_c| E
 named!(pub read_token_forced<Token>, alt!(
     read_binop
     | comma
-    | pipe
+    | back_slash
     | read_id
     | read_upper_id
     | read_literal
@@ -165,7 +165,7 @@ fn from_binop(id: String) -> Token {
         b"=" => Equals,
         b"<-" => LeftArrow,
         b"->" => RightArrow,
-        b"\\" => BackSlash,
+        b"|" => Pipe,
         _ => BinaryOperator(id)
     }
 }

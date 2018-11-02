@@ -1,12 +1,12 @@
 use ast::*;
 use nom::*;
-use util::create_vec;
 use parsers::module::read_ref;
 use parsers::module::upper_ids;
 use parsers::pattern::read_pattern;
 use parsers::statement::read_definition;
 use parsers::Tk;
 use tokenizer::Token::*;
+use util::create_vec;
 
 // Expressions
 
@@ -134,7 +134,7 @@ impl ExprParser {
     method!(tuple<ExprParser, Tk, Expr>, mut self, do_parse!(
         tk!(LeftParen) >>
         a: call_m!(self.read_expr) >>
-        tk!(Comma) >>
+        call_m!(self.comma_separator) >>
         list: separated_nonempty_list!(call_m!(self.comma_separator), call_m!(self.read_expr)) >>
         tk!(RightParen) >>
         (Expr::Tuple(create_vec(a, list)))
@@ -168,12 +168,15 @@ impl ExprParser {
 
     method!(record<ExprParser, Tk, Expr>, mut self, do_parse!(
         tk!(LeftBrace) >>
-        entries: separated_list!(tk!(Comma), do_parse!(
+        call_m!(self.spaces) >>
+        entries: separated_list!(call_m!(self.comma_separator), do_parse!(
+            call_m!(self.spaces) >>
             id: id!() >>
             tk!(Equals) >>
             expr: call_m!(self.read_expr) >>
             ((id, expr))
         )) >>
+        call_m!(self.spaces) >>
         tk!(RightBrace) >>
         (Expr::Record(entries))
     ));
@@ -208,7 +211,7 @@ impl ExprParser {
         tk!(LeftBrace) >>
         id: id!() >>
         tk!(Pipe) >>
-        updates: separated_nonempty_list!(tk!(Comma), do_parse!(
+        updates: separated_nonempty_list!(call_m!(self.comma_separator), do_parse!(
             id: id!() >>
             tk!(Equals) >>
             expr: call_m!(self.read_expr) >>
@@ -610,6 +613,28 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
         assert_ok!(m, Expr::OpChain(
             vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
             vec!["-".s()],
+        ));
+    }
+
+    #[test]
+    fn check_multiline_expr2() {
+        let stream = tokenize(b"Browser.element\n    { init = init\n    , view = view\n    , update = update\n    , subscriptions = subscriptions\n    }\n").unwrap();
+        let m = read_expr(&stream);
+        assert_ok!(m, Expr::Application(
+            Box::from(Expr::QualifiedRef(
+                vec![
+                    "Browser".s()
+                ],
+                "element".s(),
+            )),
+            Box::from(Expr::Record(
+                vec![
+                    ("init".s(), Expr::Ref("init".s())),
+                    ("view".s(), Expr::Ref("view".s())),
+                    ("update".s(), Expr::Ref("update".s())),
+                    ("subscriptions".s(), Expr::Ref("subscriptions".s()))
+                ]
+            ))
         ));
     }
 }

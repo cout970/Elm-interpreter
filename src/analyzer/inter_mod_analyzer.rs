@@ -76,25 +76,30 @@ mod test {
     use super::*;
     use parsers::from_code_mod;
 
+    fn get_path_str(path: &ModulePath) -> String{
+        let mut file_path = String::new();
+        file_path.push_str("/Data/Dev/Elm/AI/src");
+        for p in path {
+            file_path.push('/');
+            file_path.push_str(p);
+        }
+
+        file_path.push_str(".elm");
+        file_path
+    }
+
     #[test]
-    #[ignore]
+//    #[ignore]
     fn test_project() {
         let mods = load_all_modules(&vec!["Element".to_owned()], |path| {
-            let mut file_path = String::new();
-            file_path.push_str("/Data/Dev/Elm/AI/src");
-            for p in path {
-                file_path.push('/');
-                file_path.push_str(p);
-            }
-
-            file_path.push_str(".elm");
+            let file_path = get_path_str(path);
 
             println!("Reading file at: '{}'", file_path);
 
             let file = File::open(&file_path).unwrap();
             let mut buf_reader = BufReader::new(file);
             let mut buff = vec![];
-            let size = buf_reader.read_to_end(&mut buff).unwrap();
+            buf_reader.read_to_end(&mut buff).unwrap();
 
             let module = from_code_mod(&buff);
 

@@ -31,6 +31,7 @@ named!(tuple<Tk, Type>, do_parse!(
     a: read_type >>
     tk!(Comma) >>
     b: separated_nonempty_list!(tk!(Comma), read_type) >>
+    tk!(RightParen) >>
     (Type::Tuple(create_vec(a, b)))
 ));
 
