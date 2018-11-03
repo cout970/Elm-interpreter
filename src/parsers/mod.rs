@@ -98,8 +98,8 @@ pub fn from_code_mod(code: &[u8]) -> Module {
         Err(e) => {
             match e {
                 Err::Incomplete(need) => panic!("Tokens needed: {:?}", need),
-                Err::Failure(ctx) => panic!("Parsing failure: {:#?}", ctx),
-                Err::Error(ctx) => panic!("Syntax error: {:#?}", ctx),
+                Err::Failure(ctx) => panic!("Parsing failure: {:?}", ctx),
+                Err::Error(ctx) => panic!("Syntax error: {:?}", ctx),
             };
         }
     }

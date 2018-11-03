@@ -31,15 +31,20 @@ named!(pub read_module<Tk, Module>, do_parse!(
 
 named!(module_header<Tk, ModuleHeader>, do_parse!(
     tk!(ModuleTk) >>
+    indentation >>
     mod_id: upper_id!() >>
+    indentation >>
     e: exposing >>
     (ModuleHeader { name: mod_id, exposing: e })
 ));
 
 named!(exposing<Tk, ModuleExposing>, do_parse!(
     tk!(ExposingTk) >>
+    indentation >>
     tk!(LeftParen) >>
+    indentation >>
     e: exposing_int >>
+    indentation >>
     tk!(RightParen) >>
     (e)
 ));
@@ -47,12 +52,13 @@ named!(exposing<Tk, ModuleExposing>, do_parse!(
 named!(exposing_int<Tk, ModuleExposing>, alt!(exposing_all | exposing_list));
 
 named!(exposing_all<Tk, ModuleExposing>, do_parse!(
+    indentation >>
     tk!(DoubleDot) >>
     (ModuleExposing::All)
 ));
 
 named!(exposing_list<Tk, ModuleExposing>, do_parse!(
-    e: separated_nonempty_list!(tk!(Comma), exposing_item) >>
+    e: separated_nonempty_list!(comma_separator, exposing_item) >>
     (ModuleExposing::Just(e))
 ));
 
@@ -79,7 +85,7 @@ named!(adt_exposing<Tk, AdtExposing>, alt!(
     )
     | do_parse!(
         tk!(LeftParen) >>
-        b: separated_list!(tk!(Comma), upper_id!()) >>
+        b: separated_list!(comma_separator, upper_id!()) >>
         tk!(RightParen) >>
         (AdtExposing::Variants(b))
     )
@@ -109,6 +115,20 @@ named!(import_pre<Tk, Vec<String>>, do_parse!(
     path: upper_ids >>
     (path)
 ));
+
+named!(comma_separator<Tk, ()>, do_parse!(
+    indentation >>
+    tk!(Comma) >>
+    indentation >>
+    (())
+));
+
+named!(indentation<Tk, ()>, do_parse!(
+    many0!(indent_except!(vec![0])) >>
+    (())
+));
+
+
 
 #[cfg(test)]
 mod tests {

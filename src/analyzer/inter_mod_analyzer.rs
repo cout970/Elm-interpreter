@@ -76,9 +76,9 @@ mod test {
     use super::*;
     use parsers::from_code_mod;
 
-    fn get_path_str(path: &ModulePath) -> String{
+    fn get_path_str(base: &str, path: &ModulePath) -> String{
         let mut file_path = String::new();
-        file_path.push_str("/Data/Dev/Elm/AI/src");
+        file_path.push_str(base);
         for p in path {
             file_path.push('/');
             file_path.push_str(p);
@@ -92,19 +92,27 @@ mod test {
 //    #[ignore]
     fn test_project() {
         let mods = load_all_modules(&vec!["Element".to_owned()], |path| {
-            let file_path = get_path_str(path);
+            let file_path = get_path_str("", path);
 
-            println!("Reading file at: '{}'", file_path);
+            println!("Reading file at: '{:?}'", path);
 
-            let file = File::open(&file_path).unwrap();
-            let mut buf_reader = BufReader::new(file);
-            let mut buff = vec![];
-            buf_reader.read_to_end(&mut buff).unwrap();
+            let file = File::open(&get_path_str("/Data/Dev/Elm/AI/src", path))
+                .or_else(|_| File::open(&get_path_str("/Data/Dev/Elm/core-master/src", path)));
 
-            let module = from_code_mod(&buff);
+            match file {
+                Ok(file) => {
+                    let mut buf_reader = BufReader::new(file);
+                    let mut buff = vec![];
+                    buf_reader.read_to_end(&mut buff).unwrap();
 
-            Ok(module)
-        }).unwrap();
+                    let module = from_code_mod(&buff);
+
+                    Ok(module)
+                }
+                Err(e) => Ok(Module::default())
+            }
+
+        });
 
         println!("{:#?}", mods);
         panic!();
