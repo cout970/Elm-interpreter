@@ -9,6 +9,7 @@ use tokenizer::tokenize;
 use ast::Pattern;
 use types::Value;
 use util::expression_fold::ExprTreeError;
+use tokenizer::TokenStream;
 
 pub mod dynamic_env;
 mod builtins;
@@ -45,7 +46,7 @@ pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>,
     let tokens = tokenize(code.as_bytes())
         .map_err(|e| ErrorWrapper::Lexical(e))?;
 
-    let stm = parse_statement(&tokens)
+    let stm = parse_statement(TokenStream::new(&tokens))
         .map_err(|e| ErrorWrapper::Syntactic(e))?;
 
     eval_stm(env, &stm)
@@ -53,10 +54,10 @@ pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>,
 }
 
 pub fn eval_expression(env: &mut DynamicEnv, code: &str) -> Result<Value, ErrorWrapper> {
-    let tokens = tokenize(code.as_bytes())
+    let  tokens = tokenize(code.as_bytes())
         .map_err(|e| ErrorWrapper::Lexical(e))?;
 
-    let expr = parse_expr(&tokens)
+    let expr = parse_expr(TokenStream::new(&tokens))
         .map_err(|e| ErrorWrapper::Syntactic(e))?;
 
     eval_expr(env, &expr)

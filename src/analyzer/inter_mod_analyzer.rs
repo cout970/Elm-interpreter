@@ -92,8 +92,6 @@ mod test {
 //    #[ignore]
     fn test_project() {
         let mods = load_all_modules(&vec!["Element".to_owned()], |path| {
-            let file_path = get_path_str("", path);
-
             println!("Reading file at: '{:?}'", path);
 
             let file = File::open(&get_path_str("/Data/Dev/Elm/AI/src", path))
@@ -109,7 +107,7 @@ mod test {
 
                     Ok(module)
                 }
-                Err(e) => Ok(Module::default())
+                Err(_) => Ok(Module::default())
             }
 
         });

@@ -14,7 +14,6 @@ pub mod types;
 #[macro_use]
 mod util;
 pub mod tokenizer;
-#[macro_use]
 pub mod parsers;
 pub mod analyzer;
 pub mod interpreter;

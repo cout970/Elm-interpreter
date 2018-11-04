@@ -1,15 +1,121 @@
+use ast::*;
 use nom::*;
+use nom::verbose_errors::Context;
 use parsers::statement::*;
+use parsers::SyntaxError;
 use parsers::Tk;
 use tokenizer::Token::*;
-use ast::*;
+use tokenizer::Token;
+use tokenizer::TokenStream;
 
 // Modules
 // https://github.com/durkiewicz/elm-plugin/blob/master/src/main/java/org/elmlang/intellijplugin/Elm.bnf
 
-named!(pub upper_ids<Tk, Vec<String>>, separated_nonempty_list!(tk!(Dot), upper_id!()));
+pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
+//    do_parse!(i,
+//        opt!(indent!(0)) >>
+//        header: opt!(module_header) >>
+//        imports: many0!(import) >>
+//        statements: many0!(top_level_statement) >>
+//        many0!(indent!(0)) >>
+//        tk!(Eof) >>
+//        (Module { header, imports, statements })
+//    );
 
-named!(pub read_ref<Tk, String>, alt!(
+    let mut _i = i;
+    let mut errors: Vec<(TokenStream, ErrorKind<SyntaxError>)> = vec![];
+
+    // Skip empty lines
+    while let Token::Indent(_) = _i.read_tk() {
+        _i = _i.next(1);
+    }
+
+    let header: Option<ModuleHeader> = match module_header(_i.clone()) {
+        Ok((rest, header)) => {
+            _i = rest;
+            Some(header)
+        }
+        Err(e) => {
+            errors.push((_i.clone(), get_error_kind(e)));
+            None
+        }
+    };
+
+    let mut imports = vec![];
+
+    while let Token::ImportTk = _i.read_tk() {
+        match import(_i.clone()) {
+            Ok((rest, import)) => {
+                _i = rest;
+                imports.push(import);
+
+                // Skip empty lines
+                while let Token::Indent(_) = _i.read_tk() {
+                    _i = _i.next(1);
+                }
+            }
+            Err(e) => {
+                errors.push((_i.clone(), get_error_kind(e)));
+                break;
+            }
+        }
+    }
+
+    let mut statements = vec![];
+
+    loop {
+        match top_level_statement(_i.clone()) {
+            Ok((rest, statement)) => {
+                _i = rest;
+                statements.push(statement);
+
+                // Skip empty lines
+                while let Token::Indent(_) = _i.read_tk() {
+                    _i = _i.next(1);
+                }
+            }
+            Err(e) => {
+                errors.push((_i.clone(), get_error_kind(e)));
+                break;
+            }
+        }
+    }
+
+    // Skip empty lines
+    while let Token::Indent(_) = _i.read_tk() {
+        _i = _i.next(1);
+    }
+
+    if let Token::Eof = _i.read_tk() {
+        Ok((_i, Module { header, imports, statements }))
+    } else {
+        Err(Err::Error(
+            Context::List(errors)
+        ))
+    }
+}
+
+fn get_error_kind(e: Err<TokenStream, SyntaxError>) -> ErrorKind<SyntaxError> {
+    match e {
+        Err::Incomplete(_) => { ErrorKind::Custom(SyntaxError::Unknown) }
+        Err::Error(ctx) => {
+            match ctx {
+                Context::Code(_, kind) => kind,
+                Context::List(list) => list.first().unwrap().1.clone(),
+            }
+        }
+        Err::Failure(ctx) => {
+            match ctx {
+                Context::Code(_, kind) => kind,
+                Context::List(list) => list.first().unwrap().1.clone(),
+            }
+        }
+    }
+}
+
+rule!(pub upper_ids<Vec<String>>, separated_nonempty_list!(tk!(Dot), upper_id!()));
+
+rule!(pub read_ref<String>, alt!(
     id!() |
     do_parse!(
         tk!(LeftParen) >>
@@ -19,17 +125,7 @@ named!(pub read_ref<Tk, String>, alt!(
     )
 ));
 
-named!(pub read_module<Tk, Module>, do_parse!(
-    opt!(indent!(0)) >>
-    header: opt!(module_header) >>
-    imports: many0!(import) >>
-    statements: many0!(top_level_statement) >>
-    many0!(indent!(0)) >>
-    tk!(Eof) >>
-    (Module { header, imports, statements })
-));
-
-named!(module_header<Tk, ModuleHeader>, do_parse!(
+rule!(module_header<ModuleHeader>, do_parse!(
     tk!(ModuleTk) >>
     indentation >>
     mod_id: upper_id!() >>
@@ -38,7 +134,7 @@ named!(module_header<Tk, ModuleHeader>, do_parse!(
     (ModuleHeader { name: mod_id, exposing: e })
 ));
 
-named!(exposing<Tk, ModuleExposing>, do_parse!(
+rule!(exposing<ModuleExposing>, do_parse!(
     tk!(ExposingTk) >>
     indentation >>
     tk!(LeftParen) >>
@@ -49,20 +145,20 @@ named!(exposing<Tk, ModuleExposing>, do_parse!(
     (e)
 ));
 
-named!(exposing_int<Tk, ModuleExposing>, alt!(exposing_all | exposing_list));
+rule!(exposing_int<ModuleExposing>, alt!(exposing_all | exposing_list));
 
-named!(exposing_all<Tk, ModuleExposing>, do_parse!(
+rule!(exposing_all<ModuleExposing>, do_parse!(
     indentation >>
     tk!(DoubleDot) >>
     (ModuleExposing::All)
 ));
 
-named!(exposing_list<Tk, ModuleExposing>, do_parse!(
+rule!(exposing_list<ModuleExposing>, do_parse!(
     e: separated_nonempty_list!(comma_separator, exposing_item) >>
     (ModuleExposing::Just(e))
 ));
 
-named!(exposing_item<Tk, Exposing>, alt!(
+rule!(exposing_item<Exposing>, alt!(
     do_parse!(
         i: id!() >> (Exposing::Definition(i))
     )
@@ -76,7 +172,7 @@ named!(exposing_item<Tk, Exposing>, alt!(
     )
 ));
 
-named!(adt_exposing<Tk, AdtExposing>, alt!(
+rule!(adt_exposing<AdtExposing>, alt!(
     do_parse!(
         tk!(LeftParen) >>
         tk!(DoubleDot) >>
@@ -91,7 +187,7 @@ named!(adt_exposing<Tk, AdtExposing>, alt!(
     )
 ));
 
-named!(import<Tk, Import>, alt!(
+rule!(import<Import>, alt!(
     do_parse!(
         path: import_pre >>
         exp: exposing >>
@@ -109,21 +205,21 @@ named!(import<Tk, Import>, alt!(
     )
 ));
 
-named!(import_pre<Tk, Vec<String>>, do_parse!(
+rule!(import_pre<Vec<String>>, do_parse!(
     opt!(indent!(0)) >>
     tk!(ImportTk) >>
     path: upper_ids >>
     (path)
 ));
 
-named!(comma_separator<Tk, ()>, do_parse!(
+rule!(comma_separator<()>, do_parse!(
     indentation >>
     tk!(Comma) >>
     indentation >>
     (())
 ));
 
-named!(indentation<Tk, ()>, do_parse!(
+rule!(indentation<()>, do_parse!(
     many0!(indent_except!(vec![0])) >>
     (())
 ));
@@ -134,12 +230,13 @@ named!(indentation<Tk, ()>, do_parse!(
 mod tests {
     use super::*;
     use tokenizer::tokenize;
+    use tokenizer::TokenStream;
     use util::StringConversion;
 
     #[test]
     fn check_empty_module() {
-        let stream = tokenize(b"module My_module exposing (..)").unwrap();
-        let m = read_module(&stream);
+        let tokens = tokenize(b"module My_module exposing (..)").unwrap();
+        let m = read_module(TokenStream::new(&tokens));
         assert_ok!(m, Module {
               header: Some(ModuleHeader{
                     name: "My_module".s(),
@@ -152,8 +249,8 @@ mod tests {
 
     #[test]
     fn check_only_defs() {
-        let stream = tokenize(b"func a = a + 1").unwrap();
-        let m = read_module(&stream);
+        let tokens = tokenize(b"func a = a + 1").unwrap();
+        let m = read_module(TokenStream::new(&tokens));
         assert_ok!(m, Module {
             header: None,
             imports: vec![],
@@ -173,8 +270,8 @@ mod tests {
 
     #[test]
     fn check_module_exports() {
-        let stream = tokenize(b"module MyMod exposing ( List, Maybe )").unwrap();
-        let m = read_module(&stream);
+        let tokens = tokenize(b"module MyMod exposing ( List, Maybe )").unwrap();
+        let m = read_module(TokenStream::new(&tokens));
         assert_ok!(m, Module {
               header: Some(ModuleHeader{
                     name: "MyMod".s(),
@@ -190,9 +287,9 @@ mod tests {
 
     #[test]
     fn check_module_imports() {
-        let stream = tokenize(b"import Html exposing (..)").unwrap();
+        let tokens = tokenize(b"import Html exposing (..)").unwrap();
 
-        let m = read_module(&stream);
+        let m = read_module(TokenStream::new(&tokens));
         assert_ok!(m, Module {
             header: None,
             imports: vec![
@@ -204,7 +301,7 @@ mod tests {
 
     #[test]
     fn check_module_imports_adv() {
-        let stream = tokenize(b"\
+        let tokens = tokenize(b"\
 import Html exposing (..)\n\
 import Util\n\
 import Util as U\n\
@@ -212,7 +309,7 @@ import Util exposing (..)\n\
 import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
 ").unwrap();
 
-        let m = read_module(&stream);
+        let m = read_module(TokenStream::new(&tokens));
         assert_ok!(m, Module {
             header: None,
             imports: vec![

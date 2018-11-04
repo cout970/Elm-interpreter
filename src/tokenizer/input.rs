@@ -7,8 +7,8 @@ pub struct Input<'a> {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Location {
-    line: u32,
-    column: u32,
+    pub line: u32,
+    pub column: u32,
 }
 
 impl<'a> Input<'a> {

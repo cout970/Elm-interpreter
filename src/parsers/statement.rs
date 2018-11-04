@@ -4,27 +4,28 @@ use parsers::pattern::read_pattern;
 use parsers::Tk;
 use parsers::types::read_type;
 use tokenizer::Token::*;
+use parsers::SyntaxError;
 
 // Definitions
 
-named!(pub top_level_statement<Tk, Statement>, do_parse!(
+rule!(pub top_level_statement<Statement>, do_parse!(
     many0!(indent!(0)) >>
     s: read_statement >>
     (s)
 ));
 
-named!(pub read_statement<Tk, Statement>, alt!(
+rule!(pub read_statement<Statement>, alt!(
     alias
     | adt
     | port
     | definition
 ));
 
-named!(definition<Tk, Statement>, map!(
+rule!(definition<Statement>, map!(
     read_definition, |c| Statement::Def(c)
 ));
 
-named!(pub read_definition<Tk, Definition>, do_parse!(
+rule!(pub read_definition<Definition>, do_parse!(
     t: opt!(read_type_def) >>
     many0!(indent!()) >>
     a: id!() >>
@@ -40,18 +41,18 @@ named!(pub read_definition<Tk, Definition>, do_parse!(
     })
 ));
 
-named!(read_type_def<Tk, (String, Type)>, do_parse!(
+rule!(read_type_def<(String, Type)>, do_parse!(
     name: read_type_def_name >>
     tk!(Colon) >>
     ty: read_type >>
     ((name, ty))
 ));
 
-named!(read_type_def_name<Tk, String>, alt!(
+rule!(read_type_def_name<String>, alt!(
     id!() | delimited!(tk!(LeftParen), binop!(), tk!(RightParen))
 ));
 
-named!(adt<Tk, Statement>, do_parse!(
+rule!(adt<Statement>, do_parse!(
     tk!(TypeTk) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
@@ -61,26 +62,26 @@ named!(adt<Tk, Statement>, do_parse!(
     (Statement::Adt(a, b, entries))
 ));
 
-named!(pipe_separator<Tk, ()>, do_parse!(
+rule!(pipe_separator<()>, do_parse!(
     many0!(indent!()) >>
     tk!(Pipe) >>
     (())
 ));
 
-named!(adt_def<Tk, (String, Vec<Type>)>, do_parse!(
+rule!(adt_def<(String, Vec<Type>)>, do_parse!(
     many0!(indent!()) >>
     n: upper_id!() >>
     ty: many0!(read_type) >>
     ((n, ty))
 ));
 
-named!(port<Tk, Statement>, do_parse!(
+rule!(port<Statement>, do_parse!(
     tk!(Port) >>
     t: read_type_def >>
     (Statement::Port(t.0, t.1))
 ));
 
-named!(alias<Tk, Statement>, do_parse!(
+rule!(alias<Statement>, do_parse!(
     tk!(TypeTk) >>
     tk!(Alias) >>
     a: upper_id!() >>
@@ -97,11 +98,12 @@ mod tests {
     use super::*;
     use tokenizer::tokenize;
     use util::StringConversion;
+    use tokenizer::TokenStream;
 
     #[test]
     fn check_type_alias() {
-        let stream = tokenize(b"\ntype alias Html = MyHtml").unwrap();
-        let m = top_level_statement(&stream);
+        let tokens = tokenize(b"\ntype alias Html = MyHtml").unwrap();
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Alias(
             "Html".s(), vec![],
             Type::Tag("MyHtml".s(), vec![])
@@ -110,8 +112,8 @@ mod tests {
 
     #[test]
     fn check_adt() {
-        let stream = tokenize(b"\ntype Boolean = True | False").unwrap();
-        let m = top_level_statement(&stream);
+        let tokens = tokenize(b"\ntype Boolean = True | False").unwrap();
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Adt(
             "Boolean".s(), vec![],
             vec![("True".s(), vec![]), ("False".s(), vec![])],
@@ -120,8 +122,8 @@ mod tests {
 
     #[test]
     fn check_port() {
-        let stream = tokenize(b"\nport js_function : Int -> Int").unwrap();
-        let m = top_level_statement(&stream);
+        let tokens = tokenize(b"\nport js_function : Int -> Int").unwrap();
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Port(
             "js_function".s(),
             Type::Fun(
@@ -133,8 +135,8 @@ mod tests {
 
     #[test]
     fn check_def() {
-        let stream = tokenize(b"\nmy_fun x = ()").unwrap();
-        let m = top_level_statement(&stream);
+        let tokens = tokenize(b"\nmy_fun x = ()").unwrap();
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Def(
             Definition {
                 header: None,
@@ -147,8 +149,8 @@ mod tests {
 
     #[test]
     fn check_def2() {
-        let stream = tokenize(b"\nx = 5").unwrap();
-        let m = top_level_statement(&stream);
+        let tokens = tokenize(b"\nx = 5").unwrap();
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Def(
             Definition {
                 header:None,
@@ -161,8 +163,8 @@ mod tests {
 
     #[test]
     fn check_def3() {
-        let stream = tokenize(b"\nmy_fun: Int\nmy_fun = 5").unwrap();
-        let m = top_level_statement(&stream);
+        let tokens = tokenize(b"\nmy_fun: Int\nmy_fun = 5").unwrap();
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m,
             Statement::Def(
                 Definition {
@@ -177,10 +179,10 @@ mod tests {
 
     //    #[test]
     fn check_def4() {
-        let stream = tokenize(b"\n\
+        let tokens = tokenize(b"\n\
 update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
         ").unwrap();
-        let m = top_level_statement(&stream);
+        let m = top_level_statement(TokenStream::new(&tokens));
         assert_ok!(m,
             Statement::Def(
                 Definition{
@@ -214,9 +216,9 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
 
     #[test]
     fn check_function_header() {
-        let stream = tokenize(b"init: () -> (Model, Cmd Msg)\ninit flags = ({ grid = createGrid 32}, loadMap \"/src/map.txt\")").unwrap();
-        let (rest, ty) = read_type_def(&stream).unwrap();
-        let m = read_definition(&rest);
+        let tokens = tokenize(b"init: () -> (Model, Cmd Msg)\ninit flags = ({ grid = createGrid 32}, loadMap \"/src/map.txt\")").unwrap();
+        let (rest, ty) = read_type_def(TokenStream::new(&tokens)).unwrap();
+        let m = read_definition(rest);
 
         println!("{}", ty.1);
 

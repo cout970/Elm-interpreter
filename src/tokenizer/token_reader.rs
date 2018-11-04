@@ -1,25 +1,31 @@
-use tokenizer::Token;
-use tokenizer::LexicalError;
-use tokenizer::input::Input;
-use tokenizer::token_parser::read_token_forced;
-use nom::verbose_errors::Context;
 use nom::*;
+use nom::verbose_errors::Context;
+use tokenizer::input::Input;
+use tokenizer::LexicalError;
+use tokenizer::Token;
+use tokenizer::token_parser::read_token_forced;
+use tokenizer::TokenInfo;
 
-pub fn read_tokens(stream: &[u8]) -> Result<Vec<Token>, LexicalError> {
-    let mut stream: Vec<u8> = stream.iter().map(|c| *c).collect();
+pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
+    let mut stream: Vec<u8> = stream.to_vec();
     stream.push('\0' as u8);
     stream.push('\0' as u8);
 
-    let mut tokens = Vec::new();
+    let mut tokens: Vec<TokenInfo> = Vec::new();
     let mut current_input: Input = Input::new(&stream);
 
     loop {
-        let res: Result<(Input, Token), Err<Input, u32>> = next_token(current_input);
+        let res: Result<(Input, Token), Err<Input, u32>> = next_token(current_input.clone());
 
         match res {
             Ok((rem, token)) => {
                 if token == Token::Eof { break; }
-                tokens.push(token);
+                let info = TokenInfo {
+                    token,
+                    start: current_input.get_location(),
+                    end: rem.get_location(),
+                };
+                tokens.push(info);
                 current_input = rem;
             }
             Result::Err(e) => {
@@ -51,7 +57,11 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<Token>, LexicalError> {
             }
         };
     }
-    tokens.push(Token::Eof);
+    tokens.push(TokenInfo {
+        token: Token::Eof,
+        start: current_input.get_location(),
+        end: current_input.get_location(),
+    });
 
     Ok(tokens)
 }

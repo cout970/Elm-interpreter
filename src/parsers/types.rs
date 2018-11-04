@@ -3,16 +3,17 @@ use tokenizer::Token::*;
 use ast::*;
 use parsers::Tk;
 use util::create_vec;
+use parsers::SyntaxError;
 
 // Types
 
-named!(pub read_type<Tk, Type>, do_parse!(
+rule!(pub read_type<Type>, do_parse!(
     a: func_less_type >>
     b: many0!(do_parse!(tk!(RightArrow) >> f: func_less_type >> (f))) >>
     (create_fun(a, b))
 ));
 
-named!(func_less_type<Tk, Type>, alt!(
+rule!(func_less_type<Type>, alt!(
     tag         |
     variable    |
     unit        |
@@ -22,11 +23,11 @@ named!(func_less_type<Tk, Type>, alt!(
     do_parse!(tk!(LeftParen) >> t: read_type >> tk!(RightParen) >> (t))
 ));
 
-named!(unit<Tk, Type>, do_parse!(
+rule!(unit<Type>, do_parse!(
     tk!(LeftParen) >> tk!(RightParen) >> (Type::Unit)
 ));
 
-named!(tuple<Tk, Type>, do_parse!(
+rule!(tuple<Type>, do_parse!(
     tk!(LeftParen) >>
     a: read_type >>
     tk!(Comma) >>
@@ -35,24 +36,24 @@ named!(tuple<Tk, Type>, do_parse!(
     (Type::Tuple(create_vec(a, b)))
 ));
 
-named!(variable<Tk, Type>, do_parse!(
+rule!(variable<Type>, do_parse!(
     i: id!() >> (Type::Var(i))
 ));
 
-named!(tag<Tk, Type>, do_parse!(
+rule!(tag<Type>, do_parse!(
     i: upper_id!() >>
     t: many0!(read_type) >>
     (Type::Tag(i, t))
 ));
 
-named!(record<Tk, Type>, do_parse!(
+rule!(record<Type>, do_parse!(
     tk!(LeftBrace) >>
     l: separated_list!(tk!(Comma), record_binding) >>
     tk!(RightBrace) >>
     (Type::Record(l))
 ));
 
-named!(ext_record<Tk, Type>, do_parse!(
+rule!(ext_record<Type>, do_parse!(
     tk!(LeftBrace) >>
     i: id!() >>
     tk!(Pipe) >>
@@ -62,7 +63,7 @@ named!(ext_record<Tk, Type>, do_parse!(
 ));
 
 
-named!(record_binding<Tk, (String, Type)>, do_parse!(
+rule!(record_binding<(String, Type)>, do_parse!(
     a: id!() >> tk!(Colon) >> b: read_type >> ((a, b))
 ));
 
@@ -82,39 +83,40 @@ mod tests {
     use super::*;
     use tokenizer::tokenize;
     use util::StringConversion;
+    use tokenizer::TokenStream;
 
     #[test]
     fn check_unit() {
-        let stream = tokenize(b"()").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"()").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Unit);
     }
 
     #[test]
     fn check_variable() {
-        let stream = tokenize(b"a").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"a").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Var("a".s()));
     }
 
     #[test]
     fn check_tag() {
-        let stream = tokenize(b"List a").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"List a").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Tag("List".s(), vec![Type::Var("a".s())]));
     }
 
     #[test]
     fn check_tuple2() {
-        let stream = tokenize(b"(a,b)").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"(a,b)").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Tuple(vec![Type::Var("a".s()), Type::Var("b".s())]));
     }
 
     #[test]
     fn check_tuple6() {
-        let stream = tokenize(b"(a,b,c,d,e,f)").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"(a,b,c,d,e,f)").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Tuple(vec![
             Type::Var("a".s()),
             Type::Var("b".s()),
@@ -127,36 +129,36 @@ mod tests {
 
     #[test]
     fn check_empty_record() {
-        let stream = tokenize(b"{}").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"{}").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Record(vec![]));
     }
 
     #[test]
     fn check_record() {
-        let stream = tokenize(b"{ a: b }").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"{ a: b }").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Record(vec![("a".s(), Type::Var("b".s()))]));
     }
 
     #[test]
     fn check_ext_record() {
-        let stream = tokenize(b"{ list | a: b }").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"{ list | a: b }").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::RecExt("list".s(), vec![("a".s(), Type::Var("b".s()))]));
     }
 
     #[test]
     fn check_paren() {
-        let stream = tokenize(b"(a)").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"(a)").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Var("a".s()));
     }
 
     #[test]
     fn check_function() {
-        let stream = tokenize(b"Int -> Float -> a").unwrap();
-        let m = read_type(&stream);
+        let tokens = tokenize(b"Int -> Float -> a").unwrap();
+        let m = read_type(TokenStream::new(&tokens));
         assert_ok!(m, Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Fun(
