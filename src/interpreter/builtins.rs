@@ -3,21 +3,27 @@ use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use types::BuiltinFunction;
 use types::Value;
+use types::BuiltinFunctionRef;
+use std::cell::RefCell;
 
 impl<T> BuiltinFunction for T
     where T: Fn(&Vec<Value>) -> Result<Value, RuntimeError>
 {
-    fn call_function(&self, args: &Vec<Value>) -> Result<Value, ErrorWrapper> {
+    fn call_function(&mut self, args: &Vec<Value>) -> Result<Value, ErrorWrapper> {
         self(args).map_err(|e| ErrorWrapper::Runtime(e))
     }
 }
 
-pub fn builtin_unit_fun() -> Box<dyn BuiltinFunction> {
-    Box::new(|_: &Vec<Value>| Ok(Value::Unit))
+pub fn of_closure<C: Fn(&Vec<Value>) -> Result<Value, RuntimeError> + 'static>(closure: C) -> BuiltinFunctionRef {
+    RefCell::new(Box::new(closure))
 }
 
-pub fn builtin_record_access() -> Box<dyn BuiltinFunction> {
-    Box::new(|args: &Vec<Value>| {
+pub fn builtin_unit_fun() -> BuiltinFunctionRef {
+    of_closure(|_: &Vec<Value>| Ok(Value::Unit))
+}
+
+pub fn builtin_record_access() -> BuiltinFunctionRef {
+    of_closure(|args: &Vec<Value>| {
         match &args[0] {
             Value::Record(entries) => {
                 if let Value::String(field) = &args[1] {
@@ -40,8 +46,8 @@ pub fn builtin_record_access() -> Box<dyn BuiltinFunction> {
     })
 }
 
-pub fn builtin_adt_constructor() -> Box<dyn BuiltinFunction> {
-    Box::new(|args: &Vec<Value>| {
+pub fn builtin_adt_constructor() -> BuiltinFunctionRef {
+    of_closure(|args: &Vec<Value>| {
         if let Value::Adt(var, _, adt) = &args[0] {
             let mut vals: Vec<Value> = vec![];
             for i in 1..args.len() {

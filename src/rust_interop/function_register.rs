@@ -9,11 +9,11 @@ use rust_interop::FnAny;
 use rust_interop::InteropError;
 
 pub trait FunctionRegister {
-    fn register_fn_raw(&mut self, name: String, args: Option<Vec<TypeId>>, boxed: Box<FnAny>);
+    fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), InteropError>;
 }
 
 pub trait RegisterFn<FN, ARGS, RET> {
-    fn register_fn(&mut self, name: &str, f: FN);
+    fn register_fn(&mut self, name: &str, f: FN) -> Result<(), InteropError>;
 }
 
 pub struct Ref<A>(A);
@@ -38,7 +38,7 @@ macro_rules! def_register {
             T: FunctionRegister
         {
             #[allow(non_snake_case, dead_code, unused_mut, unused)]
-            fn register_fn(&mut self, name: &str, f: FN) {
+            fn register_fn(&mut self, name: &str, f: FN) -> Result<(), InteropError> {
                 let fun = move |mut args: Vec<&mut Any>| {
                     // Check for length at the beginning to avoid
                     // per-element bound checks.
@@ -57,7 +57,7 @@ macro_rules! def_register {
                     // potentially clone the value, otherwise pass the reference.
                     Ok(Box::new(f($(($clone)($par)),*)) as Box<Any>)
                 };
-                self.register_fn_raw(name.to_owned(), Some(vec![$(TypeId::of::<$par>()),*]), Box::new(fun));
+                self.register_fn_raw(name.to_owned(), vec![$(TypeId::of::<$par>()),*], TypeId::of::<RET>(), Box::new(fun))
             }
         }
 
@@ -83,9 +83,11 @@ mod tests {
     struct Test {}
 
     impl FunctionRegister for Test {
-        fn register_fn_raw(&mut self, name: String, args: Option<Vec<TypeId>>, _boxed: Box<FnAny>) {
+        fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, _boxed: Box<FnAny>) -> Result<(), InteropError> {
             assert_eq!(name, "test_function");
-            assert_eq!(args, Some(vec![TypeId::of::<i32>()]));
+            assert_eq!(args, vec![TypeId::of::<i32>()]);
+            assert_eq!(ret, TypeId::of::<i32>());
+            Ok(())
         }
     }
 
@@ -93,7 +95,7 @@ mod tests {
     fn register_function() {
         let mut e = Test{};
 
-        e.register_fn("test_function", test_function);
+        e.register_fn("test_function", test_function).unwrap();
     }
 
     fn test_function(a: i32) -> i32 {

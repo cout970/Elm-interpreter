@@ -190,7 +190,8 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 fn exec_fun(env: &mut DynamicEnv, fun: &Function, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     match fun {
         Function::Builtin(_, func, _) => {
-            func.call_function(args).map_err(|_| RuntimeError::BuiltinFunctionError)
+            let mut b = func.borrow_mut();
+            b.call_function(args).map_err(|_| RuntimeError::BuiltinFunctionError)
         }
         Function::Expr(_, ref patterns, ref expr, _) => {
             env.enter_block();

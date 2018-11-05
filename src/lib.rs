@@ -14,6 +14,12 @@ use interpreter::dynamic_env::DynamicEnv;
 use interpreter::eval_expression;
 use interpreter::eval_statement;
 use types::Value;
+use types::BuiltinFunctionRef;
+use ast::Type;
+use util::build_fun_type;
+use types::Function;
+use std::sync::Arc;
+use util::create_vec_inv;
 
 pub mod ast;
 pub mod types;
@@ -80,6 +86,28 @@ impl Interpreter {
     /// main_file is the name of the first file to load without the .elm extension
     pub fn eval_files(&mut self, _folder: &str, _main_file: &str) -> Result<(), ErrorWrapper> {
         unimplemented!()
+    }
+
+    /// Registers a function that can be called in elm,
+    /// the return value is not checked so make sure it matches the return type
+    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: BuiltinFunctionRef) -> Result<(), ErrorWrapper> {
+        let arg_count = args.len() as u32;
+        let function_type = build_fun_type(&create_vec_inv(args, ret));
+
+        let function = Arc::new(Function::Builtin(
+            self.env.next_fun_id(),
+            func_ref,
+            function_type.clone(),
+        ));
+
+        let function_value = Value::Fun {
+            arg_count,
+            args: vec![],
+            fun: function,
+        };
+
+        self.env.add(name, function_value, function_type);
+        Ok(())
     }
 
     /// Clear the state of the interpreter, erasing all the types, modules and definitions

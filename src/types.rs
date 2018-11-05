@@ -9,6 +9,7 @@ use ast::Expr;
 use ast::Int;
 use ast::Float;
 use errors::ErrorWrapper;
+use std::cell::RefCell;
 
 // Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]
@@ -44,13 +45,16 @@ pub type FunId = u32;
 
 /// Interface for functions not implemented in elm
 pub trait BuiltinFunction {
-    fn call_function(&self, args: &Vec<Value>) -> Result<Value, ErrorWrapper>;
+    fn call_function(&mut self, args: &Vec<Value>) -> Result<Value, ErrorWrapper>;
 }
+
+// Reference to function or closure implemented in Rust that can be called from elm
+pub type BuiltinFunctionRef = RefCell<Box<dyn BuiltinFunction>>;
 
 /// Represents a function that can be a definition or builtin
 #[derive(Debug)]
 pub enum Function {
-    Builtin(FunId, Box<dyn BuiltinFunction>, Type),
+    Builtin(FunId, BuiltinFunctionRef, Type),
     Expr(FunId, Vec<Pattern>, Expr, Type),
 }
 

@@ -80,15 +80,15 @@ impl DynamicEnv {
             Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![])
         ]);
 
-        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_add), num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_add), num_ty.clone());
         env.add("+", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_sub), num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_sub), num_ty.clone());
         env.add("-", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_times), num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_times), num_ty.clone());
         env.add("*", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_float_div), float_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_float_div), float_ty.clone());
         env.add("/", fun, float_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_int_div), int_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_int_div), int_ty.clone());
         env.add("//", fun, int_ty.clone());
 
         env

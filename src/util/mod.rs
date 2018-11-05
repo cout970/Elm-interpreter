@@ -78,7 +78,7 @@ impl<A: Clone> VecExt<A> for Vec<A> {
     }
 }
 
-pub fn builtin_fun_of(fun_id: FunId, func: Box<dyn BuiltinFunction>, ty: Type) -> Value {
+pub fn builtin_fun_of(fun_id: FunId, func: BuiltinFunctionRef, ty: Type) -> Value {
     Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
@@ -109,8 +109,8 @@ pub fn create_vec<T>(first: T, rest: Vec<T>) -> Vec<T> {
     vec
 }
 
-pub fn create_vec_inv<T: Clone>(start: &Vec<T>, last: T) -> Vec<T> {
-    let mut vec: Vec<T> = start.clone();
+pub fn create_vec_inv<T: Clone>(start: &[T], last: T) -> Vec<T> {
+    let mut vec: Vec<T> = start.to_vec();
     vec.push(last);
     vec
 }

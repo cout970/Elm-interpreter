@@ -4,6 +4,7 @@ use parsers::SyntaxError;
 use std::fmt::Write;
 use tokenizer::LexicalError;
 use util::format::print_vec;
+use rust_interop::InteropError;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ErrorWrapper {
@@ -11,6 +12,7 @@ pub enum ErrorWrapper {
     Syntactic(SyntaxError),
     Type(TypeError),
     Runtime(RuntimeError),
+    Interop(InteropError),
 }
 
 pub fn format_error(error: ErrorWrapper) -> String {
@@ -19,6 +21,7 @@ pub fn format_error(error: ErrorWrapper) -> String {
         ErrorWrapper::Syntactic(it) => { format_syntactic_error(it) }
         ErrorWrapper::Type(it) => { format_type_error(it) }
         ErrorWrapper::Runtime(it) => { format_runtime_error(it) }
+        ErrorWrapper::Interop(it) => { format_interop_error(it) }
     }
 }
 
@@ -169,5 +172,12 @@ pub fn format_runtime_error(error: RuntimeError) -> String {
             write!(&mut msg, "{:?}", error).unwrap();
         }
     }
+    msg
+}
+
+pub fn format_interop_error(error: InteropError) -> String {
+    let mut msg = String::new();
+    write!(&mut msg, "-- Interop ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+    write!(&mut msg, "{:?}", error).unwrap();
     msg
 }
