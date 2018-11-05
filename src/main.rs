@@ -2,13 +2,11 @@ extern crate elm_interpreter;
 
 use elm_interpreter::analyzer::type_of_value;
 use elm_interpreter::errors::format_error;
-use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
-use elm_interpreter::interpreter::eval_expression;
-use elm_interpreter::interpreter::eval_statement;
 use std::io::BufRead;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
+use elm_interpreter::Interpreter;
 
 /*
 fib num = case num of \
@@ -22,7 +20,7 @@ fn main() {
 }
 
 fn repl() {
-    let mut env = DynamicEnv::default_lang_env();
+    let mut engine = Interpreter::new();
     loop {
         // Read
         let line = read_terminal_line().unwrap_or(String::from(""));
@@ -30,7 +28,7 @@ fn repl() {
         if line.is_empty() { continue; }
 
         // Eval
-        let result = eval_statement(&mut env, &line);
+        let result = engine.eval_statement(&line);
 
         // Print
         match result {
@@ -40,7 +38,7 @@ fn repl() {
                 }
             }
             Err(_) => {
-                let result = eval_expression(&mut env, &line);
+                let result = engine.eval_expr(&line);
 
                 match result {
                     Ok(value) => {

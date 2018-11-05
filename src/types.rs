@@ -8,6 +8,7 @@ use ast::Pattern;
 use ast::Expr;
 use ast::Int;
 use ast::Float;
+use errors::ErrorWrapper;
 
 // Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]
@@ -40,6 +41,11 @@ pub struct FunCall {
 
 /// Unique id for fast comparison between functions
 pub type FunId = u32;
+
+/// Interface for functions not implemented in elm
+pub trait BuiltinFunction {
+    fn call_function(args: &Vec<Value>) -> Result<Value, ErrorWrapper>;
+}
 
 /// Represents a function that can be a definition or builtin
 #[derive(Debug, Clone)]
