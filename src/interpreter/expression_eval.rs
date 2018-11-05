@@ -6,7 +6,7 @@ use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use std::sync::Arc;
 use ast::*;
-use types::Fun;
+use types::Function;
 use types::FunCall;
 use types::Value;
 use util::expression_fold::create_expr_tree;
@@ -14,6 +14,7 @@ use util::expression_fold::ExprTree;
 use util::StringConversion;
 use util::VecExt;
 use util::qualified_name;
+use interpreter::builtins::builtin_record_access;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
     let res: Value = match expr {
@@ -73,7 +74,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 args: vec![],
                 arg_count: patt.len() as u32,
                 fun: Arc::new(
-                    Fun::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
+                    Function::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
                 ),
             }
         }
@@ -132,7 +133,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![Value::String(field.to_owned())],
-                fun: Arc::new(Fun::Builtin(env.next_fun_id(), 6, ty)),
+                fun: Arc::new(Function::Builtin(env.next_fun_id(), builtin_record_access(), ty)),
                 arg_count: 1,
             }
         }
@@ -149,34 +150,37 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         Expr::Let(_, _) => Value::Unit, // TODO
 
         Expr::Application(fun, input) => {
-            let fun = eval_expr(env, fun)?;
+            let mut fun_value = eval_expr(env, fun)?;
             let input = eval_expr(env, input)?;
-            let fun_call = FunCall { function: fun.clone(), argument: input.clone() };
+            let fun_call = FunCall { function: fun_value.clone(), argument: input.clone() };
 
             if let Some(val) = env.get_from_cache(&fun_call) {
                 return Ok(val.clone());
             }
 
-            if let Value::Fun { arg_count, args, fun } = &fun {
-                let argc = args.len() as u32 + 1;
+            match fun_value {
+                Value::Fun { ref arg_count, ref args, ref fun } => {
+                    let argc = args.len() as u32 + 1;
 
-                if *arg_count < argc {
-                    return Err(FunArgumentSizeMismatch(*arg_count, argc));
+                    if *arg_count < argc {
+                        return Err(FunArgumentSizeMismatch(*arg_count, argc));
+                    }
+
+                    let mut arg_vec = args.clone();
+                    arg_vec.push(input);
+
+                    let value = if *arg_count == argc {
+                        exec_fun(env, fun, &arg_vec)?
+                    } else {
+                        Value::Fun { args: arg_vec, fun: fun.clone(), arg_count: *arg_count }
+                    };
+
+                    env.add_to_cache(fun_call, value.clone());
+                    value
+                },
+                _ => {
+                    return Err(ExpectedFunction(fun_value.clone()));
                 }
-
-                let mut arg_vec = args.clone();
-                arg_vec.push(input);
-
-                let value = if *arg_count == argc {
-                    exec_fun(env, &fun, &arg_vec)?
-                } else {
-                    Value::Fun { args: arg_vec, fun: fun.clone(), arg_count: *arg_count }
-                };
-
-                env.add_to_cache(fun_call, value.clone());
-                value
-            } else {
-                return Err(ExpectedFunction(fun.clone()));
             }
         }
     };
@@ -184,12 +188,12 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
     Ok(res)
 }
 
-fn exec_fun(env: &mut DynamicEnv, fun: &Fun, args: &[Value]) -> Result<Value, RuntimeError> {
+fn exec_fun(env: &mut DynamicEnv, fun: &Function, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     match fun {
-        Fun::Builtin(_, id, _) => {
-            builtin_function(*id, args)
+        Function::Builtin(_, func, _) => {
+            func.call_function(args).map_err(|_| RuntimeError::BuiltinFunctionError)
         }
-        Fun::Expr(_, ref patterns, ref expr, _) => {
+        Function::Expr(_, ref patterns, ref expr, _) => {
             env.enter_block();
             assert_eq!(patterns.len(), args.len());
 
@@ -385,6 +389,7 @@ mod tests {
     use ast::Pattern;
     use ast::Type;
     use util::builtin_fun_of;
+    use interpreter::builtins::builtin_unit_fun;
 
     #[test]
     fn check_unit() {
@@ -415,7 +420,7 @@ mod tests {
             Value::Fun {
                 arg_count: 1,
                 args: vec![],
-                fun: Arc::new(Fun::Expr(
+                fun: Arc::new(Function::Expr(
                     0,
                     vec![Pattern::Var("x".s())],
                     Expr::Literal(Literal::Int(1)),
@@ -446,7 +451,7 @@ mod tests {
             Box::new(Type::Unit),
         );
 
-        let fun = builtin_fun_of(env.next_fun_id(), 0, ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), builtin_unit_fun(), ty.clone());
         env.add("fun", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Unit));
@@ -455,18 +460,7 @@ mod tests {
     #[test]
     fn check_number() {
         let expr = from_code(b"1 / 3");
-        let mut env = DynamicEnv::new();
-
-        let ty = Type::Fun(
-            Box::new(Type::Tag("Float".s(), vec![])),
-            Box::new(Type::Fun(
-                Box::new(Type::Tag("Float".s(), vec![])),
-                Box::new(Type::Tag("Float".s(), vec![])),
-            )),
-        );
-
-        let fun = builtin_fun_of(env.next_fun_id(), 4, ty.clone());
-        env.add("/", fun, ty);
+        let mut env = DynamicEnv::default_lang_env();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Float(0.3333333333333333)));
     }
@@ -474,18 +468,7 @@ mod tests {
     #[test]
     fn check_number2() {
         let expr = from_code(b"4 // 3");
-        let mut env = DynamicEnv::new();
-
-        let ty = Type::Fun(
-            Box::new(Type::Tag("Int".s(), vec![])),
-            Box::new(Type::Fun(
-                Box::new(Type::Tag("Int".s(), vec![])),
-                Box::new(Type::Tag("Int".s(), vec![])),
-            )),
-        );
-
-        let fun = builtin_fun_of(env.next_fun_id(), 5, ty.clone());
-        env.add("//", fun, ty);
+        let mut env = DynamicEnv::default_lang_env();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Int(1)));
     }
@@ -493,18 +476,8 @@ mod tests {
     #[test]
     fn check_number3() {
         let expr = from_code(b"4 + 3");
-        let mut env = DynamicEnv::new();
+        let mut env = DynamicEnv::default_lang_env();
 
-        let ty = Type::Fun(
-            Box::new(Type::Var("number".s())),
-            Box::new(Type::Fun(
-                Box::new(Type::Var("number".s())),
-                Box::new(Type::Var("number".s())),
-            )),
-        );
-
-        let fun = builtin_fun_of(env.next_fun_id(), 1, ty.clone());
-        env.add("+", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Number(7)));
     }

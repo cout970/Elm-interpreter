@@ -67,7 +67,6 @@ mod tests {
         e.call_fn("test_function", (&mut 1,)).unwrap();
         e.call_fn("test_function", (&mut 1, &mut 2)).unwrap();
         e.call_fn("test_function", (&mut 1, &mut 2, &mut 3)).unwrap();
-        panic!();
     }
 }
 

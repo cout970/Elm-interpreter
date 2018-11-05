@@ -7,10 +7,11 @@ use interpreter::RuntimeError;
 use std::sync::Arc;
 use types::Adt;
 use types::AdtVariant;
-use types::Fun;
+use types::Function;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
+use interpreter::builtins::builtin_adt_constructor;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -53,7 +54,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                     Value::Fun {
                         args: vec![Value::Adt(var_name.clone(), vec![], adt.clone())],
                         arg_count: (params.len() + 1) as u32,
-                        fun: Arc::new(Fun::Builtin(env.next_fun_id(), 7, fun_ty)),
+                        fun: Arc::new(Function::Builtin(env.next_fun_id(), builtin_adt_constructor(), fun_ty)),
                     }
                 };
 
@@ -72,7 +73,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
             let value = Value::Fun {
                 args: vec![],
                 arg_count: patterns.len() as u32,
-                fun: Arc::new(Fun::Expr(env.next_fun_id(), patterns.clone(), expr.clone(), def_ty.clone())),
+                fun: Arc::new(Function::Expr(env.next_fun_id(), patterns.clone(), expr.clone(), def_ty.clone())),
             };
 
             let ret = if patterns.len() == 0 { eval_expr(env, expr)? } else { value };

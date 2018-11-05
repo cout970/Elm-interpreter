@@ -40,6 +40,7 @@ pub enum RuntimeError {
     InternalErrorRecordAccess(Value),
     InternalErrorAdtCreation(Value),
     UnknownBuiltinFunction(u32),
+    BuiltinFunctionError
 }
 
 pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>, ErrorWrapper> {

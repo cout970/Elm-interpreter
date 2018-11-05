@@ -1,52 +1,79 @@
+use errors::ErrorWrapper;
+use errors::ErrorWrapper::Runtime;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
+use types::BuiltinFunction;
 use types::Value;
 
-pub fn builtin_function(id: u32, args: &[Value]) -> Result<Value, RuntimeError> {
-    let ret = match id {
-        0 => Value::Unit,
-        1 => number_op(&args[0], &args[1], |a, b| a + b)?,
-        2 => number_op(&args[0], &args[1], |a, b| a - b)?,
-        3 => number_op(&args[0], &args[1], |a, b| a * b)?,
-        4 => Value::Float(float_of(&args[0])? / float_of(&args[1])?),
-        5 => Value::Int(int_of(&args[0])? / int_of(&args[1])?),
-        6 => { // Record access function (.x)
-            match &args[0] {
-                Value::Record(entries) => {
-                    if let Value::String(field) = &args[1] {
-                        let opt = entries.iter()
-                            .find(|(name, _)| name == field)
-                            .map(|(_, val)| val);
+impl<T> BuiltinFunction for T
+    where T: Fn(&Vec<Value>) -> Result<Value, RuntimeError>
+{
+    fn call_function(&self, args: &Vec<Value>) -> Result<Value, ErrorWrapper> {
+        self(args).map_err(|e| ErrorWrapper::Runtime(e))
+    }
+}
 
-                        match opt {
-                            Some(val) => val.clone(),
-                            None => {
-                                return Err(RecordFieldNotFound(field.clone(), args[0].clone()));
-                            }
+pub fn builtin_unit_fun() -> Box<dyn BuiltinFunction> {
+    Box::new(|args: &Vec<Value>| Ok(Value::Unit))
+}
+
+pub fn builtin_record_access() -> Box<dyn BuiltinFunction> {
+    Box::new(|args: &Vec<Value>| {
+        match &args[0] {
+            Value::Record(entries) => {
+                if let Value::String(field) = &args[1] {
+                    let opt = entries.iter()
+                        .find(|(name, _)| name == field)
+                        .map(|(_, val)| val);
+
+                    match opt {
+                        Some(val) => Ok(val.clone()),
+                        None => {
+                            Err(RecordFieldNotFound(field.clone(), args[0].clone()))
                         }
-                    } else {
-                        return Err(InternalErrorRecordAccess(args[1].clone()));
                     }
+                } else {
+                    Err(InternalErrorRecordAccess(args[1].clone()))
                 }
-                _ => { return Err(ExpectedRecord(args[0].clone())); }
             }
+            _ => Err(ExpectedRecord(args[0].clone()))
         }
-        7 => { // Adt constructor
-            if let Value::Adt(var, _, adt) = &args[0] {
-                let mut vals: Vec<Value> = vec![];
-                for i in 1..args.len() {
-                    vals.push(args[i].clone());
-                }
+    })
+}
 
-                Value::Adt(var.to_owned(), vals, adt.clone())
-            } else {
-                return Err(InternalErrorAdtCreation(args[0].clone()));
+pub fn builtin_adt_constructor() -> Box<dyn BuiltinFunction> {
+    Box::new(|args: &Vec<Value>| {
+        if let Value::Adt(var, _, adt) = &args[0] {
+            let mut vals: Vec<Value> = vec![];
+            for i in 1..args.len() {
+                vals.push(args[i].clone());
             }
-        }
-        _ => { return Err(UnknownBuiltinFunction(id)); }
-    };
 
-    Ok(ret)
+            Ok(Value::Adt(var.to_owned(), vals, adt.clone()))
+        } else {
+            Err(InternalErrorAdtCreation(args[0].clone()))
+        }
+    })
+}
+
+pub fn builtin_add(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    number_op(&args[0], &args[1], |a, b| a + b)
+}
+
+pub fn builtin_sub(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    number_op(&args[0], &args[1], |a, b| a - b)
+}
+
+pub fn builtin_times(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    number_op(&args[0], &args[1], |a, b| a * b)
+}
+
+pub fn builtin_float_div(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    Ok(Value::Float(float_of(&args[0])? / float_of(&args[1])?))
+}
+
+pub fn builtin_int_div(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    Ok(Value::Int(int_of(&args[0])? / int_of(&args[1])?))
 }
 
 fn float_of(value: &Value) -> Result<f32, RuntimeError> {

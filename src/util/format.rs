@@ -1,12 +1,14 @@
-use std::fmt::Display;
-use std::fmt::Error;
-use std::fmt::Write;
-use std::fmt::Formatter;
 use ast::Definition;
 use ast::Expr;
 use ast::Literal;
 use ast::Pattern;
 use ast::Type;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Error;
+use std::fmt::Formatter;
+use std::fmt::Write;
+use types::BuiltinFunction;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 
@@ -219,3 +221,8 @@ fn print_pairs<A: Display, B: Display>(f: &mut Formatter, v: &Vec<(A, B)>) -> Re
     Ok(())
 }
 
+impl Debug for Box<BuiltinFunction> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "BuiltinFunction")
+    }
+}

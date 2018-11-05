@@ -26,7 +26,7 @@ pub enum Value {
     Fun {
         arg_count: u32,
         args: Vec<Value>,
-        fun: Arc<Fun>,
+        fun: Arc<Function>,
     },
 }
 
@@ -44,13 +44,13 @@ pub type FunId = u32;
 
 /// Interface for functions not implemented in elm
 pub trait BuiltinFunction {
-    fn call_function(args: &Vec<Value>) -> Result<Value, ErrorWrapper>;
+    fn call_function(&self, args: &Vec<Value>) -> Result<Value, ErrorWrapper>;
 }
 
 /// Represents a function that can be a definition or builtin
-#[derive(Debug, Clone)]
-pub enum Fun {
-    Builtin(FunId, u32, Type),
+#[derive(Debug)]
+pub enum Function {
+    Builtin(FunId, Box<dyn BuiltinFunction>, Type),
     Expr(FunId, Vec<Pattern>, Expr, Type),
 }
 
@@ -70,18 +70,18 @@ pub struct AdtVariant {
 }
 
 // Fun are compared using only the FunId
-impl Eq for Fun {}
+impl Eq for Function {}
 
-impl PartialEq for Fun {
-    fn eq(&self, other: &Fun) -> bool {
+impl PartialEq for Function {
+    fn eq(&self, other: &Function) -> bool {
         let self_id = match self {
-            Fun::Builtin(id, _, _) => { *id }
-            Fun::Expr(id, _, _, _) => { *id }
+            Function::Builtin(id, _, _) => { *id }
+            Function::Expr(id, _, _, _) => { *id }
         };
 
         let other_id = match other {
-            Fun::Builtin(id, _, _) => { *id }
-            Fun::Expr(id, _, _, _) => { *id }
+            Function::Builtin(id, _, _) => { *id }
+            Function::Expr(id, _, _, _) => { *id }
         };
 
         self_id == other_id
@@ -114,8 +114,8 @@ impl Hash for Value {
                 args.hash(state);
 
                 match fun.deref() {
-                    Fun::Builtin(id, _, _) => { state.write_u32(*id) }
-                    Fun::Expr(id, _, _, _) => { state.write_u32(*id) }
+                    Function::Builtin(id, _, _) => { state.write_u32(*id) }
+                    Function::Expr(id, _, _, _) => { state.write_u32(*id) }
                 }
             }
         }

@@ -8,6 +8,7 @@ use util::build_fun_type;
 use util::builtin_fun_of;
 use util::OptionExt;
 use util::StringConversion;
+use interpreter::builtins::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicEnv {
@@ -79,15 +80,15 @@ impl DynamicEnv {
             Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![])
         ]);
 
-        let fun = builtin_fun_of(env.next_fun_id(), 1, num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_add), num_ty.clone());
         env.add("+", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), 2, num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_sub), num_ty.clone());
         env.add("-", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), 3, num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_times), num_ty.clone());
         env.add("*", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), 4, float_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_float_div), float_ty.clone());
         env.add("/", fun, float_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), 5, int_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), Box::new(builtin_int_div), int_ty.clone());
         env.add("//", fun, int_ty.clone());
 
         env

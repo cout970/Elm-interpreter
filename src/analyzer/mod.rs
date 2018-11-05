@@ -1,7 +1,7 @@
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::function_analyzer::PatternMatchingError;
 use ast::Expr;
-use types::Fun;
+use types::Function;
 use ast::Type;
 use types::Value;
 use util::StringConversion;
@@ -89,8 +89,8 @@ pub fn type_of_value(value: &Value) -> Type {
         }
         Value::Fun { fun, args, .. } => {
             let fun_ty = match fun.deref() {
-                Fun::Builtin(_, _, ty) => ty,
-                Fun::Expr(_, _, _, ty) => ty,
+                Function::Builtin(_, _, ty) => ty,
+                Function::Expr(_, _, _, ty) => ty,
             };
 
             strip_fun_args(args.len(), &fun_ty).clone()
