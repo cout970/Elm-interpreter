@@ -1,5 +1,4 @@
 use errors::ErrorWrapper;
-use errors::ErrorWrapper::Runtime;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use types::BuiltinFunction;
@@ -14,7 +13,7 @@ impl<T> BuiltinFunction for T
 }
 
 pub fn builtin_unit_fun() -> Box<dyn BuiltinFunction> {
-    Box::new(|args: &Vec<Value>| Ok(Value::Unit))
+    Box::new(|_: &Vec<Value>| Ok(Value::Unit))
 }
 
 pub fn builtin_record_access() -> Box<dyn BuiltinFunction> {

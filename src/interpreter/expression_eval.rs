@@ -1,6 +1,5 @@
 use analyzer::type_check_expression;
 use analyzer::type_of_value;
-use interpreter::builtins::builtin_function;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
