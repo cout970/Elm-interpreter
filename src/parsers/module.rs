@@ -22,49 +22,56 @@ pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
 //        (Module { header, imports, statements })
 //    )
 
-    let mut _i = i;
+    // TODO remove
+    // DEBUG
+    check_split_blocks(i.clone());
+
+    let blocks = split_blocks(i.clone());
+    let mut index = 0;
     let mut errors: Vec<(TokenStream, ErrorKind<SyntaxError>)> = vec![];
 
-    // Skip empty lines
-    while let Token::Indent(_) = _i.read_tk() {
-        _i = _i.next(1);
-    }
-
-    let header: Option<ModuleHeader> = match module_header(_i.clone()) {
-        Ok((rest, header)) => {
-            _i = rest;
-            while let Token::Indent(_) = _i.read_tk() {
-                _i = _i.next(1);
+    let header: Option<ModuleHeader> = if let Some(block) = blocks.first() {
+        match module_header(block.clone()) {
+            Ok((rest, header)) => {
+                if rest.len() <= 1 {
+                    index += 1;
+                    Some(header)
+                } else {
+                    errors.push((block.clone(), ErrorKind::Custom(
+                        SyntaxError::UnableToConsumeAllInput(rest.read_info())
+                    )));
+                    None
+                }
             }
-            Some(header)
+            Err(e) => {
+                errors.push((block.clone(), get_error_kind(e)));
+                None
+            }
         }
-        Err(e) => {
-            errors.push((_i.clone(), get_error_kind(e)));
-            None
-        }
+    } else {
+        None
     };
 
-    let mut imports = vec![];
+    let mut imports: Vec<Import> = vec![];
 
-    loop {
-        // Skip empty lines
-        while let Token::Indent(_) = _i.read_tk() {
-            _i = _i.next(1);
-        }
+    while index < blocks.len() {
+        let block = &blocks[index];
 
-        if let Token::ImportTk = _i.read_tk() {
-            match import(_i.clone()) {
+        if let Token::ImportTk = block.read_tk() {
+            match import(block.clone()) {
                 Ok((rest, import)) => {
-                    _i = rest;
-                    imports.push(import);
-
-                    // Skip empty lines
-                    while let Token::Indent(_) = _i.read_tk() {
-                        _i = _i.next(1);
+                    if rest.len() <= 1 {
+                        imports.push(import);
+                        index += 1;
+                    } else {
+                        errors.push((block.clone(), ErrorKind::Custom(
+                            SyntaxError::UnableToConsumeAllInput(rest.read_info())
+                        )));
+                        break;
                     }
                 }
                 Err(e) => {
-                    errors.push((_i.clone(), get_error_kind(e)));
+                    errors.push((block.clone(), get_error_kind(e)));
                     break;
                 }
             }
@@ -75,31 +82,31 @@ pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
 
     let mut statements = vec![];
 
-    loop {
-        // Skip empty lines
-        while let Token::Indent(_) = _i.read_tk() {
-            _i = _i.next(1);
-        }
+    while index < blocks.len() {
+        let block = &blocks[index];
 
-        match top_level_statement(_i.clone()) {
+        // TODO function type and definition are in different blocks
+        match read_statement(block.clone()) {
             Ok((rest, statement)) => {
-                _i = rest;
-                statements.push(statement);
+                if rest.len() <= 1 {
+                    statements.push(statement);
+                    index += 1;
+                } else {
+                    errors.push((block.clone(), ErrorKind::Custom(
+                        SyntaxError::UnableToConsumeAllInput(rest.read_info())
+                    )));
+                    break;
+                }
             }
             Err(e) => {
-                errors.push((_i.clone(), get_error_kind(e)));
+                errors.push((block.clone(), get_error_kind(e)));
                 break;
             }
         }
     }
 
-    // Skip empty lines
-    while let Token::Indent(_) = _i.read_tk() {
-        _i = _i.next(1);
-    }
-
-    if let Token::Eof = _i.read_tk() {
-        Ok((_i, Module { header, imports, statements }))
+    if index == blocks.len() {
+        Ok((i.next(i.all.len() as u32), Module { header, imports, statements }))
     } else {
         Err(Err::Error(
             Context::List(errors)
@@ -107,9 +114,10 @@ pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
     }
 }
 
+
 fn get_error_kind(e: Err<TokenStream, SyntaxError>) -> ErrorKind<SyntaxError> {
     match e {
-        Err::Incomplete(_) => { ErrorKind::Custom(SyntaxError::Unknown) }
+        Err::Incomplete(i) => { ErrorKind::Custom(SyntaxError::IncompleteInput(i)) }
         Err::Error(ctx) => {
             match ctx {
                 Context::Code(_, kind) => kind,
@@ -137,7 +145,28 @@ rule!(pub read_ref<String>, alt!(
     )
 ));
 
-rule!(module_header<ModuleHeader>, do_parse!(
+
+// TODO add
+//effect module Task where { command = MyCmd } exposing
+rule!(module_header<ModuleHeader>, alt!(simple_module_header | effect_module_header));
+
+rule!(effect_module_header<ModuleHeader>, do_parse!(
+    tk!(EffectTk) >>
+    tk!(ModuleTk) >>
+    indentation >>
+    mod_id: upper_id!() >>
+    indentation >>
+    tk!(WhereTk) >>
+    tk!(LeftBracket) >>
+    id!() >>
+    tk!(Equals) >>
+    upper_id!() >>
+    tk!(RightBracket) >>
+    e: exposing >>
+    (ModuleHeader { name: mod_id, exposing: e })
+));
+
+rule!(simple_module_header<ModuleHeader>, do_parse!(
     tk!(ModuleTk) >>
     indentation >>
     mod_id: upper_id!() >>
@@ -236,7 +265,60 @@ rule!(indentation<()>, do_parse!(
     (())
 ));
 
+// Breaks a list of tokens in blocks separated by line starts (Token::Indent(0)),
+// each block can be a module header, a import, a type definition or
+// a function definitions (type def and value def)
+fn split_blocks(i: TokenStream) -> Vec<TokenStream> {
+    let mut blocks: Vec<TokenStream> = vec![];
 
+    let mut ptr = i.clone();
+    let mut start = 0;
+    let mut end = 0;
+    loop {
+        let tk = ptr.read_tk();
+
+        match tk {
+            Token::Indent(amount) => {
+                if amount == 0 {
+                    if start != end {
+                        blocks.push(TokenStream {
+                            all: i.all,
+                            remaining: &i.remaining[start..(end + 1)],
+                        });
+                    }
+                    start = end + 1;
+                }
+            }
+            Token::Eof => {
+                if start != end {
+                    blocks.push(TokenStream {
+                        all: i.all,
+                        remaining: &i.remaining[start..(end + 1)],
+                    });
+                }
+                break;
+            }
+            _ => {}
+        }
+
+        end += 1;
+        ptr = ptr.next(1);
+    }
+
+    blocks
+}
+
+fn check_split_blocks(s: TokenStream) {
+    let blocks = split_blocks(s);
+
+    for block in blocks {
+        print!("({:03}): ", block.remaining.len());
+        for info in block.remaining {
+            print!("{} ", info.token);
+        }
+        println!();
+    }
+}
 
 #[cfg(test)]
 mod tests {

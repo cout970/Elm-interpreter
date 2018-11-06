@@ -112,8 +112,8 @@ mod tests {
 
     #[test]
     fn check_type_alias() {
-        let tokens = tokenize(b"\ntype alias Html = MyHtml").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let tokens = tokenize(b"type alias Html = MyHtml").unwrap();
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Alias(
             "Html".s(), vec![],
             Type::Tag("MyHtml".s(), vec![])
@@ -122,8 +122,8 @@ mod tests {
 
     #[test]
     fn check_adt() {
-        let tokens = tokenize(b"\ntype Boolean = True | False").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let tokens = tokenize(b"type Boolean = True | False").unwrap();
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Adt(
             "Boolean".s(), vec![],
             vec![("True".s(), vec![]), ("False".s(), vec![])],
@@ -132,8 +132,8 @@ mod tests {
 
     #[test]
     fn check_port() {
-        let tokens = tokenize(b"\nport js_function : Int -> Int").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let tokens = tokenize(b"port js_function : Int -> Int").unwrap();
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Port(
             "js_function".s(),
             Type::Fun(
@@ -145,8 +145,8 @@ mod tests {
 
     #[test]
     fn check_def() {
-        let tokens = tokenize(b"\nmy_fun x = ()").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let tokens = tokenize(b"my_fun x = ()").unwrap();
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Def(
             Definition {
                 header: None,
@@ -159,8 +159,8 @@ mod tests {
 
     #[test]
     fn check_def2() {
-        let tokens = tokenize(b"\nx = 5").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let tokens = tokenize(b"x = 5").unwrap();
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m, Statement::Def(
             Definition {
                 header:None,
@@ -173,8 +173,8 @@ mod tests {
 
     #[test]
     fn check_def3() {
-        let tokens = tokenize(b"\nmy_fun: Int\nmy_fun = 5").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let tokens = tokenize(b"my_fun: Int\nmy_fun = 5").unwrap();
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m,
             Statement::Def(
                 Definition {
@@ -189,10 +189,10 @@ mod tests {
 
     //    #[test]
     fn check_def4() {
-        let tokens = tokenize(b"\n\
+        let tokens = tokenize(b"\
 update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
         ").unwrap();
-        let m = top_level_statement(TokenStream::new(&tokens));
+        let m = read_statement(TokenStream::new(&tokens));
         assert_ok!(m,
             Statement::Def(
                 Definition{
@@ -258,7 +258,5 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
                 ]
             ),
         });
-
-
     }
 }

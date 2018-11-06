@@ -89,7 +89,7 @@ mod test {
     }
 
     #[test]
-//    #[ignore]
+    #[ignore]
     fn test_project() {
         let mods = load_all_modules(&vec!["Element".to_owned()], |path| {
             println!("Reading file at: '{:?}'", path);

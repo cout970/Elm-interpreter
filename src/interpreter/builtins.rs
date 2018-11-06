@@ -18,6 +18,8 @@ pub fn of_closure<C: Fn(&Vec<Value>) -> Result<Value, RuntimeError> + 'static>(c
     RefCell::new(Box::new(closure))
 }
 
+// Language builtins
+
 pub fn builtin_unit_fun() -> BuiltinFunctionRef {
     of_closure(|_: &Vec<Value>| Ok(Value::Unit))
 }
@@ -61,6 +63,8 @@ pub fn builtin_adt_constructor() -> BuiltinFunctionRef {
     })
 }
 
+// Aridmetic operators
+
 pub fn builtin_add(args: &Vec<Value>) -> Result<Value, RuntimeError> {
     number_op(&args[0], &args[1], |a, b| a + b)
 }
@@ -79,6 +83,53 @@ pub fn builtin_float_div(args: &Vec<Value>) -> Result<Value, RuntimeError> {
 
 pub fn builtin_int_div(args: &Vec<Value>) -> Result<Value, RuntimeError> {
     Ok(Value::Int(int_of(&args[0])? / int_of(&args[1])?))
+}
+
+// Combinators
+
+pub fn builtin_id(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    Ok(args[0].clone())
+}
+
+pub fn builtin_mockingbird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    apply(args[0].clone(), args[0].clone())
+}
+
+pub fn builtin_kestrel(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    Ok(args[0].clone())
+}
+
+pub fn builtin_kite(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    Ok(args[1].clone())
+}
+
+pub fn builtin_cardinal(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    apply(apply(args[0].clone(), args[2].clone())?, args[1].clone())
+}
+
+pub fn builtin_bluebird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    apply(args[0].clone(), apply(args[1].clone(), args[2].clone())?)
+}
+
+pub fn builtin_thrush(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    apply(args[1].clone(), args[0].clone())
+}
+
+pub fn builtin_vireo(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    apply(apply(args[2].clone(), args[0].clone())?, args[1].clone())
+}
+
+pub fn builtin_blackbird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    apply(args[0].clone(), apply(apply(args[1].clone(), args[2].clone())?, args[3].clone())?)
+}
+
+// (<<) << (<<)
+
+// Utility functions
+
+fn apply(func: Value, arg: Value) -> Result<Value, RuntimeError> {
+    //TODO use a Value::Fun
+    unimplemented!()
 }
 
 fn float_of(value: &Value) -> Result<f32, RuntimeError> {

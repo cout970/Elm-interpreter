@@ -204,14 +204,21 @@ impl Display for Definition {
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
-            Token::Id(value) => { write!(f, "Id({})", value) },
-            Token::UpperId(value) => { write!(f, "UpperId({})", value) },
-            Token::BinaryOperator(value) => { write!(f, "Binop({})", value) },
+            Token::Id(value) => { write!(f, "{}", value) },
+            Token::UpperId(value) => { write!(f, "{}", value) },
+            Token::BinaryOperator(value) => { write!(f, "{}", value) },
             Token::LitInt(value) => { write!(f, "{}", value) },
             Token::LitFloat(value) => { write!(f, "{}", value) },
             Token::LitChar(value) => { write!(f, "{}", value) },
             Token::LitString(value) => { write!(f, "{}", value) },
-            Token::Indent(value) => { write!(f, "Indent({})", value) },
+            Token::Indent(value) => {
+                write!(f, "<")?;
+                for _ in 0..(*value) {
+                    write!(f, "\\n")?;
+                }
+                write!(f, ">")?;
+                Ok(())
+            },
             Token::BackSlash => { write!(f, "\\") },
             Token::PrefixMinus => { write!(f, "-") },
             Token::Let => { write!(f, "let") },
@@ -222,7 +229,8 @@ impl Display for Token {
             Token::Of => { write!(f, "of") },
             Token::In => { write!(f, "in") },
             Token::ModuleTk => { write!(f, "module") },
-            Token::Where => { write!(f, "where") },
+            Token::WhereTk => { write!(f, "where") },
+            Token::EffectTk => { write!(f, "effect") },
             Token::ExposingTk => { write!(f, "exposing") },
             Token::ImportTk => { write!(f, "import") },
             Token::As => { write!(f, "as") },

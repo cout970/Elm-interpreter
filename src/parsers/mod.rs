@@ -10,6 +10,7 @@ use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
 use tokenizer::TokenStream;
+use nom::Needed;
 
 type Tk<'a> = TokenStream<'a>;
 
@@ -25,6 +26,8 @@ mod pattern;
 #[derive(PartialEq, Debug, Clone)]
 pub enum SyntaxError {
     Unknown,
+    IncompleteInput(Needed),
+    UnableToConsumeAllInput(TokenInfo),
     ExpectedToken(Token, TokenInfo),
     InvalidIndentation(Vec<usize>, usize),
     ExpectedId(TokenInfo),
@@ -126,6 +129,87 @@ fn format_error(input: TokenStream, kind: ErrorKind<SyntaxError>) -> String {
         let start = &input.remaining[0].start;
         let pos = input.all.len() - input.remaining.len();
         format!("\n{}:{} Unexpected token: {:?} in:\n{} {} {}\n", start.line + 1, start.column,
-                input.read_tk(), input.all[pos-1].token, input.all[pos].token, input.all[pos+1].token)
+                input.read_tk(), input.all[pos - 1].token, input.all[pos].token, input.all[pos + 1].token)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_tuple() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Tuple.elm"));
+    }
+
+    #[test]
+    fn check_task() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Task.elm"));
+    }
+
+    #[test]
+    fn check_string() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/String.elm"));
+    }
+
+    #[test]
+    fn check_set() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Set.elm"));
+    }
+
+    #[test]
+    fn check_result() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Result.elm"));
+    }
+
+    #[test]
+    fn check_process() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Process.elm"));
+    }
+
+    #[test]
+    fn check_platform() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Platform.elm"));
+    }
+
+    #[test]
+    fn check_maybe() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Maybe.elm"));
+    }
+
+    #[test]
+    fn check_list() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/List.elm"));
+    }
+
+    #[test]
+    fn check_dict() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Dict.elm"));
+    }
+
+    #[test]
+    fn check_debug() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Debug.elm"));
+    }
+
+    #[test]
+    fn check_char() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Char.elm"));
+    }
+
+    #[test]
+    fn check_bitwise() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));
+    }
+
+    #[test]
+    fn check_basics() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Basics.elm"));
+    }
+
+    #[test]
+    fn check_array() {
+        from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Array.elm"));
     }
 }
