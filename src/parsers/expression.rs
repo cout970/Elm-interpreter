@@ -34,13 +34,6 @@ impl ExprParser {
     method_rule!(read_expr<ExprParser, Expr>, mut self,
         do_parse!(
             call_m!(self.spaces) >>
-            e: call_m!(self.read_expr_spaceless) >>
-            (e)
-        )
-    );
-
-    method_rule!(read_expr_spaceless<ExprParser, Expr>, mut self,
-        do_parse!(
             first: call_m!(self.read_expr_app) >>
             rest: many0!(call_m!(self.binop_item)) >>
             (create_binop_chain(first, rest))
@@ -201,9 +194,17 @@ impl ExprParser {
     ));
 
     method_rule!(read_let<ExprParser, Expr>, mut self, do_parse!(
+        call_m!(self.spaces) >>
         tk!(Let) >>
-        a: one_or_more!(read_definition) >>
+        call_m!(self.spaces) >>
+        a: one_or_more!( do_parse!(
+            call_m!(self.spaces) >>
+            e: read_definition >>
+            (e)
+        )) >>
+        call_m!(self.spaces) >>
         tk!(In) >>
+        call_m!(self.spaces) >>
         b: call_m!(self.read_expr) >>
         (Expr::Let(a, Box::new(b)))
     ));
@@ -637,5 +638,23 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                 ]
             ))
         ));
+    }
+
+    #[test]
+    fn check_multiline_expr3() {
+        let tokens = tokenize(b"let \
+     row x = \
+        List.range 0 x \
+        |> List.map (\\y -> Cell Dirt ) \
+ \
+     column x y = \
+         List.range 0 y \
+         |> List.map (\\s -> row x) \
+ in \
+    { cells = (column size size) \
+    , entities = [] \
+    }").unwrap();
+        let m = read_expr(TokenStream::new(&tokens));
+        assert_ok!(m, Expr::Unit);
     }
 }

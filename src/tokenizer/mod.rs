@@ -66,7 +66,7 @@ pub struct TokenInfo {
     pub token: Token,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct TokenStream<'a> {
     pub all: &'a [TokenInfo],
     pub remaining: &'a [TokenInfo],

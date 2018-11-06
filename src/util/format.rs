@@ -11,6 +11,8 @@ use std::fmt::Write;
 use types::BuiltinFunction;
 use types::Value;
 use util::expression_fold::create_expr_tree;
+use tokenizer::Token;
+use tokenizer::TokenStream;
 
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -199,7 +201,73 @@ impl Display for Definition {
     }
 }
 
-pub fn print_vec<T: Display, F: Write>(f: &mut F, v: &Vec<T>) -> Result<(), Error> {
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self {
+            Token::Id(value) => { write!(f, "Id({})", value) },
+            Token::UpperId(value) => { write!(f, "UpperId({})", value) },
+            Token::BinaryOperator(value) => { write!(f, "Binop({})", value) },
+            Token::LitInt(value) => { write!(f, "{}", value) },
+            Token::LitFloat(value) => { write!(f, "{}", value) },
+            Token::LitChar(value) => { write!(f, "{}", value) },
+            Token::LitString(value) => { write!(f, "{}", value) },
+            Token::Indent(value) => { write!(f, "Indent({})", value) },
+            Token::BackSlash => { write!(f, "\\") },
+            Token::PrefixMinus => { write!(f, "-") },
+            Token::Let => { write!(f, "let") },
+            Token::If => { write!(f, "if") },
+            Token::Else => { write!(f, "else") },
+            Token::Then => { write!(f, "then") },
+            Token::Case => { write!(f, "case") },
+            Token::Of => { write!(f, "of") },
+            Token::In => { write!(f, "in") },
+            Token::ModuleTk => { write!(f, "module") },
+            Token::Where => { write!(f, "where") },
+            Token::ExposingTk => { write!(f, "exposing") },
+            Token::ImportTk => { write!(f, "import") },
+            Token::As => { write!(f, "as") },
+            Token::TypeTk => { write!(f, "type") },
+            Token::Port => { write!(f, "port") },
+            Token::Alias => { write!(f, "alias") },
+            Token::Underscore => { write!(f, "_") },
+            Token::Dot => { write!(f, ".") },
+            Token::DoubleDot => { write!(f, "..") },
+            Token::Comma => { write!(f, ",") },
+            Token::LeftParen => { write!(f, "(") },
+            Token::RightParen => { write!(f, ")") },
+            Token::LeftBracket => { write!(f, "[") },
+            Token::RightBracket => { write!(f, "]") },
+            Token::LeftBrace => { write!(f, "{{") },
+            Token::RightBrace => { write!(f, "}}") },
+            Token::Equals => { write!(f, "=") },
+            Token::Pipe => { write!(f, "|") },
+            Token::RightArrow => { write!(f, "->") },
+            Token::LeftArrow => { write!(f, "<-") },
+            Token::Colon => { write!(f, ":") },
+            Token::Eof => { write!(f, "<Eof>") },
+        }
+    }
+}
+
+impl <'a> Display for TokenStream<'a> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        for info in self.remaining.iter().take(10) {
+            write!(f, "{} ", info.token)?;
+        }
+        Ok(())
+    }
+}
+
+impl <'a> Debug for TokenStream<'a> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        for info in self.remaining.iter().take(10) {
+            write!(f, "{} ", info.token)?;
+        }
+        Ok(())
+    }
+}
+
+pub fn print_vec<T: Display, F: Write>(f: &mut F, v: &[T]) -> Result<(), Error> {
     for (i, item) in v.iter().enumerate() {
         write!(f, "{}", item)?;
 

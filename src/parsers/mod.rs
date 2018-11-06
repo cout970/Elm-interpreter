@@ -124,6 +124,8 @@ fn format_error(input: TokenStream, kind: ErrorKind<SyntaxError>) -> String {
         format!("{:?}", info)
     } else {
         let start = &input.remaining[0].start;
-        format!("{}:{} Unexpected token: {:?}", start.line + 1, start.column, input.read_tk())
+        let pos = input.all.len() - input.remaining.len();
+        format!("\n{}:{} Unexpected token: {:?} in:\n{} {} {}\n", start.line + 1, start.column,
+                input.read_tk(), input.all[pos-1].token, input.all[pos].token, input.all[pos+1].token)
     }
 }

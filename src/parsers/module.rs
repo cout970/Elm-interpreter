@@ -13,14 +13,14 @@ use tokenizer::TokenStream;
 
 pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
 //    do_parse!(i,
-//        opt!(indent!(0)) >>
+//        many0!(indent!()) >>
 //        header: opt!(module_header) >>
 //        imports: many0!(import) >>
 //        statements: many0!(top_level_statement) >>
-//        many0!(indent!(0)) >>
+//        many0!(indent!()) >>
 //        tk!(Eof) >>
 //        (Module { header, imports, statements })
-//    );
+//    )
 
     let mut _i = i;
     let mut errors: Vec<(TokenStream, ErrorKind<SyntaxError>)> = vec![];
@@ -33,6 +33,9 @@ pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
     let header: Option<ModuleHeader> = match module_header(_i.clone()) {
         Ok((rest, header)) => {
             _i = rest;
+            while let Token::Indent(_) = _i.read_tk() {
+                _i = _i.next(1);
+            }
             Some(header)
         }
         Err(e) => {
@@ -43,36 +46,45 @@ pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
 
     let mut imports = vec![];
 
-    while let Token::ImportTk = _i.read_tk() {
-        match import(_i.clone()) {
-            Ok((rest, import)) => {
-                _i = rest;
-                imports.push(import);
+    loop {
+        // Skip empty lines
+        while let Token::Indent(_) = _i.read_tk() {
+            _i = _i.next(1);
+        }
 
-                // Skip empty lines
-                while let Token::Indent(_) = _i.read_tk() {
-                    _i = _i.next(1);
+        if let Token::ImportTk = _i.read_tk() {
+            match import(_i.clone()) {
+                Ok((rest, import)) => {
+                    _i = rest;
+                    imports.push(import);
+
+                    // Skip empty lines
+                    while let Token::Indent(_) = _i.read_tk() {
+                        _i = _i.next(1);
+                    }
+                }
+                Err(e) => {
+                    errors.push((_i.clone(), get_error_kind(e)));
+                    break;
                 }
             }
-            Err(e) => {
-                errors.push((_i.clone(), get_error_kind(e)));
-                break;
-            }
+        } else {
+            break;
         }
     }
 
     let mut statements = vec![];
 
     loop {
+        // Skip empty lines
+        while let Token::Indent(_) = _i.read_tk() {
+            _i = _i.next(1);
+        }
+
         match top_level_statement(_i.clone()) {
             Ok((rest, statement)) => {
                 _i = rest;
                 statements.push(statement);
-
-                // Skip empty lines
-                while let Token::Indent(_) = _i.read_tk() {
-                    _i = _i.next(1);
-                }
             }
             Err(e) => {
                 errors.push((_i.clone(), get_error_kind(e)));
@@ -206,7 +218,7 @@ rule!(import<Import>, alt!(
 ));
 
 rule!(import_pre<Vec<String>>, do_parse!(
-    opt!(indent!(0)) >>
+    many0!(indent!()) >>
     tk!(ImportTk) >>
     path: upper_ids >>
     (path)

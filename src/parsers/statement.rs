@@ -9,7 +9,7 @@ use parsers::SyntaxError;
 // Definitions
 
 rule!(pub top_level_statement<Statement>, do_parse!(
-    many0!(indent!(0)) >>
+    many0!(indent!()) >>
     s: read_statement >>
     (s)
 ));
@@ -19,6 +19,11 @@ rule!(pub read_statement<Statement>, alt!(
     | adt
     | port
     | definition
+));
+
+rule!(indentation<()>, do_parse!(
+    many0!(indent_except!(vec![0])) >>
+    (())
 ));
 
 rule!(definition<Statement>, map!(
@@ -31,7 +36,7 @@ rule!(pub read_definition<Definition>, do_parse!(
     a: id!() >>
     p: many0!(read_pattern) >>
     tk!(Equals) >>
-    many0!(indent!()) >>
+    indentation >>
     e: read_expr >>
     (Definition {
         header: t.map(|e| e.1),
@@ -43,8 +48,12 @@ rule!(pub read_definition<Definition>, do_parse!(
 
 rule!(read_type_def<(String, Type)>, do_parse!(
     name: read_type_def_name >>
+    indentation >>
     tk!(Colon) >>
+    indentation >>
     ty: read_type >>
+    indentation >>
+    alt!(indent!(0) | map!(tk!(Eof), |_|())) >>
     ((name, ty))
 ));
 
@@ -56,26 +65,27 @@ rule!(adt<Statement>, do_parse!(
     tk!(TypeTk) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
-    many0!(indent!()) >>
+    indentation >>
     tk!(Equals) >>
     entries: separated_nonempty_list!(pipe_separator, adt_def) >>
     (Statement::Adt(a, b, entries))
 ));
 
 rule!(pipe_separator<()>, do_parse!(
-    many0!(indent!()) >>
+    indentation >>
     tk!(Pipe) >>
     (())
 ));
 
 rule!(adt_def<(String, Vec<Type>)>, do_parse!(
-    many0!(indent!()) >>
+    indentation >>
     n: upper_id!() >>
     ty: many0!(read_type) >>
     ((n, ty))
 ));
 
 rule!(port<Statement>, do_parse!(
+    many0!(indent!()) >>
     tk!(Port) >>
     t: read_type_def >>
     (Statement::Port(t.0, t.1))
@@ -86,9 +96,9 @@ rule!(alias<Statement>, do_parse!(
     tk!(Alias) >>
     a: upper_id!() >>
     b: many0!(id!()) >>
-    many0!(indent!()) >>
+    indentation >>
     tk!(Equals) >>
-    many0!(indent!()) >>
+    indentation >>
     ty: read_type >>
     (Statement::Alias(a, b, ty))
 ));
