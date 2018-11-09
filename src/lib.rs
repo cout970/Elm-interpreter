@@ -69,7 +69,7 @@ impl Interpreter {
     }
 
     /// Evaluates a module, for example:
-    /// ```
+    /// ```elm
     /// module Util exposing(..)
     ///
     /// import Tuple

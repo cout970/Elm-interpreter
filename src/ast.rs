@@ -126,7 +126,7 @@ pub enum Expr {
     /* A record, also know as map of key-value pairs, the keys must be valid identifiers */
     Record(Vec<(String, Expr)>),
     /* An algebraic data type */
-    // TODO remove
+    // TODO remove, this does the same as Ref
     Adt(String),
     /* An update operation over a record value, this operation changes the value of a record field */
     RecordUpdate(String, Vec<(String, Expr)>),

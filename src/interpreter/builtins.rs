@@ -127,7 +127,7 @@ pub fn builtin_blackbird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
 
 // Utility functions
 
-fn apply(func: Value, arg: Value) -> Result<Value, RuntimeError> {
+fn apply(_func: Value, _arg: Value) -> Result<Value, RuntimeError> {
     //TODO use a Value::Fun
     unimplemented!()
 }

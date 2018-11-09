@@ -22,6 +22,7 @@ mod types;
 mod statement;
 mod expression;
 mod pattern;
+mod new;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SyntaxError {
@@ -139,76 +140,91 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn check_tuple() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Tuple.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_task() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Task.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_string() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/String.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_set() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Set.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_result() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Result.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_process() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Process.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_platform() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Platform.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_maybe() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Maybe.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_list() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/List.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_dict() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Dict.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_debug() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Debug.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_char() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Char.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_bitwise() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_basics() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Basics.elm"));
     }
 
     #[test]
+    #[ignore]
     fn check_array() {
         from_code_mod(include_bytes!("/Data/Dev/Elm/core-master/src/Array.elm"));
     }

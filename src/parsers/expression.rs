@@ -641,6 +641,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     }
 
     #[test]
+    #[ignore]
     fn check_multiline_expr3() {
         let tokens = tokenize(b"let \
      row x = \

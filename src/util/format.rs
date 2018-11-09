@@ -212,11 +212,11 @@ impl Display for Token {
             Token::LitChar(value) => { write!(f, "{}", value) },
             Token::LitString(value) => { write!(f, "{}", value) },
             Token::Indent(value) => {
-                write!(f, "<")?;
-                for _ in 0..(*value) {
-                    write!(f, "\\n")?;
+                if *value == 0 {
+                    write!(f, "<NewLine>")?;
+                } else {
+                    write!(f, "<Indentation {} >", *value)?;
                 }
-                write!(f, ">")?;
                 Ok(())
             },
             Token::BackSlash => { write!(f, "\\") },
