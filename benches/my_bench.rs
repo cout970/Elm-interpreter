@@ -1,13 +1,18 @@
 #[macro_use]
 extern crate criterion;
 extern crate elm_interpreter;
+extern crate nom;
 
 use criterion::Criterion;
-use elm_interpreter::tokenizer::tokenize;
-use elm_interpreter::parsers::parse_module;
+
+use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
 use elm_interpreter::interpreter::eval_expression;
 use elm_interpreter::interpreter::eval_statement;
-use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
+use elm_interpreter::parsers::parse_module;
+use elm_interpreter::tokenizer::tokenize;
+use elm_interpreter::tokenizer::TokenStream;
+use elm_interpreter::parsers::new::util::from;
+use elm_interpreter::parsers::new::parse_full_module;
 
 fn bench_tokenize_small_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
@@ -22,13 +27,23 @@ fn bench_tokenize_medium_file(c: &mut Criterion) {
 fn bench_parser_small_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
     let tokens = tokenize(code).unwrap();
-    c.bench_function("parser_1", move |b| b.iter(|| parse_module(&tokens)));
+    c.bench_function("parser_1", move |b| b.iter(|| parse_module(TokenStream::new(&tokens))));
 }
 
 fn bench_parser_medium_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_2.elm");
     let tokens = tokenize(code).unwrap();
-    c.bench_function("parser_2", move |b| b.iter(|| parse_module(&tokens)));
+    c.bench_function("parser_2", move |b| b.iter(|| parse_module(TokenStream::new(&tokens))));
+}
+
+fn bench_new_parser_small_file(c: &mut Criterion) {
+    let input = from(include_str!("data/tokenizer_1.elm"));
+    c.bench_function("new_parser_1", move |b| b.iter(|| parse_full_module(input.clone())));
+}
+
+fn bench_new_parser_medium_file(c: &mut Criterion) {
+    let input = from(include_str!("data/tokenizer_2.elm"));
+    c.bench_function("new_parser_2", move |b| b.iter(|| parse_full_module(input.clone())));
 }
 
 fn bench_eval_expr_1(c: &mut Criterion) {
@@ -47,6 +62,7 @@ fn bench_eval_expr_2(c: &mut Criterion) {
 
 criterion_group!(tokenizer_benches, bench_tokenize_small_file, bench_tokenize_medium_file);
 criterion_group!(parser_benches, bench_parser_small_file, bench_parser_medium_file);
+criterion_group!(new_parser_benches, bench_new_parser_small_file, bench_new_parser_medium_file);
 criterion_group!(eval_benches, bench_eval_expr_1, bench_eval_expr_2);
 
-criterion_main!(tokenizer_benches, parser_benches, eval_benches);
+criterion_main!(tokenizer_benches, parser_benches, new_parser_benches, eval_benches);

@@ -22,7 +22,7 @@ mod types;
 mod statement;
 mod expression;
 mod pattern;
-mod new;
+pub mod new;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SyntaxError {

@@ -24,7 +24,7 @@ pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
 
     // TODO remove
     // DEBUG
-    check_split_blocks(i.clone());
+//    check_split_blocks(i.clone());
 
     let blocks = split_blocks(i.clone());
     let mut index = 0;

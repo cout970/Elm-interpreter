@@ -2,10 +2,14 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::sync::Arc;
+
+use ast::Module;
+use parsers::new::module::parse_module;
+use parsers::new::util::complete;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 
-mod util;
+pub mod util;
 mod pattern;
 mod expression;
 mod types;
@@ -29,6 +33,10 @@ pub struct Input {
     code: Arc<Vec<TokenInfo>>,
     ptr: usize,
     levels: Vec<u32>,
+}
+
+pub fn parse_full_module(input: Input) -> Result<Module, ParseError> {
+    Ok(complete(&parse_module, input)?)
 }
 
 impl Input {
@@ -82,11 +90,12 @@ impl Input {
             }
         }
 
-        ptr
+        ptr.min(self.code.len() - 1)
     }
 
     pub fn read_forced(&self) -> Token {
-        self.code[self.ptr].token.clone()
+        let ptr = self.ptr.min(self.code.len() - 1);
+        self.code[ptr].token.clone()
     }
 }
 
@@ -178,5 +187,19 @@ impl Display for ParseError {
                 write!(f, "Expected indentation of {}, but found {}: {}\n", expected, found, input)
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use parsers::new::util::from;
+    use parsers::new::util::test_parser;
+
+    use super::*;
+
+    #[test]
+    fn test_benches() {
+        test_parser(parse_module, include_str!("../../../benches/data/tokenizer_2.elm"));
     }
 }
