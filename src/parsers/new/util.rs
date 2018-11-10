@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
+use util::create_vec;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
@@ -59,6 +60,13 @@ pub fn elem_comma<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError
     Ok((res, i))
 }
 
+pub fn pipe_elem<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
+    where F: Fn(Input) -> Result<(T, Input), ParseError> {
+    let i = expect(Token::Pipe, input)?;
+    let (res, i) = func(i)?;
+    Ok((res, i))
+}
+
 pub fn comma0<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
     let (mut res, i) = many0(&|i| elem_comma(func, i), input)?;
@@ -67,6 +75,14 @@ pub fn comma0<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseErro
         res.push(t);
     }
     Ok((res, i))
+}
+
+pub fn pipe1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
+    where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
+    let (first, i) = func(input)?;
+    let (rest, i) = many0(&|i| pipe_elem(func, i), i)?;
+    Ok((create_vec(first, rest), i))
 }
 
 pub fn expect(tk: Token, input: Input) -> Result<Input, ParseError> {
@@ -100,7 +116,7 @@ pub fn expect_indent(expected: u32, input: Input) -> Result<Input, ParseError> {
 }
 
 pub fn read_indent(input: Input) -> Result<u32, ParseError> {
-    if let Token::Indent(found) = input.read() {
+    if let Token::Indent(found) = input.read_forced() {
         Ok(found)
     } else {
         let found = input.read();
@@ -175,5 +191,13 @@ pub fn test_parser_error<F, T: Debug>(func: F, code: &str)
         Err(error) => {
             println!("Error: {}\n", error);
         }
+    }
+}
+
+pub fn print_tokens(mut i: Input){
+
+    while i.read() != Token::Eof {
+        println!("Tk: {}", i.read());
+        i = i.next();
     }
 }

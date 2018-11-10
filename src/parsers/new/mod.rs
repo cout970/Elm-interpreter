@@ -8,6 +8,8 @@ use tokenizer::TokenInfo;
 mod util;
 mod pattern;
 mod expression;
+mod types;
+mod statement;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
@@ -34,16 +36,7 @@ impl Input {
     }
 
     pub fn next(&self) -> Input {
-        let mut ptr = self.ptr;
-
-        // Ignore indentation that doesn't match a current level defined by a `case of` or `let in` expression
-        while let Token::Indent(level) = &self.code[ptr].token {
-            if !self.levels.contains(level) {
-                ptr += 1;
-            } else {
-                break;
-            }
-        }
+        let ptr = self.skip_indent();
 
         Input {
             code_str: Arc::clone(&self.code_str),
@@ -69,6 +62,29 @@ impl Input {
     }
 
     pub fn read(&self) -> Token {
+        let ptr = self.skip_indent();
+        self.code[ptr].token.clone()
+    }
+
+    fn skip_indent(&self) -> usize {
+        let mut ptr = self.ptr;
+
+        // Ignore indentation that doesn't match a current level
+        // defined by a `case of` or `let in` expression
+        if ptr < self.code.len() {
+            while let Token::Indent(level) = &self.code[ptr].token {
+                if !self.levels.contains(level) {
+                    ptr += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        ptr
+    }
+
+    pub fn read_forced(&self) -> Token {
         self.code[self.ptr].token.clone()
     }
 }
@@ -96,6 +112,7 @@ impl Display for Input {
 
         while line_start > 0 {
             if self.code_str.as_bytes()[line_start] == b'\n' {
+                line_start += 1;
                 break;
             }
             line_start -= 1;
@@ -114,16 +131,23 @@ impl Display for Input {
 
         for index in line_start..line_end {
             if index == error_pos {
-                trail.push('\u{2143}');
+                trail.push('┘');
                 pointer.push('\u{028C}');
             } else if index < error_pos {
-                trail.push('_');
+                trail.push('─');
                 pointer.push(' ');
             }
             line.push(self.code_str.as_bytes()[index] as char);
         }
 
-        write!(f, "\n| {}\n| {}\n| {}", line, pointer, trail)
+        let line_num = format!("{}", loc.line + 1);
+        let mut spaces = String::new();
+
+        for _ in 0..line_num.len() {
+            spaces.push(' ');
+        }
+
+        write!(f, "\n{} │ {}\n{} │ {}\n{} │ {}", line_num, line, spaces, pointer, spaces, trail)
     }
 }
 

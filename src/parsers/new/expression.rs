@@ -17,7 +17,7 @@ use parsers::new::util::read_indent;
 use tokenizer::Token;
 use util::create_vec;
 
-fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
+pub fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
     let (first, i) = parse_expr_application(input)?;
     let (rest, i) = many0(&binop_expr, i)?;
 
@@ -139,12 +139,14 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                             (Expr::RecordUpdate(name, values), i)
                         }
                         _ => {
+                            let input = i;
                             let found = input.read();
                             return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::Equals, Token::Pipe] });
                         }
                     }
                 }
                 _ => {
+                    let input = i;
                     let found = input.read();
                     return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::RightBrace, Token::Id(String::from("variable"))] });
                 }
