@@ -1,9 +1,11 @@
+use ast::Definition;
 use ast::Expr;
 use ast::Literal;
 use ast::Pattern;
 use parsers::new::Input;
 use parsers::new::ParseError;
 use parsers::new::pattern::parse_pattern;
+use parsers::new::statement::parse_definition;
 use parsers::new::util::comma0;
 use parsers::new::util::expect;
 use parsers::new::util::expect_binop;
@@ -160,8 +162,21 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             (Expr::Lambda(pats, Box::from(expr)), i)
         }
         Token::Let => {
-            // TODO implement when parse_definition is done
-            unimplemented!()
+            let i = input.next();
+            let level = read_indent(i.clone())?;
+
+            let i = i.enter_level(level);
+
+            let (defs, i) = many1(&|i| {
+                parse_definition(level, expect_indent(level, i)?)
+            }, i)?;
+
+            let i = i.exit_level(level);
+
+            let i = expect(Token::In, i)?;
+            let (expr, i) = parse_expr(i)?;
+
+            (Expr::Let(defs, Box::from(expr)), i)
         }
         Token::Case => {
             let (cond, i) = parse_expr(input.next())?;

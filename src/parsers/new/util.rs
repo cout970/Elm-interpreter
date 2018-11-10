@@ -8,6 +8,7 @@ use util::create_vec;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
     let mut accum: Vec<T> = vec![];
 
     loop {
@@ -26,6 +27,7 @@ pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseE
 
 pub fn many1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
     let mut accum: Vec<T> = vec![];
 
     let (first, mut i) = func(input)?;
@@ -47,6 +49,7 @@ pub fn many1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError
 
 pub fn optional<T, F>(func: &F, input: Input) -> (Option<T>, Input)
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
     match func(input.clone()) {
         Ok((t, i)) => (Some(t), i),
         Err(_) => (None, input)
@@ -55,13 +58,22 @@ pub fn optional<T, F>(func: &F, input: Input) -> (Option<T>, Input)
 
 pub fn elem_comma<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
     let (res, i) = func(input)?;
     let i = expect(Token::Comma, i)?;
     Ok((res, i))
 }
 
+pub fn comma_elem<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
+    where F: Fn(Input) -> Result<(T, Input), ParseError> {
+    let i = expect(Token::Comma, input)?;
+    let (res, i) = func(i)?;
+    Ok((res, i))
+}
+
 pub fn pipe_elem<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
     let i = expect(Token::Pipe, input)?;
     let (res, i) = func(i)?;
     Ok((res, i))
@@ -69,12 +81,22 @@ pub fn pipe_elem<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
 
 pub fn comma0<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
     let (mut res, i) = many0(&|i| elem_comma(func, i), input)?;
     let (opt, i) = optional(func, i);
     if let Some(t) = opt {
         res.push(t);
     }
     Ok((res, i))
+}
+
+pub fn comma1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
+    where F: Fn(Input) -> Result<(T, Input), ParseError> {
+
+    let (first, i) = func(input)?;
+    let (rest, i) = many0(&|i| comma_elem(func, i), i)?;
+
+    Ok((create_vec(first, rest), i))
 }
 
 pub fn pipe1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>

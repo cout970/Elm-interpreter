@@ -10,6 +10,7 @@ mod pattern;
 mod expression;
 mod types;
 mod statement;
+mod module;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
