@@ -159,8 +159,8 @@ fn parse_import(input: Input) -> Result<(Import, Input), ParseError> {
                     (ModuleExposing::All, i.next())
                 }
                 _ => {
-                    let (exps, i) = comma1(&parse_exposing, i)?;
-                    (ModuleExposing::Just(exps), i)
+                    let (exposings, i) = comma1(&parse_exposing, i)?;
+                    (ModuleExposing::Just(exposings), i)
                 }
             };
             let i = expect(Token::RightParen, i)?;
@@ -223,8 +223,14 @@ fn parse_exposing(input: Input) -> Result<(Exposing, Input), ParseError> {
 
 #[cfg(test)]
 mod tests {
+    use ast::Definition;
+    use ast::Expr;
+    use ast::Literal;
+    use ast::Pattern;
+    use ast::Statement;
     use parsers::new::util::test_parser;
     use parsers::new::util::test_parser_error;
+    use util::StringConversion;
 
     use super::*;
 
@@ -291,5 +297,92 @@ mod tests {
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Process.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Set.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Task.elm"));
+    }
+
+    #[test]
+    fn check_empty_module() {
+        test_parser_result(parse_module, "module My_module exposing (..)", Module {
+            header: Some(ModuleHeader {
+                name: "My_module".s(),
+                exposing: ModuleExposing::All,
+            }),
+            imports: vec![],
+            statements: vec![],
+        });
+    }
+
+    #[test]
+    fn check_only_defs() {
+        test_parser_result(parse_module, "func a = a + 1", Module {
+            header: None,
+            imports: vec![],
+            statements: vec![
+                Statement::Def(Definition {
+                    header: None,
+                    name: "func".s(),
+                    patterns: vec![Pattern::Var("a".s())],
+                    expr: Expr::OpChain(
+                        vec![Expr::Ref("a".s()), Expr::Literal(Literal::Int(1))],
+                        vec!["+".s()],
+                    ),
+                })
+            ],
+        });
+    }
+
+    #[test]
+    fn check_module_exports() {
+        test_parser_result(parse_module, "module MyMod exposing ( List, Maybe )", Module {
+            header: Some(ModuleHeader {
+                name: "MyMod".s(),
+                exposing: ModuleExposing::Just(vec![
+                    Exposing::Type("List".s()),
+                    Exposing::Type("Maybe".s()),
+                ]),
+            }),
+            imports: vec![],
+            statements: vec![],
+        });
+    }
+
+    #[test]
+    fn check_module_imports() {
+        test_parser_result(parse_module, "import Html exposing (..)", Module {
+            header: None,
+            imports: vec![
+                Import::Exposing(vec!["Html".s()], ModuleExposing::All)
+            ],
+            statements: vec![],
+        });
+    }
+
+    #[test]
+    fn check_module_imports_adv() {
+        let code = "\
+import Html exposing (..)\n\
+import Util\n\
+import Util as U\n\
+import Util exposing (..)\n\
+import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
+";
+
+        test_parser_result(parse_module, code, Module {
+            header: None,
+            imports: vec![
+                Import::Exposing(vec!["Html".s()], ModuleExposing::All),
+                Import::Module(vec!["Util".s()]),
+                Import::Alias(vec!["Util".s()], "U".s()),
+                Import::Exposing(vec!["Util".s()], ModuleExposing::All),
+                Import::Exposing(vec!["Util".s()], ModuleExposing::Just(vec![
+                    Exposing::Type("Enum".s()),
+                    Exposing::Definition("map".s()),
+                    Exposing::Adt("Sides".s(), AdtExposing::All),
+                    Exposing::Adt("UpDown".s(), AdtExposing::Variants(
+                        vec!["Up".s(), "Down".s()]
+                    )),
+                ])),
+            ],
+            statements: vec![],
+        });
     }
 }

@@ -320,107 +320,107 @@ fn check_split_blocks(s: TokenStream) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokenizer::tokenize;
-    use tokenizer::TokenStream;
-    use util::StringConversion;
-
-    #[test]
-    fn check_empty_module() {
-        let tokens = tokenize(b"module My_module exposing (..)").unwrap();
-        let m = read_module(TokenStream::new(&tokens));
-        assert_ok!(m, Module {
-              header: Some(ModuleHeader{
-                    name: "My_module".s(),
-                    exposing: ModuleExposing::All,
-              }),
-              imports: vec![],
-              statements: vec![],
-        });
-    }
-
-    #[test]
-    fn check_only_defs() {
-        let tokens = tokenize(b"func a = a + 1").unwrap();
-        let m = read_module(TokenStream::new(&tokens));
-        assert_ok!(m, Module {
-            header: None,
-            imports: vec![],
-            statements: vec![
-                Statement::Def(Definition {
-                    header: None,
-                    name: "func".s(),
-                    patterns: vec![Pattern::Var("a".s())],
-                    expr: Expr::OpChain(
-                        vec![Expr::Ref("a".s()), Expr::Literal(Literal::Int(1))],
-                        vec!["+".s()]
-                    ),
-                })
-            ],
-        });
-    }
-
-    #[test]
-    fn check_module_exports() {
-        let tokens = tokenize(b"module MyMod exposing ( List, Maybe )").unwrap();
-        let m = read_module(TokenStream::new(&tokens));
-        assert_ok!(m, Module {
-              header: Some(ModuleHeader{
-                    name: "MyMod".s(),
-                    exposing: ModuleExposing::Just(vec![
-                        Exposing::Type("List".s()),
-                        Exposing::Type("Maybe".s()),
-                    ]),
-              }),
-              imports: vec![],
-              statements: vec![],
-        });
-    }
-
-    #[test]
-    fn check_module_imports() {
-        let tokens = tokenize(b"import Html exposing (..)").unwrap();
-
-        let m = read_module(TokenStream::new(&tokens));
-        assert_ok!(m, Module {
-            header: None,
-            imports: vec![
-                Import::Exposing(vec!["Html".s()], ModuleExposing::All)
-            ],
-            statements: vec![],
-        });
-    }
-
-    #[test]
-    fn check_module_imports_adv() {
-        let tokens = tokenize(b"\
-import Html exposing (..)\n\
-import Util\n\
-import Util as U\n\
-import Util exposing (..)\n\
-import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
-").unwrap();
-
-        let m = read_module(TokenStream::new(&tokens));
-        assert_ok!(m, Module {
-            header: None,
-            imports: vec![
-                Import::Exposing(vec!["Html".s()], ModuleExposing::All),
-                Import::Module(vec!["Util".s()]),
-                Import::Alias(vec!["Util".s()], "U".s()),
-                Import::Exposing(vec!["Util".s()], ModuleExposing::All),
-                Import::Exposing(vec!["Util".s()], ModuleExposing::Just(vec![
-                    Exposing::Type("Enum".s()),
-                    Exposing::Definition("map".s()),
-                    Exposing::Adt("Sides".s(), AdtExposing::All),
-                    Exposing::Adt("UpDown".s(), AdtExposing::Variants(
-                        vec!["Up".s(), "Down".s()]
-                    )),
-                ])),
-            ],
-            statements: vec![],
-        });
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::*;
+//    use tokenizer::tokenize;
+//    use tokenizer::TokenStream;
+//    use util::StringConversion;
+//
+//    #[test]
+//    fn check_empty_module() {
+//        let tokens = tokenize(b"module My_module exposing (..)").unwrap();
+//        let m = read_module(TokenStream::new(&tokens));
+//        assert_ok!(m, Module {
+//              header: Some(ModuleHeader{
+//                    name: "My_module".s(),
+//                    exposing: ModuleExposing::All,
+//              }),
+//              imports: vec![],
+//              statements: vec![],
+//        });
+//    }
+//
+//    #[test]
+//    fn check_only_defs() {
+//        let tokens = tokenize(b"func a = a + 1").unwrap();
+//        let m = read_module(TokenStream::new(&tokens));
+//        assert_ok!(m, Module {
+//            header: None,
+//            imports: vec![],
+//            statements: vec![
+//                Statement::Def(Definition {
+//                    header: None,
+//                    name: "func".s(),
+//                    patterns: vec![Pattern::Var("a".s())],
+//                    expr: Expr::OpChain(
+//                        vec![Expr::Ref("a".s()), Expr::Literal(Literal::Int(1))],
+//                        vec!["+".s()]
+//                    ),
+//                })
+//            ],
+//        });
+//    }
+//
+//    #[test]
+//    fn check_module_exports() {
+//        let tokens = tokenize(b"module MyMod exposing ( List, Maybe )").unwrap();
+//        let m = read_module(TokenStream::new(&tokens));
+//        assert_ok!(m, Module {
+//              header: Some(ModuleHeader{
+//                    name: "MyMod".s(),
+//                    exposing: ModuleExposing::Just(vec![
+//                        Exposing::Type("List".s()),
+//                        Exposing::Type("Maybe".s()),
+//                    ]),
+//              }),
+//              imports: vec![],
+//              statements: vec![],
+//        });
+//    }
+//
+//    #[test]
+//    fn check_module_imports() {
+//        let tokens = tokenize(b"import Html exposing (..)").unwrap();
+//
+//        let m = read_module(TokenStream::new(&tokens));
+//        assert_ok!(m, Module {
+//            header: None,
+//            imports: vec![
+//                Import::Exposing(vec!["Html".s()], ModuleExposing::All)
+//            ],
+//            statements: vec![],
+//        });
+//    }
+//
+//    #[test]
+//    fn check_module_imports_adv() {
+//        let tokens = tokenize(b"\
+//import Html exposing (..)\n\
+//import Util\n\
+//import Util as U\n\
+//import Util exposing (..)\n\
+//import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
+//").unwrap();
+//
+//        let m = read_module(TokenStream::new(&tokens));
+//        assert_ok!(m, Module {
+//            header: None,
+//            imports: vec![
+//                Import::Exposing(vec!["Html".s()], ModuleExposing::All),
+//                Import::Module(vec!["Util".s()]),
+//                Import::Alias(vec!["Util".s()], "U".s()),
+//                Import::Exposing(vec!["Util".s()], ModuleExposing::All),
+//                Import::Exposing(vec!["Util".s()], ModuleExposing::Just(vec![
+//                    Exposing::Type("Enum".s()),
+//                    Exposing::Definition("map".s()),
+//                    Exposing::Adt("Sides".s(), AdtExposing::All),
+//                    Exposing::Adt("UpDown".s(), AdtExposing::Variants(
+//                        vec!["Up".s(), "Down".s()]
+//                    )),
+//                ])),
+//            ],
+//            statements: vec![],
+//        });
+//    }
+//}

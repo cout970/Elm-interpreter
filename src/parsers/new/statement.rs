@@ -88,8 +88,14 @@ fn parse_adt_branch(input: Input) -> Result<((String, Vec<Type>), Input), ParseE
 
 #[cfg(test)]
 mod tests {
+    use ast::Expr;
+    use ast::Literal;
+    use ast::Pattern;
     use parsers::new::util::test_parser;
     use parsers::new::util::test_parser_error;
+    use parsers::new::util::test_parser_result;
+    use util::StringConversion;
+
     use super::*;
 
     #[test]
@@ -122,5 +128,141 @@ mod tests {
         test_parser_error(parse_statement, "type alias EmptySet = \n{}");
         test_parser_error(parse_statement, "type alias Set a = { \nall: List a, \ninside: List a \n}");
         test_parser_error(parse_statement, "port sum");
+    }
+
+    #[test]
+    fn check_type_alias() {
+        test_parser_result(parse_statement, "type alias Html = MyHtml", Statement::Alias(
+            "Html".s(), vec![],
+            Type::Tag("MyHtml".s(), vec![]),
+        ));
+    }
+
+    #[test]
+    fn check_adt() {
+        test_parser_result(parse_statement, "type Boolean = True | False", Statement::Adt(
+            "Boolean".s(), vec![],
+            vec![("True".s(), vec![]), ("False".s(), vec![])],
+        ));
+    }
+
+    #[test]
+    fn check_port() {
+        test_parser_result(parse_statement, "port js_function : Int -> Int", Statement::Port(
+            "js_function".s(),
+            Type::Fun(
+                Box::new(Type::Tag("Int".s(), vec![])),
+                Box::new(Type::Tag("Int".s(), vec![])),
+            ),
+        ));
+    }
+
+    #[test]
+    fn check_def() {
+        test_parser_result(parse_statement, "my_fun x = ()", Statement::Def(
+            Definition {
+                header: None,
+                name: "my_fun".s(),
+                patterns: vec![Pattern::Var("x".s())],
+                expr: Expr::Unit,
+            }
+        ));
+    }
+
+    #[test]
+    fn check_def2() {
+        test_parser_result(parse_statement, "x = 5", Statement::Def(
+            Definition {
+                header: None,
+                name: "x".s(),
+                patterns: vec![],
+                expr: Expr::Literal(Literal::Int(5)),
+            }
+        ));
+    }
+
+    #[test]
+    fn check_def3() {
+        test_parser_result(parse_statement, "my_fun: Int\nmy_fun = 5", Statement::Def(
+            Definition {
+                header: Some(Type::Tag("Int".s(), vec![])),
+                name: "my_fun".s(),
+                patterns: vec![],
+                expr: Expr::Literal(Literal::Int(5)),
+            }
+        ));
+    }
+
+    //    #[test]
+    fn check_def4() {
+        let code = "\
+update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
+        ";
+
+        test_parser_result(parse_statement, code, Statement::Def(
+            Definition {
+                header: None,
+                name: "update".s(),
+                patterns: vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
+                expr: Expr::Case(
+                    Box::new(Expr::Ref("msg".s())),
+                    vec![
+                        (
+                            Pattern::Adt("Increment".s(), vec![]),
+                            Expr::OpChain(
+                                vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                vec!["+".s()],
+                            )
+                        ),
+                        (
+                            Pattern::Adt("Decrement".s(), vec![]),
+                            Expr::OpChain(
+                                vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                vec!["-".s()],
+                            )
+                        )
+                    ],
+                ),
+            }
+        ),
+        );
+    }
+
+    #[test]
+    fn check_function_header() {
+        test_parser_result(parse_statement, "init: () -> (Model, Cmd Msg)\ninit flags = ({ grid = createGrid 32}, loadMap \"/src/map.txt\")", Statement::Def(Definition {
+            header: Some(Type::Fun(
+                Box::from(Type::Unit),
+                Box::from(Type::Tuple(vec![
+                    Type::Tag("Model".s(), vec![]),
+                    Type::Tag("Cmd".s(), vec![
+                        Type::Tag("Msg".s(), vec![])
+                    ]),
+                ])),
+            )),
+            name: "init".s(),
+            patterns: vec![
+                Pattern::Var("flags".s())
+            ],
+            expr: Expr::Tuple(
+                vec![
+                    Expr::Record(
+                        vec![
+                            (
+                                "grid".s(),
+                                Expr::Application(
+                                    Box::from(Expr::Ref("createGrid".s())),
+                                    Box::from(Expr::Literal(Literal::Int(32))),
+                                )
+                            )
+                        ]
+                    ),
+                    Expr::Application(
+                        Box::from(Expr::Ref("loadMap".s())),
+                        Box::from(Expr::Literal(Literal::String("/src/map.txt".s()))),
+                    )
+                ]
+            ),
+        }));
     }
 }

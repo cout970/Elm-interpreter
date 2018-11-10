@@ -66,79 +66,79 @@ rule!(spaces<()>, do_parse!(
 
 rule!(literal<Pattern>, map!(literal!(), |l| Pattern::Literal(l)));
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokenizer::tokenize;
-    use util::StringConversion;
-    use tokenizer::TokenStream;
-
-    #[test]
-    fn check_literal() {
-        let tokens = tokenize(b"1").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Literal(Literal::Int(1)));
-    }
-
-    #[test]
-    fn check_variable() {
-        let tokens = tokenize(b"variable").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Var("variable".s()));
-    }
-
-    #[test]
-    fn check_algebraic_data_type() {
-        let tokens = tokenize(b"List a").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Adt("List".s(), vec![Pattern::Var("a".s())]));
-    }
-
-    #[test]
-    fn check_wildcard() {
-        let tokens = tokenize(b"_").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Wildcard);
-    }
-
-    #[test]
-    fn check_unit() {
-        let tokens = tokenize(b"()").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Unit);
-    }
-
-    #[test]
-    fn check_tuple() {
-        let tokens = tokenize(b"(a, b)").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Tuple(vec![
-            Pattern::Var("a".s()), Pattern::Var("b".s())
-        ]));
-    }
-
-    #[test]
-    fn check_empty_list() {
-        let tokens = tokenize(b"[]").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::List(vec![]));
-    }
-
-    #[test]
-    fn check_list() {
-        let tokens = tokenize(b"[a, b]").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::List(vec![
-            Pattern::Var("a".s()), Pattern::Var("b".s())
-        ]));
-    }
-
-    #[test]
-    fn check_record() {
-        let tokens = tokenize(b"{ a, b }").unwrap();
-        let m = read_pattern(TokenStream::new(&tokens));
-        assert_ok!(m, Pattern::Record(
-            vec!["a".s(), "b".s()]
-        ));
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::*;
+//    use tokenizer::tokenize;
+//    use util::StringConversion;
+//    use tokenizer::TokenStream;
+//
+//    #[test]
+//    fn check_literal() {
+//        let tokens = tokenize(b"1").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Literal(Literal::Int(1)));
+//    }
+//
+//    #[test]
+//    fn check_variable() {
+//        let tokens = tokenize(b"variable").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Var("variable".s()));
+//    }
+//
+//    #[test]
+//    fn check_algebraic_data_type() {
+//        let tokens = tokenize(b"List a").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Adt("List".s(), vec![Pattern::Var("a".s())]));
+//    }
+//
+//    #[test]
+//    fn check_wildcard() {
+//        let tokens = tokenize(b"_").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Wildcard);
+//    }
+//
+//    #[test]
+//    fn check_unit() {
+//        let tokens = tokenize(b"()").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Unit);
+//    }
+//
+//    #[test]
+//    fn check_tuple() {
+//        let tokens = tokenize(b"(a, b)").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Tuple(vec![
+//            Pattern::Var("a".s()), Pattern::Var("b".s())
+//        ]));
+//    }
+//
+//    #[test]
+//    fn check_empty_list() {
+//        let tokens = tokenize(b"[]").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::List(vec![]));
+//    }
+//
+//    #[test]
+//    fn check_list() {
+//        let tokens = tokenize(b"[a, b]").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::List(vec![
+//            Pattern::Var("a".s()), Pattern::Var("b".s())
+//        ]));
+//    }
+//
+//    #[test]
+//    fn check_record() {
+//        let tokens = tokenize(b"{ a, b }").unwrap();
+//        let m = read_pattern(TokenStream::new(&tokens));
+//        assert_ok!(m, Pattern::Record(
+//            vec!["a".s(), "b".s()]
+//        ));
+//    }
+//}

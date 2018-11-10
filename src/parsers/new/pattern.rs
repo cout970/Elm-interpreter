@@ -66,6 +66,8 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
 mod tests {
     use parsers::new::util::test_parser;
     use parsers::new::util::test_parser_error;
+    use parsers::new::util::test_parser_result;
+    use util::StringConversion;
 
     use super::*;
 
@@ -96,4 +98,60 @@ mod tests {
         test_parser_error(parse_pattern, "[a,]");
         test_parser_error(parse_pattern, "{ x, y, }");
     }
+
+
+    #[test]
+    fn check_literal() {
+        test_parser_result(parse_pattern, "1", Pattern::Literal(Literal::Int(1)));
+    }
+
+    #[test]
+    fn check_variable() {
+        test_parser_result(parse_pattern, "variable", Pattern::Var("variable".s()));
+    }
+
+    #[test]
+    fn check_algebraic_data_type() {
+        test_parser_result(parse_pattern, "List a", Pattern::Adt(
+            "List".s(),
+            vec![Pattern::Var("a".s())],
+        ));
+    }
+
+    #[test]
+    fn check_wildcard() {
+        test_parser_result(parse_pattern, "_", Pattern::Wildcard);
+    }
+
+    #[test]
+    fn check_unit() {
+        test_parser_result(parse_pattern, "()", Pattern::Unit);
+    }
+
+    #[test]
+    fn check_tuple() {
+        test_parser_result(parse_pattern, "(a, b)", Pattern::Tuple(vec![
+            Pattern::Var("a".s()), Pattern::Var("b".s())
+        ]));
+    }
+
+    #[test]
+    fn check_empty_list() {
+        test_parser_result(parse_pattern, "[]", Pattern::List(vec![]));
+    }
+
+    #[test]
+    fn check_list() {
+        test_parser_result(parse_pattern, "[a, b]", Pattern::List(vec![
+            Pattern::Var("a".s()), Pattern::Var("b".s())
+        ]));
+    }
+
+    #[test]
+    fn check_record() {
+        test_parser_result(parse_pattern, "{ a, b }", Pattern::Record(
+            vec!["a".s(), "b".s()]
+        ));
+    }
 }
+

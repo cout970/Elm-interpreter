@@ -217,6 +217,22 @@ pub fn test_parser<F, T: Debug>(func: F, code: &str)
     }
 }
 
+pub fn test_parser_result<F, T: Debug + PartialEq>(func: F, code: &str, value: T)
+    where F: Fn(Input) -> Result<(T, Input), ParseError> {
+    let input = from(code);
+    let result = complete(&func, input.clone());
+    match result {
+        Ok(res) => {
+            println!("Value: {:?}\n", res);
+            assert_eq!(value, res);
+        }
+        Err(error) => {
+            println!("Error: {}\n", error);
+            panic!();
+        }
+    }
+}
+
 pub fn test_parser_error<F, T: Debug>(func: F, code: &str)
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
     let input = from(code);

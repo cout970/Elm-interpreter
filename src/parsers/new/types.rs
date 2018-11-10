@@ -5,8 +5,8 @@ use parsers::new::util::comma0;
 use parsers::new::util::expect;
 use parsers::new::util::expect_id;
 use parsers::new::util::many0;
-use tokenizer::Token;
 use parsers::new::util::optional_tk;
+use tokenizer::Token;
 use util::create_vec;
 
 pub fn parse_type(input: Input) -> Result<(Type, Input), ParseError> {
@@ -15,6 +15,7 @@ pub fn parse_type(input: Input) -> Result<(Type, Input), ParseError> {
 
     Ok((create_fun(ty, rest), i))
 }
+
 pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
     let (ty, i) = match input.read() {
         Token::Id(name) => (Type::Var(name.to_owned()), input.next()),
@@ -23,8 +24,9 @@ pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
             (Type::Tag(name.to_owned(), params), i)
         }
         Token::LeftParen => {
-            // Unit => ()
-            // Tuple => (a,) (a, b,) (a, b, c)
+            // () => Unit
+            // (a) => Paren
+            // (a,) (a, b,) (a, b, c) => Tuple
 
             let input = input.next();
             match input.read() {
@@ -32,9 +34,18 @@ pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
                     (Type::Unit, input.next())
                 }
                 _ => {
-                    let (values, i) = comma0(&parse_type, input)?;
-                    let i = expect(Token::RightParen, i)?;
-                    (Type::Tuple(values), i)
+                    let (first, i) = parse_type(input)?;
+                    match i.read() {
+                        Token::RightParen => {
+                            (first, i.next())
+                        }
+                        _ => {
+                            let i = expect(Token::Comma, i)?;
+                            let (rest, i) = comma0(&parse_type, i)?;
+                            let i = expect(Token::RightParen, i)?;
+                            (Type::Tuple(create_vec(first, rest)), i)
+                        }
+                    }
                 }
             }
         }
@@ -112,7 +123,7 @@ fn create_fun(a: Type, b: Vec<Type>) -> Type {
     let mut iter = c.into_iter().rev();
 
     iter.next().map(|first| iter.fold(first, |acc, b|
-        Type::Fun(Box::new(b), Box::new(acc))
+        Type::Fun(Box::new(b), Box::new(acc)),
     )).unwrap()
 }
 
@@ -121,6 +132,9 @@ fn create_fun(a: Type, b: Vec<Type>) -> Type {
 mod tests {
     use parsers::new::util::test_parser;
     use parsers::new::util::test_parser_error;
+    use parsers::new::util::test_parser_result;
+    use util::StringConversion;
+
     use super::*;
 
     #[test]
@@ -143,5 +157,78 @@ mod tests {
         test_parser_error(parse_type, "{ Int : x }");
         test_parser_error(parse_type, "Int ->");
         test_parser_error(parse_type, "-> Int");
+    }
+
+    #[test]
+    fn check_unit() {
+        test_parser_result(parse_type, "()", Type::Unit);
+    }
+
+    #[test]
+    fn check_variable() {
+        test_parser_result(parse_type, "a", Type::Var("a".s()));
+    }
+
+    #[test]
+    fn check_tag() {
+        test_parser_result(parse_type, "List a", Type::Tag(
+            "List".s(),
+            vec![Type::Var("a".s())],
+        ));
+    }
+
+    #[test]
+    fn check_tuple2() {
+        test_parser_result(parse_type, "(a,b)", Type::Tuple(vec![
+            Type::Var("a".s()), Type::Var("b".s())
+        ]));
+    }
+
+    #[test]
+    fn check_tuple6() {
+        test_parser_result(parse_type, "(a,b,c,d,e,f)", Type::Tuple(vec![
+            Type::Var("a".s()),
+            Type::Var("b".s()),
+            Type::Var("c".s()),
+            Type::Var("d".s()),
+            Type::Var("e".s()),
+            Type::Var("f".s()),
+        ]));
+    }
+
+    #[test]
+    fn check_empty_record() {
+        test_parser_result(parse_type, "{}", Type::Record(vec![]));
+    }
+
+    #[test]
+    fn check_record() {
+        test_parser_result(parse_type, "{ a: b }", Type::Record(
+            vec![("a".s(), Type::Var("b".s()))]
+        ));
+    }
+
+    #[test]
+    fn check_ext_record() {
+        test_parser_result(parse_type, "{ list | a: b }", Type::RecExt(
+            "list".s(),
+            vec![("a".s(), Type::Var("b".s()))],
+        ));
+    }
+
+    #[test]
+    fn check_paren() {
+        test_parser_result(parse_type, "(a)", Type::Var("a".s()));
+    }
+
+    #[test]
+    fn check_function() {
+        test_parser_result(parse_type, "Int -> Float -> a", Type::Fun(
+            Box::new(Type::Tag("Int".s(), vec![])),
+            Box::new(Type::Fun(
+                Box::new(Type::Tag("Float".s(), vec![])),
+                Box::new(Type::Var("a".s())),
+            )),
+        ));
     }
 }

@@ -14,7 +14,6 @@ mod module;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
-    TODO,
     Expected { input: Input, expected: Token, found: Token },
     ExpectedId { input: Input, found: Token },
     ExpectedUpperId { input: Input, found: Token },
@@ -157,9 +156,6 @@ impl Display for Input {
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
-            ParseError::TODO => {
-                write!(f, "TODO\n")
-            }
             ParseError::Expected { input, expected, found } => {
                 write!(f, "Expected token '{}', but found '{}': {}\n", expected, found, input)
             }
