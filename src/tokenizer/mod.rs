@@ -196,4 +196,15 @@ mod tests {
             Eof
         ]);
     }
+
+    #[test]
+    fn prefix_minus_edge_case(){
+        let code = b"(+), (-), (*)";
+        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        assert_eq!(tokens, vec![
+            LeftParen, BinaryOperator("+".s()), RightParen, Comma,
+            LeftParen, PrefixMinus, RightParen, Comma,
+            LeftParen, BinaryOperator("*".s()), RightParen, Eof
+        ]);
+    }
 }

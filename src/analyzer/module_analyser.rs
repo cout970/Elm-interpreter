@@ -316,7 +316,7 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
 
                 exposed_decls.push(decl);
             }
-            Exposing::Definition(name) => {
+            Exposing::Definition(name) | Exposing::BinaryOperator(name) => {
                 let decl = all_decls.iter()
                     .find(|decl| {
                         if let Declaration::Def(def_name, _) = decl {

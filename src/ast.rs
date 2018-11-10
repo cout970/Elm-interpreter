@@ -42,6 +42,7 @@ pub enum Exposing {
     Adt(String, AdtExposing),
     Type(String),
     Definition(String),
+    BinaryOperator(String),
 }
 
 /// Variants of an Adt Exposed

@@ -1,14 +1,13 @@
+use std::fmt::Debug;
+
 use parsers::new::Input;
 use parsers::new::ParseError;
-use std::fmt::Debug;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
-use util::create_vec;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
-
     let mut accum: Vec<T> = vec![];
 
     loop {
@@ -27,7 +26,6 @@ pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseE
 
 pub fn many1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
-
     let mut accum: Vec<T> = vec![];
 
     let (first, mut i) = func(input)?;
@@ -49,7 +47,6 @@ pub fn many1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError
 
 pub fn optional<T, F>(func: &F, input: Input) -> (Option<T>, Input)
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
-
     match func(input.clone()) {
         Ok((t, i)) => (Some(t), i),
         Err(_) => (None, input)
@@ -58,53 +55,58 @@ pub fn optional<T, F>(func: &F, input: Input) -> (Option<T>, Input)
 
 pub fn elem_comma<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
-
     let (res, i) = func(input)?;
     let i = expect(Token::Comma, i)?;
-    Ok((res, i))
-}
-
-pub fn comma_elem<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
-    where F: Fn(Input) -> Result<(T, Input), ParseError> {
-    let i = expect(Token::Comma, input)?;
-    let (res, i) = func(i)?;
-    Ok((res, i))
-}
-
-pub fn pipe_elem<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError>
-    where F: Fn(Input) -> Result<(T, Input), ParseError> {
-
-    let i = expect(Token::Pipe, input)?;
-    let (res, i) = func(i)?;
     Ok((res, i))
 }
 
 pub fn comma0<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
 
-    let (mut res, i) = many0(&|i| elem_comma(func, i), input)?;
-    let (opt, i) = optional(func, i);
-    if let Some(t) = opt {
-        res.push(t);
+    let (first, mut i) = match func(input.clone()) {
+        Ok(pair) => pair,
+        Err(_) => {
+            return Ok((vec![], input));
+        }
+    };
+
+    let mut accum: Vec<T> = vec![first];
+
+    while let Token::Comma = i.read() {
+        let (next, rest) = func(i.next())?;
+        accum.push(next);
+        i = rest;
     }
-    Ok((res, i))
+
+    Ok((accum, i))
 }
 
 pub fn comma1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+    let (first, mut i): (T, Input) = func(input)?;
+    let mut accum: Vec<T> = vec![first];
 
-    let (first, i) = func(input)?;
-    let (rest, i) = many0(&|i| comma_elem(func, i), i)?;
+    while let Token::Comma = i.read() {
+        let (next, rest) = func(i.next())?;
+        accum.push(next);
+        i = rest;
+    }
 
-    Ok((create_vec(first, rest), i))
+    Ok((accum, i))
 }
 
 pub fn pipe1<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
+    let (first, mut i): (T, Input) = func(input)?;
+    let mut accum: Vec<T> = vec![first];
 
-    let (first, i) = func(input)?;
-    let (rest, i) = many0(&|i| pipe_elem(func, i), i)?;
-    Ok((create_vec(first, rest), i))
+    while let Token::Pipe = i.read() {
+        let (next, rest) = func(i.next())?;
+        accum.push(next);
+        i = rest;
+    }
+
+    Ok((accum, i))
 }
 
 pub fn expect(tk: Token, input: Input) -> Result<Input, ParseError> {
@@ -179,9 +181,11 @@ pub fn expect_upper(input: Input) -> Result<(String, Input), ParseError> {
 pub fn expect_binop(input: Input) -> Result<(String, Input), ParseError> {
     if let Token::BinaryOperator(name) = input.read() {
         Ok((name, input.next()))
+    } else if let Token::PrefixMinus = input.read() {
+        Ok(("-".to_owned(), input.next()))
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedUpperId { input, found })
+        Err(ParseError::ExpectedBinaryOperator { input, found })
     }
 }
 
@@ -228,8 +232,7 @@ pub fn test_parser_error<F, T: Debug>(func: F, code: &str)
     }
 }
 
-pub fn print_tokens(mut i: Input){
-
+pub fn print_tokens(mut i: Input) {
     while i.read() != Token::Eof {
         println!("Tk: {}", i.read());
         i = i.next();

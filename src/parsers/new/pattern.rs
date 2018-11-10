@@ -1,15 +1,14 @@
-use ast::Pattern;
-use tokenizer::Token;
-use parsers::new::Input;
 use ast::Literal;
-use parsers::new::util::expect;
-use parsers::new::util::many0;
-use parsers::new::util::comma0;
-use parsers::new::util::expect_id;
+use ast::Pattern;
+use parsers::new::Input;
 use parsers::new::ParseError;
+use parsers::new::util::comma0;
+use parsers::new::util::expect;
+use parsers::new::util::expect_id;
+use parsers::new::util::many0;
+use tokenizer::Token;
 
 pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
-
     let (patt, i) = match input.read() {
         Token::Id(name) => (Pattern::Var(name.to_owned()), input.next()),
         Token::UpperId(name) => {
@@ -65,8 +64,10 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use parsers::new::util::test_parser;
+    use parsers::new::util::test_parser_error;
+
+    use super::*;
 
     #[test]
     fn pattern_test() {
@@ -75,20 +76,24 @@ mod tests {
         test_parser(parse_pattern, "A a");
         test_parser(parse_pattern, "()");
         test_parser(parse_pattern, "(a)");
-        test_parser(parse_pattern, "(a,)");
         test_parser(parse_pattern, "(a, a)");
-        test_parser(parse_pattern, "(a, a,)");
         test_parser(parse_pattern, "(a, a, a)");
         test_parser(parse_pattern, "A ()");
         test_parser(parse_pattern, "_");
         test_parser(parse_pattern, "[]");
         test_parser(parse_pattern, "[a]");
-        test_parser(parse_pattern, "[a,]");
         test_parser(parse_pattern, "x::xs");
         test_parser(parse_pattern, "[x::xs]");
         test_parser(parse_pattern, "{}");
         test_parser(parse_pattern, "{ x }");
         test_parser(parse_pattern, "{ x, y }");
-        test_parser(parse_pattern, "{ x, y, }");
+    }
+
+    #[test]
+    fn pattern_error_test() {
+        test_parser_error(parse_pattern, "(a,)");
+        test_parser_error(parse_pattern, "(a, a,)");
+        test_parser_error(parse_pattern, "[a,]");
+        test_parser_error(parse_pattern, "{ x, y, }");
     }
 }

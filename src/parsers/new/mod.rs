@@ -18,6 +18,7 @@ pub enum ParseError {
     Expected { input: Input, expected: Token, found: Token },
     ExpectedId { input: Input, found: Token },
     ExpectedUpperId { input: Input, found: Token },
+    ExpectedBinaryOperator { input: Input, found: Token },
     UnmatchedToken { input: Input, found: Token, options: Vec<Token> },
     ExpectedIndentationLevel { input: Input, expected: u32, found: u32 },
     ExpectedIndentation { input: Input, found: Token },
@@ -166,6 +167,9 @@ impl Display for ParseError {
             }
             ParseError::ExpectedUpperId { input, found } => {
                 write!(f, "Expected capitalized identifier, but found '{}': {}\n", found, input)
+            }
+            ParseError::ExpectedBinaryOperator { input, found } => {
+                write!(f, "Expected binary operator, but found '{}': {}\n", found, input)
             }
             ParseError::UnmatchedToken { input, found, .. } => {
                 write!(f, "Found unexpected token '{}': {}\n", found, input)

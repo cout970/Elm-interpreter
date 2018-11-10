@@ -7,12 +7,7 @@ use ast::ModuleHeader;
 use parsers::new::Input;
 use parsers::new::ParseError;
 use parsers::new::statement::parse_statement;
-use parsers::new::util::comma1;
-use parsers::new::util::expect;
-use parsers::new::util::expect_indent;
-use parsers::new::util::expect_upper;
-use parsers::new::util::many0;
-use parsers::new::util::many1;
+use parsers::new::util::*;
 use tokenizer::Token;
 use util::create_vec;
 
@@ -102,9 +97,33 @@ fn skip_empty_lines(input: Input) -> Result<Input, ParseError> {
     Ok(i)
 }
 
+
 fn parse_module_header(input: Input) -> Result<(ModuleHeader, Input), ParseError> {
-    let i = expect(Token::ModuleTk, input)?;
-    let (name, i) = expect_upper(i)?;
+    let (name, i) = match input.read() {
+        Token::ModuleTk => {
+            // module String exposing (..)
+            let i = input.next();
+            expect_upper(i)?
+        }
+        Token::EffectTk => {
+            // effect module Task where { command = MyCmd } exposing (..)
+            let i = expect(Token::ModuleTk, input.next())?;
+            let (name, i) = expect_upper(i)?;
+            let i = expect(Token::WhereTk, i)?;
+            let i = expect(Token::LeftBrace, i)?;
+            let (_, i) = expect_id(i)?;
+            let i = expect(Token::Equals, i)?;
+            let (_, i) = expect_upper(i)?;
+            let i = expect(Token::RightBrace, i)?;
+
+            (name, i)
+        }
+        _ => {
+            let found = input.read();
+            return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::ModuleTk, Token::EffectTk] });
+        }
+    };
+
     let i = expect(Token::ExposingTk, i)?;
     let i = expect(Token::LeftParen, i)?;
     let (exposing, i) = match i.read() {
@@ -112,7 +131,7 @@ fn parse_module_header(input: Input) -> Result<(ModuleHeader, Input), ParseError
             (ModuleExposing::All, i.next())
         }
         _ => {
-            let (exposing, i) = many1(&parse_exposing, i)?;
+            let (exposing, i) = comma1(&parse_exposing, i)?;
             (ModuleExposing::Just(exposing), i)
         }
     };
@@ -189,9 +208,15 @@ fn parse_exposing(input: Input) -> Result<(Exposing, Input), ParseError> {
                 }
             }
         }
+        Token::LeftParen => {
+            let (op, i) = expect_binop(input.next())?;
+            let i = expect(Token::RightParen, i)?;
+            Ok((Exposing::BinaryOperator(op), i))
+        }
         _ => {
             let found = input.read();
-            return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
+            let options = vec![Token::Id("definition".to_owned()), Token::UpperId("type".to_owned()), Token::LeftParen];
+            return Err(ParseError::UnmatchedToken { input, found, options });
         }
     }
 }
@@ -200,6 +225,7 @@ fn parse_exposing(input: Input) -> Result<(Exposing, Input), ParseError> {
 mod tests {
     use parsers::new::util::test_parser;
     use parsers::new::util::test_parser_error;
+
     use super::*;
 
     #[test]
@@ -246,5 +272,24 @@ mod tests {
         test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Map.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Util.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Vec.elm"));
+    }
+
+    #[test]
+    fn elm_core_module_test() {
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Array.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Debug.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/List.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Platform.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Result.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/String.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Tuple.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Basics.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Char.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Dict.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Maybe.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Process.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Set.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Task.elm"));
     }
 }

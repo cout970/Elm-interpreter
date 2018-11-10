@@ -5,19 +5,9 @@ use parsers::new::Input;
 use parsers::new::ParseError;
 use parsers::new::pattern::parse_pattern;
 use parsers::new::statement::parse_definition;
-use parsers::new::util::comma0;
-use parsers::new::util::expect;
-use parsers::new::util::expect_binop;
-use parsers::new::util::expect_id;
-use parsers::new::util::expect_indent;
-use parsers::new::util::expect_upper;
-use parsers::new::util::many0;
-use parsers::new::util::many1;
-use parsers::new::util::optional_tk;
-use parsers::new::util::read_indent;
+use parsers::new::util::*;
 use tokenizer::Token;
 use util::create_vec;
-use parsers::new::util::read_optional_indent;
 
 pub fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
     let (first, i) = parse_expr_application(input)?;
@@ -98,7 +88,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                         _ => {
                             // (1, 2)
                             let i = expect(Token::Comma, i)?;
-                            let (rest, i) = comma0(&parse_expr, i)?;
+                            let (rest, i) = comma1(&parse_expr, i)?;
                             let i = expect(Token::RightParen, i)?;
                             (Expr::Tuple(create_vec(value, rest)), i)
                         }
@@ -129,16 +119,20 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                         Token::Equals => {
                             // { x = 0 }
                             let (expr, i) = parse_expr(i.next())?;
-                            let i = optional_tk(Token::Comma, i);
                             let (values, i) = comma0(&parse_record_entry, i)?;
+
                             let i = expect(Token::RightBrace, i)?;
                             (Expr::Record(create_vec((name, expr), values)), i)
                         }
                         Token::Pipe => {
-                            // { a | x = 0}
-                            let (values, i) = comma0(&parse_record_entry, i.next())?;
+                            // { a | x = 0 }
+                            let (first_name, i) = expect_id(i.next())?;
+                            let i = expect(Token::Equals, i)?;
+                            let (first_expr, i) = parse_expr(i)?;
+                            let (values, i) = comma0(&parse_record_entry, i)?;
+
                             let i = expect(Token::RightBrace, i)?;
-                            (Expr::RecordUpdate(name, values), i)
+                            (Expr::RecordUpdate(name, create_vec((first_name, first_expr), values)), i)
                         }
                         _ => {
                             let input = i;
@@ -227,7 +221,8 @@ fn parse_dot_name(input: Input) -> Result<(String, Input), ParseError> {
 }
 
 fn parse_record_entry(input: Input) -> Result<((String, Expr), Input), ParseError> {
-    let (id, i) = expect_id(input)?;
+    let i = expect(Token::Comma, input)?;
+    let (id, i) = expect_id(i)?;
     let i = expect(Token::Equals, i)?;
     let (expr, i) = parse_expr(i)?;
 
@@ -262,6 +257,7 @@ fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
 mod tests {
     use parsers::new::util::test_parser;
     use parsers::new::util::test_parser_error;
+
     use super::*;
 
     #[test]
@@ -273,26 +269,18 @@ mod tests {
         test_parser(parse_expr, "if 1 then 2 else 3");
         test_parser(parse_expr, "()");
         test_parser(parse_expr, "(1)");
-        test_parser(parse_expr, "(1,)");
         test_parser(parse_expr, "(1,2)");
-        test_parser(parse_expr, "(1,2,)");
         test_parser(parse_expr, "[]");
         test_parser(parse_expr, "[1]");
-        test_parser(parse_expr, "[1,]");
         test_parser(parse_expr, "[1,2]");
-        test_parser(parse_expr, "[1,2,]");
         test_parser(parse_expr, "{}");
         test_parser(parse_expr, "{ x = 1 }");
-        test_parser(parse_expr, "{ x = 1, }");
         test_parser(parse_expr, "{ x = 1, y = 0 }");
-        test_parser(parse_expr, "{ x = 1, y = 0, }");
         test_parser(parse_expr, "a");
         test_parser(parse_expr, "my_var_name123");
         test_parser(parse_expr, "True");
         test_parser(parse_expr, "{ a | x = 0 }");
-        test_parser(parse_expr, "{ a | x = 0, }");
         test_parser(parse_expr, "{ a | x = 0, y = 1 }");
-        test_parser(parse_expr, "{ a | x = 0, y = 1, }");
         test_parser(parse_expr, "List");
         test_parser(parse_expr, "List.map");
         test_parser(parse_expr, "List.A.B.C.a");
@@ -323,5 +311,13 @@ mod tests {
         test_parser_error(parse_expr, "1 + 2 +");
         test_parser_error(parse_expr, "- 42");
         test_parser_error(parse_expr, "- (1+2)");
+        test_parser_error(parse_expr, "(1,)");
+        test_parser_error(parse_expr, "(1,2,)");
+        test_parser_error(parse_expr, "[1,]");
+        test_parser_error(parse_expr, "[1,2,]");
+        test_parser_error(parse_expr, "{ x = 1, }");
+        test_parser_error(parse_expr, "{ x = 1, y = 0, }");
+        test_parser_error(parse_expr, "{ a | x = 0, }");
+        test_parser_error(parse_expr, "{ a | x = 0, y = 1, }");
     }
 }
