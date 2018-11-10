@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fmt::Formatter;
 
 use parsers::new::Input;
 use parsers::new::ParseError;
@@ -62,7 +63,6 @@ pub fn elem_comma<T, F>(func: &F, input: Input) -> Result<(T, Input), ParseError
 
 pub fn comma0<T, F>(func: &F, input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
-
     let (first, mut i) = match func(input.clone()) {
         Ok(pair) => pair,
         Err(_) => {
@@ -236,5 +236,12 @@ pub fn print_tokens(mut i: Input) {
     while i.read() != Token::Eof {
         println!("Tk: {}", i.read());
         i = i.next();
+    }
+}
+
+
+pub fn print_token_locations(f: &mut Formatter, i: Input) {
+    for tk in i.code.iter().skip(i.ptr).take(20) {
+        write!(f, "{:03}:{:03} | {}\n", tk.start.line + 1, tk.start.column + 1, tk.token).unwrap();
     }
 }

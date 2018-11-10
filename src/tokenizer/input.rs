@@ -1,11 +1,11 @@
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Input<'a> {
     pub stream: &'a [u8],
     line: u32,
     column: u32,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Location {
     pub line: u32,
     pub column: u32,

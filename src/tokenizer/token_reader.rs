@@ -20,12 +20,10 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
         match res {
             Ok((rem, token)) => {
                 if token == Token::Eof { break; }
-                let info = TokenInfo {
-                    token,
-                    start: current_input.get_location(),
-                    end: rem.get_location(),
-                };
-                tokens.push(info);
+                let start = trim_spaces(current_input).0.get_location();
+                let end = rem.get_location();
+
+                tokens.push(TokenInfo { token, start, end });
                 current_input = rem;
             }
             Result::Err(e) => {

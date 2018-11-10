@@ -101,6 +101,7 @@ impl Display for Input {
             while self.code_str.as_bytes()[error_pos] != b'\n' {
                 error_pos += 1;
             }
+            error_pos += 1;
         }
 
         error_pos += loc.column as usize;
