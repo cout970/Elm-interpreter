@@ -43,7 +43,7 @@ pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
 
             (Statement::Port(name, ty), i)
         }
-        Token::Id(name) => {
+        Token::Id(_) => {
             let (def, i) = parse_definition(0, input)?;
 
             (Statement::Def(def), i)

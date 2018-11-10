@@ -125,6 +125,10 @@ pub fn optional_tk(tk: Token, input: Input) -> Input {
 }
 
 pub fn expect_indent(expected: u32, input: Input) -> Result<Input, ParseError> {
+    if expected == std::u32::MAX {
+        return Ok(input);
+    }
+
     if let Token::Indent(found) = input.read() {
         if expected == found {
             Ok(input.next())
@@ -143,6 +147,14 @@ pub fn read_indent(input: Input) -> Result<u32, ParseError> {
     } else {
         let found = input.read();
         Err(ParseError::ExpectedIndentation { input, found })
+    }
+}
+
+pub fn read_optional_indent(input: Input) -> u32 {
+    if let Token::Indent(found) = input.read_forced() {
+        found
+    } else {
+        std::u32::MAX
     }
 }
 

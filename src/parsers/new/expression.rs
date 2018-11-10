@@ -1,4 +1,3 @@
-use ast::Definition;
 use ast::Expr;
 use ast::Literal;
 use ast::Pattern;
@@ -18,6 +17,7 @@ use parsers::new::util::optional_tk;
 use parsers::new::util::read_indent;
 use tokenizer::Token;
 use util::create_vec;
+use parsers::new::util::read_optional_indent;
 
 pub fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
     let (first, i) = parse_expr_application(input)?;
@@ -163,7 +163,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
         }
         Token::Let => {
             let i = input.next();
-            let level = read_indent(i.clone())?;
+            let level = read_optional_indent(i.clone());
 
             let i = i.enter_level(level);
 
@@ -305,6 +305,9 @@ mod tests {
         test_parser(parse_expr, "1 + 2");
         test_parser(parse_expr, "-42");
         test_parser(parse_expr, "-(1+2)");
+        test_parser(parse_expr, "let\n x = 0\n in\n x * x");
+        test_parser(parse_expr, "let\n x = 10\n y = 5\n in\n x * y");
+        test_parser(parse_expr, "let x = 0 in x * x");
     }
 
     #[test]
