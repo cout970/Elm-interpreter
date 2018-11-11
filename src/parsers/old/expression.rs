@@ -1,13 +1,13 @@
 use ast::*;
 use nom::*;
-use parsers::module::read_ref;
-use parsers::module::upper_ids;
-use parsers::pattern::read_pattern;
-use parsers::statement::read_definition;
-use parsers::Tk;
+use parsers::old::module::read_ref;
+use parsers::old::module::upper_ids;
+use parsers::old::pattern::read_pattern;
+use parsers::old::statement::read_definition;
+use parsers::old::Tk;
 use tokenizer::Token::*;
 use util::create_vec;
-use parsers::SyntaxError;
+use parsers::old::ParseError;
 
 // Expressions
 
@@ -249,7 +249,7 @@ impl ExprParser {
 
 // independent methods
 
-pub fn read_expr(i: Tk) -> IResult<Tk, Expr, SyntaxError> {
+pub fn read_expr(i: Tk) -> IResult<Tk, Expr, ParseError> {
     let (_, m) = ExprParser::new().read_expr(i);
     m
 }

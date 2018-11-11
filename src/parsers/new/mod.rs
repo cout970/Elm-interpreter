@@ -3,13 +3,15 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::rc::Rc;
 
+use ast::Expr;
 use ast::Module;
-use parsers::new::module::parse_module;
+use ast::Statement;
+use errors::ErrorWrapper;
 use parsers::new::util::complete;
+use parsers::SyntaxError;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
-
-//use std::sync::Arc;
+use tokenizer::tokenize;
 
 pub mod util;
 mod pattern;
@@ -29,6 +31,36 @@ pub enum ParseError {
     ExpectedIndentation { input: Input, found: Token },
 }
 
+pub fn parse_expression(code: &str) -> Result<Expr, ErrorWrapper> {
+    let tk = tokenize(code.as_bytes())
+        .map_err(|e| ErrorWrapper::Lexical(e))?;
+
+    let input = Input::new(code.to_owned(), tk);
+
+    complete(&expression::parse_expr, input)
+           .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+}
+
+pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
+    let tk = tokenize(code.as_bytes())
+        .map_err(|e| ErrorWrapper::Lexical(e))?;
+
+    let input = Input::new(code.to_owned(), tk);
+
+    complete(&statement::parse_statement, input)
+           .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+}
+
+pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
+    let tk = tokenize(code.as_bytes())
+        .map_err(|e| ErrorWrapper::Lexical(e))?;
+
+    let input = Input::new(code.to_owned(), tk);
+
+    complete(&module::parse_module, input)
+        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Input {
     raw: Rc<RawInput>,
@@ -40,10 +72,6 @@ pub struct Input {
 struct RawInput {
     string: String,
     tokens: Vec<TokenInfo>,
-}
-
-pub fn parse_full_module(input: Input) -> Result<Module, ParseError> {
-    Ok(complete(&parse_module, input)?)
 }
 
 impl Input {
@@ -213,13 +241,14 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use parsers::new::util::test_parser;
+    use parsers::from_code_mod;
 
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_benches() {
-        test_parser(parse_module, include_str!("../../../benches/data/tokenizer_1.elm"));
-        test_parser(parse_module, include_str!("../../../benches/data/tokenizer_2.elm"));
+        from_code_mod(include_bytes!("../../../benches/data/tokenizer_1.elm"));
+        from_code_mod(include_bytes!("../../../benches/data/tokenizer_2.elm"));
     }
 }

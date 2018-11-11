@@ -14,7 +14,7 @@ macro_rules! tk {
                     Ok(($i.next(1), look.clone()))
                 } else {
                     Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                        SyntaxError::ExpectedToken($token, $i.read_info())
+                        ParseError::ExpectedToken($token, $i.read_info())
                     ))))
                 }
             }
@@ -39,7 +39,7 @@ macro_rules! id {
                     Ok(($i.next(1), str.clone()))
                 } else {
                     Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                        SyntaxError::ExpectedId($i.read_info())
+                        ParseError::ExpectedId($i.read_info())
                     ))))
                 }
             }
@@ -64,7 +64,7 @@ macro_rules! upper_id {
                     Ok(($i.next(1), str.clone()))
                 } else {
                     Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                        SyntaxError::ExpectedUpperId($i.read_info())
+                        ParseError::ExpectedUpperId($i.read_info())
                     ))))
                 }
             }
@@ -92,7 +92,7 @@ macro_rules! binop {
                         Ok(($i.next(1), "-".to_owned()))
                     } else {
                         Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                             SyntaxError::ExpectedBinaryOperator($i.read_info())
+                             ParseError::ExpectedBinaryOperator($i.read_info())
                         ))))
                     }
                 }
@@ -118,7 +118,7 @@ macro_rules! minus {
                     Ok(($i.next(1), ()))
                 } else {
                     Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                        SyntaxError::ExpectedToken(Token::PrefixMinus, $i.read_info())
+                        ParseError::ExpectedToken(Token::PrefixMinus, $i.read_info())
                     ))))
                 }
             }
@@ -144,7 +144,7 @@ macro_rules! literal {
                    LitChar(value) => Ok(($i.next(1), Literal::Char(value))),
                    LitString(value) => Ok(($i.next(1), Literal::String(value))),
                    _ => Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                        SyntaxError::ExpectedLiteral($i.read_info())
+                        ParseError::ExpectedLiteral($i.read_info())
                    ))))
                 }
             }
@@ -169,7 +169,7 @@ macro_rules! indent {
                 Ok(($i.next(1), ()))
             } else {
                  Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                    SyntaxError::ExpectedToken(Token::Indent($count), $i.read_info())
+                    ParseError::ExpectedToken(Token::Indent($count), $i.read_info())
                 ))))
             }
         }
@@ -191,7 +191,7 @@ macro_rules! indent {
                 Ok(($i.next(1), count))
             } else {
                  Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                    SyntaxError::ExpectedToken(Token::Indent(0), $i.read_info())
+                    ParseError::ExpectedToken(Token::Indent(0), $i.read_info())
                 ))))
             }
         }
@@ -213,14 +213,14 @@ macro_rules! indent_except {
             if let Token::Indent(count) = look {
                 if $levels.contains( &(count as usize)) {
                     Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                        SyntaxError::InvalidIndentation(($levels).clone(), count as usize)
+                        ParseError::InvalidIndentation(($levels).clone(), count as usize)
                     ))))
                 } else {
                     Ok(($i.next(1), count))
                 }
             } else {
                 Err(Err::Error(Context::Code( ($i).clone(), ErrorKind::Custom(
-                    SyntaxError::ExpectedToken(Token::Indent(0), $i.read_info())
+                    ParseError::ExpectedToken(Token::Indent(0), $i.read_info())
                 ))))
             }
         } else {
@@ -294,12 +294,12 @@ macro_rules! rule (
         named_attr!(#$($args)*);
     );
     ($name:ident<$o:ty>, $submac:ident!( $($args:tt)* )) => (
-        fn $name( i: Tk ) -> nom::IResult<Tk, $o, SyntaxError> {
+        fn $name( i: Tk ) -> nom::IResult<Tk, $o, ParseError> {
             $submac!(i, $($args)*)
         }
     );
     (pub $name:ident<$o:ty>, $submac:ident!( $($args:tt)* )) => (
-        pub fn $name( i: Tk ) -> nom::IResult<Tk, $o, SyntaxError> {
+        pub fn $name( i: Tk ) -> nom::IResult<Tk, $o, ParseError> {
             $submac!(i, $($args)*)
         }
     );
@@ -310,7 +310,7 @@ macro_rules! method_rule (
   // Non-public immutable self
   ($name:ident<$a:ty,$o:ty>, $self_:ident, $submac:ident!( $($args:tt)* )) => (
     #[allow(unused_variables)]
-    fn $name( $self_: $a, i: Tk ) -> ($a, nom::IResult<Tk,$o,SyntaxError>)  {
+    fn $name( $self_: $a, i: Tk ) -> ($a, nom::IResult<Tk,$o,ParseError>)  {
       let result = $submac!(i, $($args)*);
       ($self_, result)
     }
@@ -318,7 +318,7 @@ macro_rules! method_rule (
   // Public immutable self
   (pub $name:ident<$a:ty,$o:ty>, $self_:ident, $submac:ident!( $($args:tt)* )) => (
     #[allow(unused_variables)]
-    pub fn $name( $self_: $a,i: Tk ) -> ($a, nom::IResult<Tk,$o,SyntaxError>)  {
+    pub fn $name( $self_: $a,i: Tk ) -> ($a, nom::IResult<Tk,$o,ParseError>)  {
       let result = $submac!(i, $($args)*);
       ($self_, result)
     }
@@ -326,7 +326,7 @@ macro_rules! method_rule (
   // Non-public mutable self
   ($name:ident<$a:ty,$o:ty>, mut $self_:ident, $submac:ident!( $($args:tt)* )) => (
     #[allow(unused_variables)]
-    fn $name( mut $self_: $a, i: Tk ) -> ($a, nom::IResult<Tk,$o,SyntaxError>)  {
+    fn $name( mut $self_: $a, i: Tk ) -> ($a, nom::IResult<Tk,$o,ParseError>)  {
       let result = $submac!(i, $($args)*);
       ($self_, result)
     }
@@ -334,7 +334,7 @@ macro_rules! method_rule (
   // Public mutable self
   (pub $name:ident<$a:ty,$o:ty>, mut $self_:ident, $submac:ident!( $($args:tt)* )) => (
     #[allow(unused_variables)]
-    pub fn $name( mut $self_: $a,i: Tk ) -> ($a, nom::IResult<Tk,$o,SyntaxError>)  {
+    pub fn $name( mut $self_: $a,i: Tk ) -> ($a, nom::IResult<Tk,$o,ParseError>)  {
       let result = $submac!(i, $($args)*);
       ($self_, result)
     }

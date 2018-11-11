@@ -67,52 +67,6 @@ pub struct TokenInfo {
     pub token: Token,
 }
 
-#[derive(PartialEq, Clone)]
-pub struct TokenStream<'a> {
-    pub all: &'a [TokenInfo],
-    pub remaining: &'a [TokenInfo],
-}
-
-impl<'a> TokenStream<'a> {
-    pub fn new(src: &'a Vec<TokenInfo>) -> TokenStream<'a> {
-        TokenStream {
-            all: src,
-            remaining: src,
-        }
-    }
-
-    pub fn read_tk(&self) -> Token {
-        self.remaining[0].token.clone()
-    }
-
-    pub fn read_info(&self) -> TokenInfo {
-        self.remaining[0].clone()
-    }
-
-    pub fn next(&self, amount: u32) -> TokenStream<'a> {
-        TokenStream {
-            all: self.all,
-            remaining: &self.remaining[(amount as usize)..],
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.remaining.len()
-    }
-}
-
-impl<'a> InputLength for TokenStream<'a> {
-    fn input_len(&self) -> usize {
-        self.len()
-    }
-}
-
-impl<'a> AtEof for TokenStream<'a> {
-    fn at_eof(&self) -> bool {
-        self.len() == 0
-    }
-}
-
 pub fn tokenize<'a>(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
     read_tokens(stream)
 }

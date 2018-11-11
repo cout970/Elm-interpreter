@@ -1,9 +1,9 @@
 use *;
 use tokenizer::Token::*;
 use ast::*;
-use parsers::Tk;
+use parsers::old::Tk;
 use util::create_vec;
-use parsers::SyntaxError;
+use parsers::old::ParseError;
 
 // Types
 

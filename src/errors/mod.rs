@@ -1,10 +1,14 @@
+use std::fmt::Display;
+use std::fmt::Error;
+use std::fmt::Formatter;
+use std::fmt::Write;
+
 use analyzer::TypeError;
 use interpreter::RuntimeError;
 use parsers::SyntaxError;
-use std::fmt::Write;
+use rust_interop::InteropError;
 use tokenizer::LexicalError;
 use util::format::print_vec;
-use rust_interop::InteropError;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ErrorWrapper {
@@ -35,7 +39,7 @@ pub fn format_lexical_error(error: LexicalError) -> String {
 pub fn format_syntactic_error(error: SyntaxError) -> String {
     let mut msg = String::new();
     msg.push_str("-- PARSE ERROR ------------------------------------------------------------- elm\n");
-    write!(&mut msg, "{:?}", error).unwrap();
+    write!(&mut msg, "{}", error).unwrap();
     msg
 }
 
@@ -180,4 +184,10 @@ pub fn format_interop_error(error: InteropError) -> String {
     write!(&mut msg, "-- Interop ERROR ------------------------------------------------------------ elm\n\n").unwrap();
     write!(&mut msg, "{:?}", error).unwrap();
     msg
+}
+
+impl Display for ErrorWrapper {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", format_error(self.clone()))
+    }
 }

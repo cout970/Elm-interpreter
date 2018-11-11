@@ -1,6 +1,6 @@
 use nom::*;
 use nom::verbose_errors::Context;
-use tokenizer::input::Input;
+use tokenizer::input::InputSlice;
 use tokenizer::LexicalError;
 use tokenizer::Token;
 use tokenizer::token_parser::read_token_forced;
@@ -12,10 +12,10 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
     stream.push('\0' as u8);
 
     let mut tokens: Vec<TokenInfo> = Vec::new();
-    let mut current_input: Input = Input::new(&stream);
+    let mut current_input: InputSlice = InputSlice::new(&stream);
 
     loop {
-        let res: Result<(Input, Token), Err<Input, u32>> = next_token(current_input.clone());
+        let res: Result<(InputSlice, Token), Err<InputSlice, u32>> = next_token(current_input.clone());
 
         match res {
             Ok((rem, token)) => {
@@ -64,7 +64,7 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
     Ok(tokens)
 }
 
-fn next_token<'a>(i: Input) -> IResult<Input, Token> {
+fn next_token<'a>(i: InputSlice) -> IResult<InputSlice, Token> {
     use nom::verbose_errors::Context;
 
     if i.stream.len() == 0 {
@@ -93,7 +93,7 @@ fn next_token<'a>(i: Input) -> IResult<Input, Token> {
     Ok((i.advance(len), tk))
 }
 
-fn trim_spaces(i: Input) -> (Input, Option<Token>) {
+fn trim_spaces(i: InputSlice) -> (InputSlice, Option<Token>) {
     let mut ptr = 0;
     let mut new_line = false;
 
@@ -120,7 +120,7 @@ fn trim_spaces(i: Input) -> (Input, Option<Token>) {
     trim_comments(i.advance(ptr))
 }
 
-fn trim_comments(i: Input) -> (Input, Option<Token>) {
+fn trim_comments(i: InputSlice) -> (InputSlice, Option<Token>) {
     let offset = trim_multiline_comments(i.clone());
 
     if offset == 0 {
@@ -130,7 +130,7 @@ fn trim_comments(i: Input) -> (Input, Option<Token>) {
     }
 }
 
-fn trim_multiline_comments(i: Input) -> usize {
+fn trim_multiline_comments(i: InputSlice) -> usize {
     let rest = i.stream;
     let mut nesting = 0;
     let mut offset = 0;
@@ -154,7 +154,7 @@ fn trim_multiline_comments(i: Input) -> usize {
     offset
 }
 
-fn trim_single_line_comments(i: Input) -> (Input, Option<Token>) {
+fn trim_single_line_comments(i: InputSlice) -> (InputSlice, Option<Token>) {
     let rest = i.stream;
 
     if rest[0] == b'-' && rest[1] == b'-' {

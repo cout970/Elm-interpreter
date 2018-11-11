@@ -1,15 +1,13 @@
 use analyzer::TypeError;
+use ast::Pattern;
 use errors::ErrorWrapper;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use interpreter::statement_eval::eval_stm;
-use parsers::parse_expr;
+use parsers::parse_expression;
 use parsers::parse_statement;
-use tokenizer::tokenize;
-use ast::Pattern;
 use types::Value;
 use util::expression_fold::ExprTreeError;
-use tokenizer::TokenStream;
 
 pub mod dynamic_env;
 mod builtins;
@@ -45,22 +43,14 @@ pub enum RuntimeError {
 }
 
 pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>, ErrorWrapper> {
-    let tokens = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
-
-    let stm = parse_statement(TokenStream::new(&tokens))
-        .map_err(|e| ErrorWrapper::Syntactic(e))?;
+    let stm = parse_statement(code)?;
 
     eval_stm(env, &stm)
         .map_err(|e| ErrorWrapper::Runtime(e))
 }
 
 pub fn eval_expression(env: &mut DynamicEnv, code: &str) -> Result<Value, ErrorWrapper> {
-    let  tokens = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
-
-    let expr = parse_expr(TokenStream::new(&tokens))
-        .map_err(|e| ErrorWrapper::Syntactic(e))?;
+    let expr = parse_expression(code)?;
 
     eval_expr(env, &expr)
         .map_err(|e| ErrorWrapper::Runtime(e))

@@ -282,8 +282,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn elm_core_module_test() {
-//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Array.elm"));
+        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Array.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Debug.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/List.elm"));

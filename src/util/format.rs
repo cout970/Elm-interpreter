@@ -12,7 +12,6 @@ use types::BuiltinFunction;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 use tokenizer::Token;
-use tokenizer::TokenStream;
 
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -254,24 +253,6 @@ impl Display for Token {
             Token::Colon => { write!(f, ":") },
             Token::Eof => { write!(f, "<Eof>") },
         }
-    }
-}
-
-impl <'a> Display for TokenStream<'a> {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        for info in self.remaining.iter().take(10) {
-            write!(f, "{} ", info.token)?;
-        }
-        Ok(())
-    }
-}
-
-impl <'a> Debug for TokenStream<'a> {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        for info in self.remaining.iter().take(10) {
-            write!(f, "{} ", info.token)?;
-        }
-        Ok(())
     }
 }
 

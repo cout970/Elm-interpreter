@@ -1,5 +1,5 @@
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub struct Input<'a> {
+pub struct InputSlice<'a> {
     pub stream: &'a [u8],
     line: u32,
     column: u32,
@@ -11,16 +11,16 @@ pub struct Location {
     pub column: u32,
 }
 
-impl<'a> Input<'a> {
+impl<'a> InputSlice<'a> {
     pub fn new(stream: &'a [u8]) -> Self {
-        Input {
+        InputSlice {
             stream,
             line: 0,
             column: 0,
         }
     }
 
-    pub fn advance(&self, n: usize) -> Input<'a> {
+    pub fn advance(&self, n: usize) -> InputSlice<'a> {
         let skipped: &[u8] = &self.stream[0..n];
 
         let mut line = self.line;
@@ -35,7 +35,7 @@ impl<'a> Input<'a> {
             }
         }
 
-        Input {
+        InputSlice {
             stream: &self.stream[n..],
             line,
             column,

@@ -1,123 +1,31 @@
 use ast::*;
 use nom::*;
 use nom::verbose_errors::Context;
-use parsers::statement::*;
-use parsers::SyntaxError;
-use parsers::Tk;
+use parsers::old::statement::*;
+use parsers::old::ParseError;
+use parsers::old::Tk;
 use tokenizer::Token::*;
 use tokenizer::Token;
-use tokenizer::TokenStream;
+use parsers::old::TokenStream;
 
 // Modules
-// https://github.com/durkiewicz/elm-plugin/blob/master/src/main/java/org/elmlang/intellijplugin/Elm.bnf
 
-pub fn read_module(i: Tk) -> IResult<Tk, Module, SyntaxError> {
-//    do_parse!(i,
-//        many0!(indent!()) >>
-//        header: opt!(module_header) >>
-//        imports: many0!(import) >>
-//        statements: many0!(top_level_statement) >>
-//        many0!(indent!()) >>
-//        tk!(Eof) >>
-//        (Module { header, imports, statements })
-//    )
-
-    // TODO remove
-    // DEBUG
-//    check_split_blocks(i.clone());
-
-    let blocks = split_blocks(i.clone());
-    let mut index = 0;
-    let mut errors: Vec<(TokenStream, ErrorKind<SyntaxError>)> = vec![];
-
-    let header: Option<ModuleHeader> = if let Some(block) = blocks.first() {
-        match module_header(block.clone()) {
-            Ok((rest, header)) => {
-                if rest.len() <= 1 {
-                    index += 1;
-                    Some(header)
-                } else {
-                    errors.push((block.clone(), ErrorKind::Custom(
-                        SyntaxError::UnableToConsumeAllInput(rest.read_info())
-                    )));
-                    None
-                }
-            }
-            Err(e) => {
-                errors.push((block.clone(), get_error_kind(e)));
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let mut imports: Vec<Import> = vec![];
-
-    while index < blocks.len() {
-        let block = &blocks[index];
-
-        if let Token::ImportTk = block.read_tk() {
-            match import(block.clone()) {
-                Ok((rest, import)) => {
-                    if rest.len() <= 1 {
-                        imports.push(import);
-                        index += 1;
-                    } else {
-                        errors.push((block.clone(), ErrorKind::Custom(
-                            SyntaxError::UnableToConsumeAllInput(rest.read_info())
-                        )));
-                        break;
-                    }
-                }
-                Err(e) => {
-                    errors.push((block.clone(), get_error_kind(e)));
-                    break;
-                }
-            }
-        } else {
-            break;
-        }
-    }
-
-    let mut statements = vec![];
-
-    while index < blocks.len() {
-        let block = &blocks[index];
-
-        // TODO function type and definition are in different blocks
-        match read_statement(block.clone()) {
-            Ok((rest, statement)) => {
-                if rest.len() <= 1 {
-                    statements.push(statement);
-                    index += 1;
-                } else {
-                    errors.push((block.clone(), ErrorKind::Custom(
-                        SyntaxError::UnableToConsumeAllInput(rest.read_info())
-                    )));
-                    break;
-                }
-            }
-            Err(e) => {
-                errors.push((block.clone(), get_error_kind(e)));
-                break;
-            }
-        }
-    }
-
-    if index == blocks.len() {
-        Ok((i.next(i.all.len() as u32), Module { header, imports, statements }))
-    } else {
-        Err(Err::Error(
-            Context::List(errors)
-        ))
-    }
+pub fn read_module(i: Tk) -> IResult<Tk, Module, ParseError> {
+    do_parse!(i,
+        many0!(indent!()) >>
+        header: opt!(module_header) >>
+        imports: many0!(import) >>
+        statements: many0!(top_level_statement) >>
+        many0!(indent!()) >>
+        tk!(Eof) >>
+        (Module { header, imports, statements })
+    )
 }
 
 
-fn get_error_kind(e: Err<TokenStream, SyntaxError>) -> ErrorKind<SyntaxError> {
+fn get_error_kind(e: Err<TokenStream, ParseError>) -> ErrorKind<ParseError> {
     match e {
-        Err::Incomplete(i) => { ErrorKind::Custom(SyntaxError::IncompleteInput(i)) }
+        Err::Incomplete(i) => { ErrorKind::Custom(ParseError::IncompleteInput(i)) }
         Err::Error(ctx) => {
             match ctx {
                 Context::Code(_, kind) => kind,

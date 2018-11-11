@@ -1,10 +1,10 @@
 use ast::*;
-use parsers::expression::read_expr;
-use parsers::pattern::read_pattern;
-use parsers::Tk;
-use parsers::types::read_type;
+use parsers::old::expression::read_expr;
+use parsers::old::pattern::read_pattern;
+use parsers::old::Tk;
+use parsers::old::types::read_type;
 use tokenizer::Token::*;
-use parsers::SyntaxError;
+use parsers::old::ParseError;
 
 // Definitions
 
