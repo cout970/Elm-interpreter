@@ -8,6 +8,21 @@ use parsers::new::util::expect_id;
 use parsers::new::util::many0;
 use tokenizer::Token;
 
+pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> {
+    let (patt, i) = parse_pattern(input)?;
+
+    if let Token::BinaryOperator(op) = i.read() {
+        let (patt2, i) = parse_pattern(i.next())?;
+        return Ok((Pattern::BinaryOp(op, Box::from(patt), Box::from(patt2)), i));
+
+    } else if let Token::As = i.read() {
+        let (alias, i) = expect_id(i.next())?;
+        return Ok((Pattern::Alias(Box::from(patt), alias), i))
+    }
+
+    Ok((patt, i))
+}
+
 pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
     let (patt, i) = match input.read() {
         Token::Id(name) => (Pattern::Var(name.to_owned()), input.next()),
@@ -25,14 +40,14 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
                     (Pattern::Unit, input.next())
                 }
                 _ => {
-                    let (values, i) = comma0(&parse_pattern, input)?;
+                    let (values, i) = comma0(&parse_pattern_expr, input)?;
                     let i = expect(Token::RightParen, i)?;
                     (Pattern::Tuple(values), i)
                 }
             }
         }
         Token::LeftBracket => {
-            let (values, i) = comma0(&parse_pattern, input.next())?;
+            let (values, i) = comma0(&parse_pattern_expr, input.next())?;
             let i = expect(Token::RightBracket, i)?;
             (Pattern::List(values), i)
         }
@@ -51,12 +66,6 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
             return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
         }
     };
-
-    if let Token::BinaryOperator(op) = i.read() {
-        let (patt2, i) = parse_pattern(i.next())?;
-
-        return Ok((Pattern::BinaryOp(op, Box::from(patt), Box::from(patt2)), i));
-    }
 
     Ok((patt, i))
 }
@@ -84,11 +93,12 @@ mod tests {
         test_parser(parse_pattern, "_");
         test_parser(parse_pattern, "[]");
         test_parser(parse_pattern, "[a]");
-        test_parser(parse_pattern, "x::xs");
+        test_parser(parse_pattern, "(x::xs)");
         test_parser(parse_pattern, "[x::xs]");
         test_parser(parse_pattern, "{}");
         test_parser(parse_pattern, "{ x }");
         test_parser(parse_pattern, "{ x, y }");
+        test_parser(parse_pattern, "Leaf _");
     }
 
     #[test]

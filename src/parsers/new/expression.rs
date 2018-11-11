@@ -9,6 +9,7 @@ use parsers::new::statement::parse_definition;
 use parsers::new::util::*;
 use tokenizer::Token;
 use util::create_vec;
+use parsers::new::pattern::parse_pattern_expr;
 
 pub fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
     let (first, i) = parse_expr_application(input)?;
@@ -169,7 +170,6 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = i.enter_level(level);
 
             let (defs, i) = many1(&|i| {
-//                parse_definition(level, expect_indent(level, i)?)
                 parse_let_declaration(level, expect_indent(level, i)?)
             }, i)?;
 
@@ -231,7 +231,7 @@ fn parse_let_declaration(indent: u32, input: Input) -> Result<(LetDeclaration, I
 
 fn parse_case_branch(indent: u32, input: Input) -> Result<((Pattern, Expr), Input), ParseError> {
     let i = expect_indent(indent, input)?;
-    let (pat, i) = parse_pattern(i)?;
+    let (pat, i) = parse_pattern_expr(i)?;
     let i = expect(Token::RightArrow, i)?;
     let (expr, i) = parse_expr(i)?;
 

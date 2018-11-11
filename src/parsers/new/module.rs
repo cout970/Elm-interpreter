@@ -249,11 +249,13 @@ mod tests {
         test_parser(parse_import, "import Util exposing (A(B))");
         test_parser(parse_import, "import Util exposing (A(B, C))");
         test_parser(parse_import, "import Defs exposing (Grid)");
+        test_parser(parse_import, "import Util as U exposing (A)");
+        // TODO alias
+//        test_parser(parse_import, "import Util exposing (A as B)");
     }
 
     #[test]
     fn import_error_test() {
-        test_parser_error(parse_import, "import Util as U exposing (A)");
         test_parser_error(parse_import, "import Util exposing (A())");
         test_parser_error(parse_import, "import Util exposing ()");
     }

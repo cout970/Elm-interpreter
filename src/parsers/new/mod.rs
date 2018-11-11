@@ -242,6 +242,7 @@ impl Display for ParseError {
 #[cfg(test)]
 mod tests {
     use parsers::from_code_mod;
+    use tokenizer::tokenize;
 
     #[test]
     fn test_bench_1() {
@@ -251,5 +252,39 @@ mod tests {
     #[test]
     fn test_bench_2() {
         from_code_mod(include_bytes!("../../../benches/data/tokenizer_2.elm"));
+    }
+
+    #[test]
+    fn test_edge_case() {
+        let code = r#"sliceTree shift endIdx tree =
+            let
+                lastPos =
+                    Bitwise.and bitMask <| Bitwise.shiftRightZfBy shift endIdx
+            in
+                case JsArray.unsafeGet lastPos tree of
+                    SubTree sub ->
+                        let
+                            newSub =
+                                sliceTree (shift - shiftStep) endIdx sub
+                        in
+                            if JsArray.length newSub == 0 then
+                                -- The sub is empty, slice it away
+                                JsArray.slice 0 lastPos tree
+                            else
+                                tree
+                                    |> JsArray.slice 0 (lastPos + 1)
+                                    |> JsArray.unsafeSet lastPos (SubTree newSub)
+
+                     -- This is supposed to be the new tail. Fetched by `fetchNewTail`.
+                     -- Slice up to, but not including, this point.
+                    Leaf _ ->
+                        JsArray.slice 0 lastPos tree"#;
+
+        let tk = tokenize(code.as_bytes()).unwrap();
+
+        for info in tk.iter() {
+            println!("|> {}", info.token);
+        }
+        from_code_mod(code.as_bytes());
     }
 }

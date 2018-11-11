@@ -110,6 +110,7 @@ pub enum Pattern {
     BinaryOp(String, Box<Pattern>, Box<Pattern>),
     Record(Vec<String>),
     Literal(Literal),
+    Alias(Box<Pattern>, String),
 }
 
 // An unevaluated expression tree

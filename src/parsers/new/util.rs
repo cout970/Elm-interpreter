@@ -131,16 +131,27 @@ pub fn expect_indent(expected: u32, input: Input) -> Result<Input, ParseError> {
         return Ok(input);
     }
 
-    if let Token::Indent(found) = input.read() {
+    let mut i = if let Token::Indent(found) = input.read() {
         if expected == found {
-            Ok(input.next())
+            input.next()
         } else {
-            Err(ParseError::ExpectedIndentationLevel { input, expected, found })
+            return Err(ParseError::ExpectedIndentationLevel { input, expected, found });
         }
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedIndentation { input, found })
+        return Err(ParseError::ExpectedIndentation { input, found });
+    };
+
+    // Ignore all indentations in the same level
+    while let Token::Indent(found) = i.read() {
+        if found == expected {
+            i = i.next()
+        }else{
+            break;
+        }
     }
+
+    Ok(i)
 }
 
 pub fn read_indent(input: Input) -> Result<u32, ParseError> {

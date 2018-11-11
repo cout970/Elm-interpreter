@@ -101,6 +101,7 @@ fn is_exhaustive(pattern: &Pattern) -> bool {
             sub_patterns.iter().all(|p| is_exhaustive(p))
         }
         Pattern::List(_) => false,
+        Pattern::Alias(pat, _) => is_exhaustive(pat),
         Pattern::BinaryOp(_, _, _) => false,
         Pattern::Record(_) => true,
         Pattern::Literal(_) => false,
@@ -199,6 +200,9 @@ fn analyze_pattern(gen: &mut NameSequence, pattern: &Pattern) -> Result<(Type, V
                 Literal::String(_) => Ok((Type::Tag("String".s(), vec![]), vec![])),
                 Literal::Char(_) => Ok((Type::Tag("Char".s(), vec![]), vec![])),
             }
+        }
+        Pattern::Alias(pat, _) => {
+            analyze_pattern(gen, pat)
         }
     }
 }

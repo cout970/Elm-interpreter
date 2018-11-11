@@ -206,6 +206,7 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
     match pattern {
         Pattern::Var(_) => true,
         Pattern::Wildcard => true,
+        Pattern::Alias(pat, _) => matches_pattern(pat, value),
         Pattern::Adt(p_name, p_sub) => {
             if let Value::Adt(v_name, v_sub, _) = value {
                 p_name == v_name && p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
@@ -284,6 +285,10 @@ pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value
     match pattern {
         Pattern::Var(n) => {
             env.add(&n, value.clone(), type_of_value(value));
+        }
+        Pattern::Alias(pat, name) => {
+            env.add(name, value.clone(), type_of_value(value));
+            add_pattern_values(env, pat, value)?;
         }
         Pattern::Record(ref items) => {
             if let Value::Record(ref vars) = &value {
