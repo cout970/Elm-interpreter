@@ -1,17 +1,14 @@
-use ast::Definition;
-use ast::Expr;
-use ast::Literal;
-use ast::Pattern;
-use ast::Type;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::fmt::Write;
+
+use ast::*;
+use tokenizer::Token;
 use types::BuiltinFunction;
 use types::Value;
 use util::expression_fold::create_expr_tree;
-use tokenizer::Token;
 
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -126,9 +123,9 @@ impl Display for Expr {
                 write!(f, " -> {}", expr)?
             }
             Expr::Application(a, b) => write!(f, "({} {})", a, b)?,
-            Expr::Let(defs, expr) => {
+            Expr::Let(decls, expr) => {
                 write!(f, "let (")?;
-                print_vec(f, defs)?;
+                print_vec(f, decls)?;
                 write!(f, ") in ({})", expr)?;
             }
             Expr::OpChain(exprs, ops) => {
@@ -146,6 +143,15 @@ impl Display for Expr {
             Expr::Ref(name) => write!(f, "{}", name)?,
         }
         Ok(())
+    }
+}
+
+impl Display for LetDeclaration {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self {
+            LetDeclaration::Def(def) => write!(f, "{}", def),
+            LetDeclaration::Pattern(pattern, expr) => write!(f, "{} = {}", pattern, expr),
+        }
     }
 }
 
@@ -202,13 +208,13 @@ impl Display for Definition {
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
-            Token::Id(value) => { write!(f, "{}", value) },
-            Token::UpperId(value) => { write!(f, "{}", value) },
-            Token::BinaryOperator(value) => { write!(f, "{}", value) },
-            Token::LitInt(value) => { write!(f, "{}", value) },
-            Token::LitFloat(value) => { write!(f, "{}", value) },
-            Token::LitChar(value) => { write!(f, "{}", value) },
-            Token::LitString(value) => { write!(f, "{}", value) },
+            Token::Id(value) => { write!(f, "{}", value) }
+            Token::UpperId(value) => { write!(f, "{}", value) }
+            Token::BinaryOperator(value) => { write!(f, "{}", value) }
+            Token::LitInt(value) => { write!(f, "{}", value) }
+            Token::LitFloat(value) => { write!(f, "{}", value) }
+            Token::LitChar(value) => { write!(f, "{}", value) }
+            Token::LitString(value) => { write!(f, "{}", value) }
             Token::Indent(value) => {
                 if *value == 0 {
                     write!(f, "<NewLine>")?;
@@ -216,41 +222,41 @@ impl Display for Token {
                     write!(f, "<Indentation {} >", *value)?;
                 }
                 Ok(())
-            },
-            Token::BackSlash => { write!(f, "\\") },
-            Token::PrefixMinus => { write!(f, "-") },
-            Token::Let => { write!(f, "let") },
-            Token::If => { write!(f, "if") },
-            Token::Else => { write!(f, "else") },
-            Token::Then => { write!(f, "then") },
-            Token::Case => { write!(f, "case") },
-            Token::Of => { write!(f, "of") },
-            Token::In => { write!(f, "in") },
-            Token::ModuleTk => { write!(f, "module") },
-            Token::WhereTk => { write!(f, "where") },
-            Token::EffectTk => { write!(f, "effect") },
-            Token::ExposingTk => { write!(f, "exposing") },
-            Token::ImportTk => { write!(f, "import") },
-            Token::As => { write!(f, "as") },
-            Token::TypeTk => { write!(f, "type") },
-            Token::Port => { write!(f, "port") },
-            Token::Alias => { write!(f, "alias") },
-            Token::Underscore => { write!(f, "_") },
-            Token::Dot => { write!(f, ".") },
-            Token::DoubleDot => { write!(f, "..") },
-            Token::Comma => { write!(f, ",") },
-            Token::LeftParen => { write!(f, "(") },
-            Token::RightParen => { write!(f, ")") },
-            Token::LeftBracket => { write!(f, "[") },
-            Token::RightBracket => { write!(f, "]") },
-            Token::LeftBrace => { write!(f, "{{") },
-            Token::RightBrace => { write!(f, "}}") },
-            Token::Equals => { write!(f, "=") },
-            Token::Pipe => { write!(f, "|") },
-            Token::RightArrow => { write!(f, "->") },
-            Token::LeftArrow => { write!(f, "<-") },
-            Token::Colon => { write!(f, ":") },
-            Token::Eof => { write!(f, "<Eof>") },
+            }
+            Token::BackSlash => { write!(f, "\\") }
+            Token::PrefixMinus => { write!(f, "-") }
+            Token::Let => { write!(f, "let") }
+            Token::If => { write!(f, "if") }
+            Token::Else => { write!(f, "else") }
+            Token::Then => { write!(f, "then") }
+            Token::Case => { write!(f, "case") }
+            Token::Of => { write!(f, "of") }
+            Token::In => { write!(f, "in") }
+            Token::ModuleTk => { write!(f, "module") }
+            Token::WhereTk => { write!(f, "where") }
+            Token::EffectTk => { write!(f, "effect") }
+            Token::ExposingTk => { write!(f, "exposing") }
+            Token::ImportTk => { write!(f, "import") }
+            Token::As => { write!(f, "as") }
+            Token::TypeTk => { write!(f, "type") }
+            Token::Port => { write!(f, "port") }
+            Token::Alias => { write!(f, "alias") }
+            Token::Underscore => { write!(f, "_") }
+            Token::Dot => { write!(f, ".") }
+            Token::DoubleDot => { write!(f, "..") }
+            Token::Comma => { write!(f, ",") }
+            Token::LeftParen => { write!(f, "(") }
+            Token::RightParen => { write!(f, ")") }
+            Token::LeftBracket => { write!(f, "[") }
+            Token::RightBracket => { write!(f, "]") }
+            Token::LeftBrace => { write!(f, "{{") }
+            Token::RightBrace => { write!(f, "}}") }
+            Token::Equals => { write!(f, "=") }
+            Token::Pipe => { write!(f, "|") }
+            Token::RightArrow => { write!(f, "->") }
+            Token::LeftArrow => { write!(f, "<-") }
+            Token::Colon => { write!(f, ":") }
+            Token::Eof => { write!(f, "<Eof>") }
         }
     }
 }

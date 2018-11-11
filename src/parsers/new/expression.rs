@@ -1,4 +1,5 @@
 use ast::Expr;
+use ast::LetDeclaration;
 use ast::Literal;
 use ast::Pattern;
 use parsers::new::Input;
@@ -168,7 +169,8 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = i.enter_level(level);
 
             let (defs, i) = many1(&|i| {
-                parse_definition(level, expect_indent(level, i)?)
+//                parse_definition(level, expect_indent(level, i)?)
+                parse_let_declaration(level, expect_indent(level, i)?)
             }, i)?;
 
             let i = i.exit_level(level);
@@ -208,6 +210,23 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
 
 
     Ok((expr, i))
+}
+
+fn parse_let_declaration(indent: u32, input: Input) -> Result<(LetDeclaration, Input), ParseError> {
+    match input.read() {
+        Token::Id(_) => {
+            let (def, i) = parse_definition(indent, input)?;
+
+            Ok((LetDeclaration::Def(def), i))
+        }
+        _ => {
+            let (pat, i) = parse_pattern(input)?;
+            let i = expect(Token::Equals, i)?;
+            let (expr, i) = parse_expr(i)?;
+
+            Ok((LetDeclaration::Pattern(pat, expr), i))
+        }
+    }
 }
 
 fn parse_case_branch(indent: u32, input: Input) -> Result<((Pattern, Expr), Input), ParseError> {
@@ -395,12 +414,12 @@ mod tests {
     fn check_let() {
         test_parser_result(parse_expr, "let x = 5 in 3", Expr::Let(
             vec![
-                Definition {
+                LetDeclaration::Def(Definition {
                     header: None,
                     name: "x".s(),
                     patterns: vec![],
                     expr: Expr::Literal(Literal::Int(5)),
-                }
+                })
             ],
             Box::new(Expr::Literal(Literal::Int(3))),
         ));
@@ -653,7 +672,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
 
         test_parser_result(parse_expr, code, Expr::Let(
             vec![
-                Definition {
+                LetDeclaration::Def(Definition {
                     header: None,
                     name: "row".s(),
                     patterns: vec![
@@ -681,8 +700,8 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                         ],
                         vec!["|>".s()],
                     ),
-                },
-                Definition {
+                }),
+                LetDeclaration::Def(Definition {
                     header: None,
                     name: "column".s(),
                     patterns: vec![
@@ -711,7 +730,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                         ],
                         vec!["|>".s()],
                     ),
-                }
+                })
             ],
             Box::from(Expr::Record(vec![
                 (

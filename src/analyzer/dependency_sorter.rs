@@ -9,6 +9,7 @@ use ast::Expr;
 use util::visitors::expr_visitor_block;
 use util::qualified_name;
 use util::visitors::type_visitor;
+use ast::LetDeclaration;
 
 
 pub fn sort_statement_dependencies(stms: &[Statement]) -> Vec<&Statement> {
@@ -157,10 +158,17 @@ fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
                 env.enter_block();
                 add_patterns(env, patterns);
             }
-            Expr::Let(defs, _) => {
+            Expr::Let(decls, _) => {
                 env.enter_block();
-                for def in defs {
-                    add_patterns(env, &def.patterns);
+                for decl in decls {
+                    match decl {
+                        LetDeclaration::Def(def) => {
+                            add_patterns(env, &def.patterns);
+                        },
+                        LetDeclaration::Pattern(pattern, _) => {
+                            add_patterns(env, &vec![pattern.clone()]);
+                        },
+                    }
                 }
             }
             _ => {}

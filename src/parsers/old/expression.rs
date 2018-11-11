@@ -7,6 +7,7 @@ use parsers::old::statement::read_definition;
 use parsers::old::Tk;
 use tokenizer::Token::*;
 use util::create_vec;
+use util::VecExt;
 use parsers::old::ParseError;
 
 // Expressions
@@ -206,7 +207,7 @@ impl ExprParser {
         tk!(In) >>
         call_m!(self.spaces) >>
         b: call_m!(self.read_expr) >>
-        (Expr::Let(a, Box::new(b)))
+        (Expr::Let(a.map(|a| LetDeclaration::Def(a.clone())), Box::new(b)))
     ));
 
     method_rule!(record_update<ExprParser, Expr>, mut self, do_parse!(

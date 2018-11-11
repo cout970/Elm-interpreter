@@ -140,7 +140,7 @@ pub enum Expr {
     /* Function call, the first expression if the function and the second it's argument */
     Application(Box<Expr>, Box<Expr>),
     /* A let definition, allows to create local functions to use in the final expression */
-    Let(Vec<Definition>, Box<Expr>),
+    Let(Vec<LetDeclaration>, Box<Expr>),
     /* Stores a chain of binary operations,
      * the order and associativity of the operations can be changed later
      * to create a binary tree (with Expr::Application, see expression_fold.rs)
@@ -150,6 +150,13 @@ pub enum Expr {
     Literal(Literal),
     /* A reference to a definition `map`, `sum`, etc */
     Ref(String),
+}
+
+/// A let declaration, yeah, really
+#[derive(Debug, Clone, PartialEq)]
+pub enum LetDeclaration {
+    Def(Definition),
+    Pattern(Pattern, Expr),
 }
 
 /// A value literal

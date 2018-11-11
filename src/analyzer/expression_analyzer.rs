@@ -17,6 +17,7 @@ use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::qualified_name;
 use util::StringConversion;
+use analyzer::function_analyzer::analyze_let_destructuring;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
@@ -93,19 +94,38 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 Ok(Type::Tag("List".s(), vec![first]))
             }
         }
-        Expr::Let(defs, expr) => {
+        Expr::Let(decls, expr) => {
             env.enter_block();
-            for def in defs {
-                let def_ty = analyze_function(env, def);
+            for decl in decls {
+                match decl {
+                    LetDeclaration::Def(def) => {
+                        let def_ty = analyze_function(env, def);
 
-                match def_ty {
-                    Ok(ty) => {
-                        env.add_definition(&def.name, ty);
-                    }
-                    Err(e) => {
-                        env.exit_block();
-                        return Err(e);
-                    }
+                        match def_ty {
+                            Ok(ty) => {
+                                env.add_definition(&def.name, ty);
+                            }
+                            Err(e) => {
+                                env.exit_block();
+                                return Err(e);
+                            }
+                        }
+                    },
+                    LetDeclaration::Pattern(pattern, expr) => {
+                        let res = analyze_let_destructuring(env, pattern, expr);
+
+                        match res {
+                            Ok(vars) => {
+                                for (name, ty) in vars {
+                                    env.add_definition(&name, ty);
+                                }
+                            }
+                            Err(e) => {
+                                env.exit_block();
+                                return Err(e);
+                            }
+                        }
+                    },
                 }
             }
             let res = analyze_expression(env, expected, expr);

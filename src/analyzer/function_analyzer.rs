@@ -17,6 +17,10 @@ pub enum PatternMatchingError {
     PatternNotExhaustive(Pattern),
 }
 
+pub fn analyze_let_destructuring(env: &mut StaticEnv, pattern: &Pattern, expr: &Expr) -> Result<Vec<(String, Type)>, TypeError> {
+    Err(TypeError::InternalError)
+}
+
 pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
     let Definition { name, patterns, expr, .. } = &fun;
 
