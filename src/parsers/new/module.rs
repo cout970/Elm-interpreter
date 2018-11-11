@@ -98,7 +98,6 @@ fn skip_empty_lines(input: Input) -> Result<Input, ParseError> {
     Ok(i)
 }
 
-
 fn parse_module_header(input: Input) -> Result<(ModuleHeader, Input), ParseError> {
     let (name, i) = match input.read() {
         Token::ModuleTk => {
@@ -147,12 +146,18 @@ fn parse_import(input: Input) -> Result<(Import, Input), ParseError> {
     let (first, i) = expect_upper(i)?;
     let (rest, i) = many0(&parse_dot_name, i)?;
 
-    let (import, i) = match i.read() {
+    let path = create_vec(first, rest);
+
+    let (alias, i) = match i.read() {
         Token::As => {
             let (alias, i) = expect_upper(i.next())?;
 
-            (Import::Alias(create_vec(first, rest), alias), i)
+            (Some(alias), i)
         }
+        _ => (None, i)
+    };
+
+    let (exposing, i) = match i.read() {
         Token::ExposingTk => {
             let i = expect(Token::LeftParen, i.next())?;
             let (exposing, i) = match i.read() {
@@ -166,14 +171,12 @@ fn parse_import(input: Input) -> Result<(Import, Input), ParseError> {
             };
             let i = expect(Token::RightParen, i)?;
 
-            (Import::Exposing(create_vec(first, rest), exposing), i)
+            (Some(exposing), i)
         }
-        _ => {
-            (Import::Module(create_vec(first, rest)), i)
-        }
+        _ => (None, i)
     };
 
-    Ok((import, i))
+    Ok((Import { path, alias, exposing }, i))
 }
 
 fn parse_dot_name(input: Input) -> Result<(String, Input), ParseError> {
@@ -352,7 +355,7 @@ mod tests {
         test_parser_result(parse_module, "import Html exposing (..)", Module {
             header: None,
             imports: vec![
-                Import::Exposing(vec!["Html".s()], ModuleExposing::All)
+                Import { path: vec!["Html".s()], exposing: Some(ModuleExposing::All), alias: None }
             ],
             statements: vec![],
         });
@@ -366,23 +369,35 @@ import Util\n\
 import Util as U\n\
 import Util exposing (..)\n\
 import Util exposing (Enum, map, Sides(..), UpDown(Up, Down))\n\
+import Elm.JsArray as JsArray exposing (JsArray)\n\
 ";
 
         test_parser_result(parse_module, code, Module {
             header: None,
             imports: vec![
-                Import::Exposing(vec!["Html".s()], ModuleExposing::All),
-                Import::Module(vec!["Util".s()]),
-                Import::Alias(vec!["Util".s()], "U".s()),
-                Import::Exposing(vec!["Util".s()], ModuleExposing::All),
-                Import::Exposing(vec!["Util".s()], ModuleExposing::Just(vec![
-                    Exposing::Type("Enum".s()),
-                    Exposing::Definition("map".s()),
-                    Exposing::Adt("Sides".s(), AdtExposing::All),
-                    Exposing::Adt("UpDown".s(), AdtExposing::Variants(
-                        vec!["Up".s(), "Down".s()]
+                Import { path: vec!["Html".s()], exposing: Some(ModuleExposing::All), alias: None },
+                Import { path: vec!["Util".s()], exposing: None, alias: None },
+                Import { path: vec!["Util".s()], exposing: None, alias: Some("U".s()) },
+                Import { path: vec!["Util".s()], exposing: Some(ModuleExposing::All), alias: None },
+                Import {
+                    path: vec!["Util".s()],
+                    exposing: Some(ModuleExposing::Just(
+                        vec![
+                            Exposing::Type("Enum".s()),
+                            Exposing::Definition("map".s()),
+                            Exposing::Adt("Sides".s(), AdtExposing::All),
+                            Exposing::Adt("UpDown".s(), AdtExposing::Variants(
+                                vec!["Up".s(), "Down".s()]
+                            )),
+                        ]
                     )),
-                ])),
+                    alias: None,
+                },
+                Import {
+                    path: vec!["Elm".s(), "JsArray".s()],
+                    exposing: Some(ModuleExposing::Just(vec![Exposing::Type("JsArray".s())])),
+                    alias: Some("JsArray".s()),
+                },
             ],
             statements: vec![],
         });

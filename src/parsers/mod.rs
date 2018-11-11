@@ -27,44 +27,44 @@ pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
 
 #[cfg(test)]
 pub fn from_code(code: &[u8]) -> Expr {
-    old::from_code(code)
-//    let res = new::parse_expression(&String::from_utf8_lossy(code));
-//
-//    match res {
-//        Ok(res) => res,
-//        Err(error) => {
-//            println!("Error: {}\n", error);
-//            panic!();
-//        }
-//    }
+//    old::from_code(code)
+    let res = new::parse_expression(&String::from_utf8_lossy(code));
+
+    match res {
+        Ok(res) => res,
+        Err(error) => {
+            println!("Error: {}\n", error);
+            panic!();
+        }
+    }
 }
 
 #[cfg(test)]
 pub fn from_code_stm(code: &[u8]) -> Statement {
-    old::from_code_stm(code)
-//    let res = new::parse_statement(&String::from_utf8_lossy(code));
-//
-//    match res {
-//        Ok(res) => res,
-//        Err(error) => {
-//            println!("Error: {}\n", error);
-//            panic!();
-//        }
-//    }
+//    old::from_code_stm(code)
+    let res = new::parse_statement(&String::from_utf8_lossy(code));
+
+    match res {
+        Ok(res) => res,
+        Err(error) => {
+            println!("Error: {}\n", error);
+            panic!();
+        }
+    }
 }
 
 #[cfg(test)]
 pub fn from_code_mod(code: &[u8]) -> Module {
-    old::from_code_mod(code)
-//    let res = new::parse_module(&String::from_utf8_lossy(code));
-//
-//    match res {
-//        Ok(res) => res,
-//        Err(error) => {
-//            println!("Error: {}\n", error);
-//            panic!();
-//        }
-//    }
+//    old::from_code_mod(code)
+    let res = new::parse_module(&String::from_utf8_lossy(code));
+
+    match res {
+        Ok(res) => res,
+        Err(error) => {
+            println!("Error: {}\n", error);
+            panic!();
+        }
+    }
 }
 
 impl Display for SyntaxError {

@@ -54,15 +54,12 @@ pub enum AdtExposing {
 
 // Import
 
-/// A module import that can include
-/// a whole module,
-/// a whole module with an alias
-/// or some definitions/types from a module
+/// A module import
 #[derive(Debug, PartialEq, Clone)]
-pub enum Import {
-    Module(Vec<String>),
-    Alias(Vec<String>, String),
-    Exposing(Vec<String>, ModuleExposing),
+pub struct Import {
+    pub path: Vec<String>,
+    pub alias : Option<String>,
+    pub exposing: Option<ModuleExposing>,
 }
 
 // Statement

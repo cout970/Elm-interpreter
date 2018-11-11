@@ -1,12 +1,13 @@
-use ast::*;
 use nom::*;
 use nom::verbose_errors::Context;
-use parsers::old::statement::*;
+
+use ast::*;
 use parsers::old::ParseError;
+use parsers::old::statement::*;
 use parsers::old::Tk;
+use parsers::old::TokenStream;
 use tokenizer::Token::*;
 use tokenizer::Token;
-use parsers::old::TokenStream;
 
 // Modules
 
@@ -140,17 +141,17 @@ rule!(import<Import>, alt!(
     do_parse!(
         path: import_pre >>
         exp: exposing >>
-        (Import::Exposing(path, exp))
+        (Import{ path, exposing: Some(exp), alias: None })
     )
     | do_parse!(
         path: import_pre >>
         tk!(As) >>
         alias: upper_id!() >>
-        (Import::Alias(path, alias))
+        (Import{ path, exposing: None, alias: Some(alias) })
     )
     | do_parse!(
         path: import_pre >>
-        (Import::Module(path))
+        (Import{ path, exposing: None, alias: None })
     )
 ));
 

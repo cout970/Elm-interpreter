@@ -38,7 +38,7 @@ pub fn parse_expression(code: &str) -> Result<Expr, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&expression::parse_expr, input)
-           .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
 }
 
 pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
@@ -48,7 +48,7 @@ pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&statement::parse_statement, input)
-           .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
 }
 
 pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
@@ -243,12 +243,13 @@ impl Display for ParseError {
 mod tests {
     use parsers::from_code_mod;
 
-    use super::*;
+    #[test]
+    fn test_bench_1() {
+        from_code_mod(include_bytes!("../../../benches/data/tokenizer_1.elm"));
+    }
 
     #[test]
-    #[ignore]
-    fn test_benches() {
-        from_code_mod(include_bytes!("../../../benches/data/tokenizer_1.elm"));
+    fn test_bench_2() {
         from_code_mod(include_bytes!("../../../benches/data/tokenizer_2.elm"));
     }
 }

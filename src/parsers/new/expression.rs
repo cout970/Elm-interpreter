@@ -69,6 +69,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
         Token::LeftParen => {
             // Options:
             // () => Unit
+            // (+) => Ref
             // (1) => Literal
             // (1, 2) => Tuple
 
@@ -77,6 +78,11 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                 Token::RightParen => {
                     // ()
                     (Expr::Unit, i.next())
+                }
+                Token::BinaryOperator(op) => {
+                    // (+)
+                    let i = expect(Token::RightParen, i.next())?;
+                    (Expr::Ref(op), i)
                 }
                 _ => {
                     let (value, i) = parse_expr(i)?;

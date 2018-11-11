@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use analyzer::dependency_sorter::sort_statement_dependencies;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::inter_mod_analyzer::Declaration;
@@ -7,8 +10,6 @@ use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use ast::*;
-use std::collections::HashSet;
-use std::sync::Arc;
 use types::*;
 use util::build_fun_type;
 use util::create_vec_inv;
@@ -51,68 +52,63 @@ fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<S
     let mut env = StaticEnv::new();
 
     for import in &module.imports {
-        match import {
-            Import::Module(path) => {
-                let module = info.get(path).ok_or_else(|| TypeError::MissingModule(path.clone()))?;
+        let module = info.get(&import.path)
+            .ok_or_else(|| TypeError::MissingModule(import.path.clone()))?;
 
-                for decl in &module.exposing {
-                    match decl {
-                        Declaration::Def(name, ty) => {
-                            env.add_definition(&qualified_name(path, name), ty.clone());
-                        }
-                        Declaration::Alias(name, ty) => {
-                            env.add_alias(&qualified_name(path, name), ty.clone());
-                        }
-                        Declaration::Adt(name, adt) => {
-                            env.add_adt(&qualified_name(path, name), adt.clone());
-                        }
+        if let Some(alias) = &import.alias {
+            for decl in &module.exposing {
+                match decl {
+                    Declaration::Def(name, ty) => {
+                        env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
+                    }
+                    Declaration::Alias(name, ty) => {
+                        env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
+                    }
+                    Declaration::Adt(name, adt) => {
+                        env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
                     }
                 }
             }
-            Import::Alias(path, alias) => {
-                let module = info.get(path).ok_or_else(|| TypeError::MissingModule(path.clone()))?;
+        }
 
-                for decl in &module.exposing {
-                    match decl {
-                        Declaration::Def(name, ty) => {
-                            env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
-                        }
-                        Declaration::Alias(name, ty) => {
-                            env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
-                        }
-                        Declaration::Adt(name, adt) => {
-                            env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
-                        }
+        if let Some(exposing) = &import.exposing {
+            let exposed = match exposing {
+                ModuleExposing::Just(exposed) => {
+                    get_exposed_decls(&module.exposing, exposed)?
+                }
+                ModuleExposing::All => {
+                    module.exposing.clone()
+                }
+            };
+
+            for decl in &exposed {
+                match decl {
+                    Declaration::Def(name, ty) => {
+                        env.add_definition(name, ty.clone());
+                    }
+                    Declaration::Alias(name, ty) => {
+                        env.add_alias(name, ty.clone());
+                    }
+                    Declaration::Adt(name, adt) => {
+                        env.add_adt(name, adt.clone());
                     }
                 }
             }
-            Import::Exposing(path, exposing) => {
-                let module = info.get(path).ok_or_else(|| TypeError::MissingModule(path.clone()))?;
+        }
 
-                let exposed = match exposing {
-                    ModuleExposing::Just(exposed) => {
-                        get_exposed_decls(&module.exposing, exposed)?
-                    },
-                    ModuleExposing::All => {
-                        module.exposing.clone()
-                    },
-                };
-
-                for decl in &exposed {
-                    match decl {
-                        Declaration::Def(name, ty) => {
-                            env.add_definition(name, ty.clone());
-                        }
-                        Declaration::Alias(name, ty) => {
-                            env.add_alias(name, ty.clone());
-                        }
-                        Declaration::Adt(name, adt) => {
-                            env.add_adt(name, adt.clone());
-                        }
+        if import.exposing.is_none() && import.alias.is_none() {
+            for decl in &module.exposing {
+                match decl {
+                    Declaration::Def(name, ty) => {
+                        env.add_definition(&qualified_name(&import.path, name), ty.clone());
+                    }
+                    Declaration::Alias(name, ty) => {
+                        env.add_alias(&qualified_name(&import.path, name), ty.clone());
+                    }
+                    Declaration::Adt(name, adt) => {
+                        env.add_adt(&qualified_name(&import.path, name), adt.clone());
                     }
                 }
-
-
             }
         }
     }
@@ -339,8 +335,9 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use util::StringConversion;
+
+    use super::*;
 
     #[test]
     fn check_type_alias_base() {

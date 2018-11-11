@@ -58,11 +58,7 @@ fn get_module_dependencies(module: &Module) -> Result<Vec<ModulePath>, TypeError
     let mut dependencies = vec![];
 
     for import in &module.imports {
-        match import {
-            Import::Module(path) => { dependencies.push(path.clone()); }
-            Import::Alias(path, _) => { dependencies.push(path.clone()); }
-            Import::Exposing(path, _) => { dependencies.push(path.clone()); }
-        }
+        dependencies.push(import.path.clone());
     }
 
     Ok(dependencies)
