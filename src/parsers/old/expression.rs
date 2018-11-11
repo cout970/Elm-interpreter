@@ -157,7 +157,7 @@ impl ExprParser {
     ));
 
     method_rule!(adt<ExprParser, Expr>, self, do_parse!(
-        a: upper_id!() >> (Expr::Adt(a))
+        a: upper_id!() >> (Expr::Ref(a))
     ));
 
     method_rule!(record<ExprParser, Expr>, mut self, do_parse!(

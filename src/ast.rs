@@ -123,9 +123,6 @@ pub enum Expr {
     List(Vec<Expr>),
     /* A record, also know as map of key-value pairs, the keys must be valid identifiers */
     Record(Vec<(String, Expr)>),
-    /* An algebraic data type */
-    // TODO remove, this does the same as Ref
-    Adt(String),
     /* An update operation over a record value, this operation changes the value of a record field */
     RecordUpdate(String, Vec<(String, Expr)>),
     /* A reference to a definition specifying a Module path `List.map` */
@@ -155,7 +152,7 @@ pub enum Expr {
     Ref(String),
 }
 
-// A value literal
+/// A value literal
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     Int(Int),

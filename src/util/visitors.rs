@@ -95,7 +95,6 @@ pub fn expr_visitor_block<S, F: Fn(&mut S, &Expr), G: Fn(&mut S, &Expr)>(state: 
             }
         }
         Expr::Literal(_) => {}
-        Expr::Adt(_) => {}
         Expr::Ref(_) => {}
     }
 

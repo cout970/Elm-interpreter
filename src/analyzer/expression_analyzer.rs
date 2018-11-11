@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use analyzer::function_analyzer::analyze_function;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::calculate_common_type;
@@ -7,8 +10,6 @@ use analyzer::type_of_value;
 use analyzer::TypeError::*;
 use analyzer::TypeError;
 use ast::*;
-use std::collections::HashMap;
-use std::sync::Arc;
 use types::Adt;
 use types::Value;
 use util::build_fun_type;
@@ -19,7 +20,7 @@ use util::StringConversion;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     match expr {
-        Expr::Ref(name) | Expr::Adt(name) => {
+        Expr::Ref(name) => {
             let def =
                 env.find_definition(name)
                     .or_else(|| env.find_alias(name))
@@ -43,13 +44,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
         Expr::QualifiedRef(path, name) => {
             let full_name = qualified_name(path, name);
 
-            let is_adt = name.chars().next().unwrap().is_uppercase();
-
-            if is_adt {
-                analyze_expression(env, expected, &Expr::Adt(full_name))
-            } else {
-                analyze_expression(env, expected, &Expr::Ref(full_name))
-            }
+            analyze_expression(env, expected, &Expr::Ref(full_name))
         }
         Expr::Application(fun, arg) => {
             type_of_app(env, &**fun, &**arg)
@@ -319,7 +314,6 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
         Expr::Unit => {}
         Expr::Literal(_) => {}
         Expr::RecordAccess(_) => {}
-        Expr::Adt(_) => {}
         Expr::Tuple(items) => {
             items.iter().for_each(|i| backtrack_expr(env, vars, i));
         }
@@ -363,13 +357,7 @@ fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr
         Expr::QualifiedRef(path, name) => {
             let full_name = qualified_name(path, name);
 
-            let is_adt = name.chars().next().unwrap().is_uppercase();
-
-            if is_adt {
-                backtrack_expr(env, vars, &Expr::Adt(full_name))
-            } else {
-                backtrack_expr(env, vars, &Expr::Ref(full_name))
-            }
+            backtrack_expr(env, vars, &Expr::Ref(full_name))
         }
         Expr::Ref(variable) => {
             match env.find_definition(variable) {
@@ -590,6 +578,7 @@ fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty:
 #[cfg(test)]
 mod tests {
     use parsers::from_code;
+
     use super::*;
 
     #[test]

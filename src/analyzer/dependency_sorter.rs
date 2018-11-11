@@ -140,11 +140,6 @@ fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
                     }
                 }
             }
-            Expr::Adt(name) => {
-                if let None = env.find_definition(name) {
-                    refs.insert(name.clone());
-                }
-            }
             Expr::Ref(name) => {
                 if let None = env.find_definition(name) {
                     refs.insert(name.clone());

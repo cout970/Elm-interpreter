@@ -94,7 +94,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 Literal::Char(i) => Value::Char(*i),
             }
         }
-        Expr::Ref(name) | Expr::Adt(name) => {
+        Expr::Ref(name) => {
             env.find(name)
                 .map(|(val, _)| val)
                 .ok_or(MissingDefinition(name.clone(), env.clone()))?
@@ -102,13 +102,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         Expr::QualifiedRef(path, name) => {
             let full_name = qualified_name(path, name);
 
-            let is_adt = name.chars().next().unwrap().is_uppercase();
-
-            let expr = if is_adt {
-                Expr::Adt(full_name)
-            } else {
-                Expr::Ref(full_name)
-            };
+            let expr = Expr::Ref(full_name);
 
             eval_expr(env, &expr)?
         }

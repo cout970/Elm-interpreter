@@ -99,7 +99,6 @@ impl Display for Expr {
                 print_pairs(f, items)?;
                 write!(f, " }}")?;
             }
-            Expr::Adt(name) => write!(f, "{}", name)?,
             Expr::RecordUpdate(name, items) => {
                 write!(f, "{{ {} | ", name)?;
                 print_pairs(f, items)?;
