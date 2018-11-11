@@ -1,13 +1,15 @@
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use ast::Module;
 use parsers::new::module::parse_module;
 use parsers::new::util::complete;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
+
+//use std::sync::Arc;
 
 pub mod util;
 mod pattern;
@@ -29,10 +31,15 @@ pub enum ParseError {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Input {
-    code_str: Arc<String>,
-    code: Arc<Vec<TokenInfo>>,
+    raw: Rc<RawInput>,
     ptr: usize,
-    levels: Vec<u32>,
+    levels: Rc<Vec<u32>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+struct RawInput {
+    string: String,
+    tokens: Vec<TokenInfo>,
 }
 
 pub fn parse_full_module(input: Input) -> Result<Module, ParseError> {
@@ -41,38 +48,50 @@ pub fn parse_full_module(input: Input) -> Result<Module, ParseError> {
 
 impl Input {
     pub fn new(code_str: String, code: Vec<TokenInfo>) -> Self {
-        Input { code_str: Arc::new(code_str), code: Arc::new(code), ptr: 0, levels: vec![0] }
+        Input {
+            raw: Rc::new(RawInput { string: code_str, tokens: code }),
+            ptr: 0,
+            levels: Rc::new(vec![0]),
+        }
     }
 
     pub fn next(&self) -> Input {
         let ptr = self.skip_indent();
 
         Input {
-            code_str: Arc::clone(&self.code_str),
-            code: Arc::clone(&self.code),
+            raw: Rc::clone(&self.raw),
             ptr: ptr + 1,
             levels: self.levels.clone(),
         }
     }
 
     pub fn enter_level(&self, level: u32) -> Input {
-        let mut copy = self.clone();
-        copy.levels.push(level);
-        copy
+        let mut copy = (&(*self.levels)).clone();
+        copy.push(level);
+        Input {
+            raw: Rc::clone(&self.raw),
+            levels: Rc::new(copy),
+            ptr: self.ptr,
+        }
     }
 
     pub fn exit_level(&self, level: u32) -> Input {
-        let mut copy = self.clone();
+        let mut copy = (&(*self.levels)).clone();
 
-        if let Some(index) = self.levels.iter().position(|lv| *lv == level) {
-            copy.levels.remove(index);
+        if let Some(index) = copy.iter().position(|lv| *lv == level) {
+            copy.remove(index);
         }
-        copy
+
+        Input {
+            raw: Rc::clone(&self.raw),
+            levels: Rc::new(copy),
+            ptr: self.ptr,
+        }
     }
 
     pub fn read(&self) -> Token {
         let ptr = self.skip_indent();
-        self.code[ptr].token.clone()
+        self.raw.tokens[ptr].token.clone()
     }
 
     fn skip_indent(&self) -> usize {
@@ -80,8 +99,8 @@ impl Input {
 
         // Ignore indentation that doesn't match a current level
         // defined by a `case of` or `let in` expression
-        if ptr < self.code.len() {
-            while let Token::Indent(level) = &self.code[ptr].token {
+        if ptr < self.raw.tokens.len() {
+            while let Token::Indent(level) = &self.raw.tokens[ptr].token {
                 if !self.levels.contains(level) {
                     ptr += 1;
                 } else {
@@ -90,23 +109,24 @@ impl Input {
             }
         }
 
-        ptr.min(self.code.len() - 1)
+        ptr.min(self.raw.tokens.len() - 1)
     }
 
     pub fn read_forced(&self) -> Token {
-        let ptr = self.ptr.min(self.code.len() - 1);
-        self.code[ptr].token.clone()
+        let ptr = self.ptr.min(self.raw.tokens.len() - 1);
+        self.raw.tokens[ptr].token.clone()
     }
 }
 
 impl Display for Input {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        let loc = &self.code[self.ptr].start;
+        let loc = &self.raw.tokens[self.ptr].start;
+        let string = self.raw.string.as_bytes();
 
         let mut error_pos = 0usize;
 
         for _ in 0..loc.line {
-            while self.code_str.as_bytes()[error_pos] != b'\n' {
+            while string[error_pos] != b'\n' {
                 error_pos += 1;
             }
             error_pos += 1;
@@ -114,23 +134,23 @@ impl Display for Input {
 
         error_pos += loc.column as usize;
 
-        if error_pos >= self.code_str.len() {
-            error_pos = self.code_str.len() - 1;
+        if error_pos >= string.len() {
+            error_pos = string.len() - 1;
         }
 
         let mut line_start = error_pos;
         let mut line_end = error_pos;
 
         while line_start > 0 {
-            if self.code_str.as_bytes()[line_start] == b'\n' {
+            if string[line_start] == b'\n' {
                 line_start += 1;
                 break;
             }
             line_start -= 1;
         }
 
-        while line_end < self.code_str.len() {
-            if self.code_str.as_bytes()[line_end] == b'\n' {
+        while line_end < string.len() {
+            if string[line_end] == b'\n' {
                 break;
             }
             line_end += 1;
@@ -148,7 +168,7 @@ impl Display for Input {
                 trail.push('─');
                 pointer.push(' ');
             }
-            line.push(self.code_str.as_bytes()[index] as char);
+            line.push(string[index] as char);
         }
 
         let line_num = format!("{}", loc.line + 1);
@@ -193,13 +213,13 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use parsers::new::util::from;
     use parsers::new::util::test_parser;
 
     use super::*;
 
     #[test]
     fn test_benches() {
+        test_parser(parse_module, include_str!("../../../benches/data/tokenizer_1.elm"));
         test_parser(parse_module, include_str!("../../../benches/data/tokenizer_2.elm"));
     }
 }

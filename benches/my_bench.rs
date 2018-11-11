@@ -8,11 +8,11 @@ use criterion::Criterion;
 use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
 use elm_interpreter::interpreter::eval_expression;
 use elm_interpreter::interpreter::eval_statement;
+use elm_interpreter::parsers::new::parse_full_module;
+use elm_interpreter::parsers::new::util::from;
 use elm_interpreter::parsers::parse_module;
 use elm_interpreter::tokenizer::tokenize;
 use elm_interpreter::tokenizer::TokenStream;
-use elm_interpreter::parsers::new::util::from;
-use elm_interpreter::parsers::new::parse_full_module;
 
 fn bench_tokenize_small_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
@@ -60,9 +60,22 @@ fn bench_eval_expr_2(c: &mut Criterion) {
     c.bench_function("eval_2", move |b| b.iter(|| eval_expression(&mut env, code)));
 }
 
+fn check_copy_cost(c: &mut Criterion) {
+    c.bench_function("input_copy_cost", move |b| {
+        let input = from("a long stream of tokens");
+        b.iter(|| input.clone())
+    });
+    c.bench_function("token_stream_copy_cost", move |b| {
+        let tokens = tokenize(b"a long stream of tokens").unwrap();
+        let stream = TokenStream::new(&tokens);
+        b.iter(|| stream.clone())
+    });
+}
+
 criterion_group!(tokenizer_benches, bench_tokenize_small_file, bench_tokenize_medium_file);
 criterion_group!(parser_benches, bench_parser_small_file, bench_parser_medium_file);
 criterion_group!(new_parser_benches, bench_new_parser_small_file, bench_new_parser_medium_file);
 criterion_group!(eval_benches, bench_eval_expr_1, bench_eval_expr_2);
+criterion_group!(internal_optimizations, check_copy_cost);
 
-criterion_main!(tokenizer_benches, parser_benches, new_parser_benches, eval_benches);
+criterion_main!(internal_optimizations);

@@ -193,7 +193,7 @@ pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
     let (t, i) = func(input)?;
     let i = expect(Token::Eof, i)?;
-    assert_eq!(i.ptr, i.code.len());
+    assert_eq!(i.ptr, i.raw.tokens.len());
     Ok(t)
 }
 
@@ -257,7 +257,7 @@ pub fn print_tokens(mut i: Input) {
 
 
 pub fn print_token_locations(f: &mut Formatter, i: Input) {
-    for tk in i.code.iter().skip(i.ptr).take(20) {
+    for tk in i.raw.tokens.iter().skip(i.ptr).take(20) {
         write!(f, "{:03}:{:03} | {}\n", tk.start.line + 1, tk.start.column + 1, tk.token).unwrap();
     }
 }
