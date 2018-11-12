@@ -102,12 +102,16 @@ mod test {
 
                     Ok(module)
                 }
-                Err(_) => Ok(Module::default())
+                Err(_) => {
+                    println!("Error at {:?}", path);
+                    Ok(Module::default())
+                }
             }
 
-        });
+        }).unwrap();
 
-        println!("{:#?}", mods);
-        panic!();
+        for (path, module) in mods {
+            println!("{:?}: {}", path, module.statements.len());
+        }
     }
 }

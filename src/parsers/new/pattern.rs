@@ -11,7 +11,7 @@ use tokenizer::Token;
 pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> {
     let (mut patt, mut i) = parse_pattern(input)?;
 
-    if let Token::BinaryOperator(op) = i.read() {
+    if let Token::BinaryOperator(_) = i.read() {
 
         while let Token::BinaryOperator(op) = i.read() {
             let (patt2, rest) = parse_pattern(i.next())?;
