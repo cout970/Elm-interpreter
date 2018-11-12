@@ -25,7 +25,7 @@ type Tk<'a> = TokenStream<'a>;
 #[macro_use]
 mod macros;
 
-mod module;
+pub mod module;
 mod types;
 mod statement;
 mod expression;

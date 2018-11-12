@@ -4,8 +4,8 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 
-mod new;
-mod old;
+pub mod new;
+pub mod old;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SyntaxError {
