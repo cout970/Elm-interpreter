@@ -8,6 +8,9 @@ use parsers::new::util::many0;
 use parsers::new::util::optional_tk;
 use tokenizer::Token;
 use util::create_vec;
+use util::qualified_name;
+use parsers::new::util::expect_upper;
+use util::uncons;
 
 pub fn parse_type(input: Input) -> Result<(Type, Input), ParseError> {
     let (ty, i) = parse_type_base(input)?;
@@ -20,8 +23,28 @@ pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
     let (ty, i) = match input.read() {
         Token::Id(name) => (Type::Var(name.to_owned()), input.next()),
         Token::UpperId(name) => {
-            let (params, i) = many0(&parse_type, input.next())?;
-            (Type::Tag(name.to_owned(), params), i)
+            let i = input.next();
+            let (name, i) = match i.read() {
+                Token::Dot => {
+
+                    let (second, mut i) = expect_upper(i.next())?;
+                    let mut accum = vec![second];
+
+                    while let Token::Dot = i.read() {
+                        let (next, rest) = expect_upper(i.next())?;
+                        accum.push(next);
+                        i = rest;
+                    }
+
+                    let names = create_vec(name.to_owned(), accum);
+                    let (list, last) = uncons(names);
+                    (qualified_name(&list, &last), i)
+                }
+                _ => (name.to_owned(), i)
+            };
+
+            let (params, i) = many0(&parse_type, i)?;
+            (Type::Tag(name, params), i)
         }
         Token::LeftParen => {
             // () => Unit

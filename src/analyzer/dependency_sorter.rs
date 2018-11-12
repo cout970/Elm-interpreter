@@ -88,7 +88,8 @@ fn get_stm_dependencies(def: &Statement) -> Vec<String> {
                     tys.iter().map(|ty| get_type_dependencies(ty)).flatten()
                 })
                 .flatten()
-                .collect()
+                .collect(),
+        Statement::Infix(_, _, _, _) => vec![]
     }
 }
 
@@ -194,6 +195,7 @@ fn get_stm_name(stm: &Statement) -> &str {
         Statement::Adt(name, _, _) => { name }
         Statement::Port(name, _) => { name }
         Statement::Def(def) => { &def.name }
+        Statement::Infix(_, _, op, _) => { op }
     }
 }
 

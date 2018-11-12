@@ -9,15 +9,18 @@ use parsers::new::util::many0;
 use tokenizer::Token;
 
 pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> {
-    let (patt, i) = parse_pattern(input)?;
+    let (mut patt, mut i) = parse_pattern(input)?;
 
     if let Token::BinaryOperator(op) = i.read() {
-        let (patt2, i) = parse_pattern(i.next())?;
-        return Ok((Pattern::BinaryOp(op, Box::from(patt), Box::from(patt2)), i));
 
+        while let Token::BinaryOperator(op) = i.read() {
+            let (patt2, rest) = parse_pattern(i.next())?;
+            patt = Pattern::BinaryOp(op, Box::from(patt), Box::from(patt2));
+            i = rest;
+        }
     } else if let Token::As = i.read() {
         let (alias, i) = expect_id(i.next())?;
-        return Ok((Pattern::Alias(Box::from(patt), alias), i))
+        return Ok((Pattern::Alias(Box::from(patt), alias), i));
     }
 
     Ok((patt, i))

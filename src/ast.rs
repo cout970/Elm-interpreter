@@ -75,6 +75,7 @@ pub enum Statement {
     Adt(String, Vec<String>, Vec<(String, Vec<Type>)>),
     Port(String, Type),
     Def(Definition),
+    Infix(String, Int, String, String),
 }
 
 /// The representation of a type

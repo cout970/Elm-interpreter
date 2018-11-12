@@ -1,5 +1,6 @@
-use ast::*;
 use std::sync::Arc;
+
+use ast::*;
 use types::*;
 
 pub mod name_sequence;
@@ -98,6 +99,14 @@ fn arg_count(ty: &Type) -> u32 {
 
 pub fn to_string(v: &[u8]) -> String {
     v.into_iter().map(|c| *c as char).collect::<String>()
+}
+
+pub fn uncons<T: Clone>(list: Vec<T>) -> (Vec<T>, T) {
+    assert!(list.len() > 0);
+    let last = list.last().unwrap().clone();
+    let aux = list.len() - 1;
+    let start: Vec<T> = list.into_iter().take(aux).collect();
+    (start, last)
 }
 
 pub fn create_vec<T>(first: T, rest: Vec<T>) -> Vec<T> {

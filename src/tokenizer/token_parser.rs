@@ -153,6 +153,7 @@ fn from_id(id: String) -> Token {
         b"type" => TypeTk,
         b"port" => Port,
         b"alias" => Alias,
+        b"infix" => InfixTk,
         _ => Id(id)
     }
 }

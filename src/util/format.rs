@@ -241,6 +241,7 @@ impl Display for Token {
             Token::TypeTk => { write!(f, "type") }
             Token::Port => { write!(f, "port") }
             Token::Alias => { write!(f, "alias") }
+            Token::InfixTk => { write!(f, "infix") }
             Token::Underscore => { write!(f, "_") }
             Token::Dot => { write!(f, ".") }
             Token::DoubleDot => { write!(f, "..") }

@@ -18,7 +18,16 @@ pub enum PatternMatchingError {
 }
 
 pub fn analyze_let_destructuring(env: &mut StaticEnv, pattern: &Pattern, expr: &Expr) -> Result<Vec<(String, Type)>, TypeError> {
-    Err(TypeError::InternalError)
+    let (pat_ty, vars) = analyze_pattern(&mut env.name_seq, pattern)
+        .map_err(|e| TypeError::InvalidPattern(e))?;
+
+    let ty = analyze_expression(env, Some(&pat_ty), expr)?;
+
+    if is_assignable(&pat_ty, &ty) {
+        Ok(vars)
+    } else {
+        Err(TypeError::DefinitionTypeAndReturnTypeMismatch)
+    }
 }
 
 pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
@@ -283,9 +292,10 @@ pub fn is_assignable(expected: &Type, found: &Type) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code_stm;
-    use super::*;
     use ast::Statement;
+    use parsers::from_code_stm;
+
+    use super::*;
 
     fn from_code_def(code: &[u8]) -> Definition {
         let stm = from_code_stm(code);

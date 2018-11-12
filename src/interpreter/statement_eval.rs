@@ -64,6 +64,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
         Statement::Port(_name, _ty) => {
             // TODO
         }
+        Statement::Infix(_, _, _, _) => {}
         Statement::Def(def) => {
             let def_ty = type_check_function(&mut env.types, def)
                 .map_err(|e| RuntimeError::IncorrectDefType(e))?;

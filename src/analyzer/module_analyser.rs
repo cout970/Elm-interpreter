@@ -161,6 +161,9 @@ fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Declaration
         Statement::Def(def) => {
             vec![Declaration::Def(def.name.clone(), analyze_function(env, def)?)]
         }
+        Statement::Infix(_, _, _, _) => {
+            vec![]
+        }
     };
 
     Ok(decls)

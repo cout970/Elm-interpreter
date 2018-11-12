@@ -15,7 +15,7 @@ pub fn parse_module(input: Input) -> Result<(Module, Input), ParseError> {
     let i = skip_empty_lines(input)?;
 
     let (header, i) = match i.read() {
-        Token::ModuleTk => {
+        Token::ModuleTk | Token::EffectTk => {
             let (header, i) = parse_module_header(i)?;
             (Some(header), i)
         }
@@ -287,7 +287,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn elm_core_module_test() {
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Array.elm"));
         test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));

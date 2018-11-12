@@ -23,6 +23,7 @@ pub mod module;
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     Expected { input: Input, expected: Token, found: Token },
+    ExpectedInt { input: Input, found: Token },
     ExpectedId { input: Input, found: Token },
     ExpectedUpperId { input: Input, found: Token },
     ExpectedBinaryOperator { input: Input, found: Token },
@@ -215,6 +216,9 @@ impl Display for ParseError {
         match self {
             ParseError::Expected { input, expected, found } => {
                 write!(f, "Expected token '{}', but found '{}': {}\n", expected, found, input)
+            }
+            ParseError::ExpectedInt { input, found } => {
+                write!(f, "Expected integer, but found '{}': {}\n", found, input)
             }
             ParseError::ExpectedId { input, found } => {
                 write!(f, "Expected identifier, but found '{}': {}\n", found, input)

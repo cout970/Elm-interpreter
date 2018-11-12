@@ -6,6 +6,7 @@ use parsers::new::ParseError;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
+use ast::Int;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
@@ -168,6 +169,15 @@ pub fn read_optional_indent(input: Input) -> u32 {
         found
     } else {
         std::u32::MAX
+    }
+}
+
+pub fn expect_int(input: Input) -> Result<(Int, Input), ParseError> {
+    if let Token::LitInt(value) = input.read() {
+        Ok((value, input.next()))
+    } else {
+        let found = input.read();
+        Err(ParseError::ExpectedInt { input, found })
     }
 }
 

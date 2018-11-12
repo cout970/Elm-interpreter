@@ -42,6 +42,7 @@ pub enum Token {
     TypeTk,
     Port,
     Alias,
+    InfixTk,
     Underscore,
     Dot,
     DoubleDot,

@@ -13,6 +13,8 @@ use parsers::new::util::expect_upper;
 use parsers::new::util::many0;
 use parsers::new::util::pipe1;
 use tokenizer::Token;
+use parsers::new::util::expect_binop;
+use parsers::new::util::expect_int;
 
 pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
     let (stm, i) = match input.read() {
@@ -47,6 +49,17 @@ pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
             let (def, i) = parse_definition(0, input)?;
 
             (Statement::Def(def), i)
+        }
+        Token::InfixTk => {
+            let (direction, i) = expect_id(input.next())?;
+            let (level, i) = expect_int(i)?;
+            let i = expect(Token::LeftParen, i)?;
+            let (op, i) = expect_binop(i)?;
+            let i = expect(Token::RightParen, i)?;
+            let i = expect(Token::Equals, i)?;
+            let (func, i) = expect_id(i)?;
+
+            (Statement::Infix(direction, level, op, func), i)
         }
         _ => {
             let found = input.read();
