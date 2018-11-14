@@ -230,6 +230,16 @@ pub fn calculate_common_type(types: &[Type]) -> Result<&Type, (&Type, &Type)> {
 
 pub fn is_assignable(expected: &Type, found: &Type) -> bool {
     if expected == found { return true; }
+
+    if let Type::Var(_) = found {
+        match expected {
+            Type::Var(_) => (),
+            _ => {
+                return true;
+            }
+        }
+    }
+
     match expected {
         Type::Var(name) => {
             match name.as_str() {

@@ -1,0 +1,17 @@
+module TypeCheck exposing (..)
+
+func1: Int
+func1 = 0
+
+func2: Int -> Int
+func2 x = x
+
+func3 a b = a * b
+
+func4 a = func2 a
+
+func5 a b = (func2 a) + b
+
+func6 x = if x then 1 else 2
+
+func7 x = if x then 1.5 else 2

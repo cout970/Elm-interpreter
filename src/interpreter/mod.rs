@@ -39,7 +39,8 @@ pub enum RuntimeError {
     InternalErrorAdtCreation(Value),
     UnknownBuiltinFunction(u32),
     BuiltinFunctionError,
-    ImpossibleConversion
+    ImpossibleConversion,
+    MissingSourceFile,
 }
 
 pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>, ErrorWrapper> {

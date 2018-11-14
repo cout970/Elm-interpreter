@@ -719,7 +719,7 @@ mod tests {
 
     #[test]
     fn check_record_update() {
-        let expr = from_code(b"{ x | a = 0}");
+        let expr = from_code(b"{ x | a = 0 }");
         let mut env = StaticEnv::new();
 
         let record_type = Type::Record(vec![

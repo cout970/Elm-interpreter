@@ -2,19 +2,19 @@
 Small Elm interpreter made in Rust with the library [Nom](https://github.com/Geal/nom)
 
 ### Progress
- - [x] Tokenizer
- - [x] Parser
- - [x] Semantic Analyzer
- - [x] Tree walker interpreter
- - [ ] Bytecode generation
- - [ ] Bytecode interpreter
+ - Tokenizer: Complete
+ - Parser: Complete
+ - Semantic Analyzer: Mostly complete
+ - Tree walker interpreter: Missing Let and Rust interop
+ - Rust interop: Mostly done
+ - FFI interop: Not started
+ - Bytecode generation: Not started
+ - Bytecode interpreter: Not started
  
  
 ##### GTD
-- Add modules and imports (loading and evaluation)
 - Improve error reporting encapsulating the job of creating user-readable strings in a separated module
 - Add better runtime exceptions
-- Add tests for incorrect code
-- Add code locations in tokenizer/parser/analyzer errors
 - Add builtin functions and types from elm-core
-- Reduce the use of clone on immutable values (using Rc to share the data)
+- Benchmarking every step in the interpreter
+- Create a language driver for Amethyst
