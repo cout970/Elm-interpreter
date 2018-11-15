@@ -16,6 +16,7 @@ use util::create_vec_inv;
 use util::get_fun_return;
 use util::qualified_name;
 use util::visitors::type_visitor;
+use core::register_core;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CheckedModule {
@@ -50,6 +51,7 @@ pub fn analyze_module(info: &InterModuleInfo, path: &ModulePath, module: Module)
 
 fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<StaticEnv, TypeError> {
     let mut env = StaticEnv::new();
+    register_core(&mut env);
 
     for import in &module.imports {
         let module = info.get(&import.path)

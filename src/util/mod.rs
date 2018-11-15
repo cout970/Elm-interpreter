@@ -101,13 +101,12 @@ pub fn to_string(v: &[u8]) -> String {
     v.into_iter().map(|c| *c as char).collect::<String>()
 }
 
-pub fn uncons<T: Clone>(list: Vec<T>) -> (Vec<T>, T) {
-    assert!(list.len() > 0);
-    let last = list.last().unwrap().clone();
-    let aux = list.len() - 1;
-    let start: Vec<T> = list.into_iter().take(aux).collect();
-    (start, last)
+pub fn uncons<T>(mut list: Vec<T>) -> (Vec<T>, T) {
+    assert!(!list.is_empty());
+    let last = list.pop().unwrap();
+    (list, last)
 }
+
 
 pub fn create_vec<T>(first: T, rest: Vec<T>) -> Vec<T> {
     let mut vec: Vec<T> = Vec::new();
