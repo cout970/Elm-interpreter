@@ -22,7 +22,7 @@ pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
 }
 
 pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
-    old::parse_module(code)
+    new::parse_module(code)
 }
 
 #[cfg(test)]

@@ -1,5 +1,21 @@
 module TypeCheck exposing (..)
 
+-- Default Imports
+import Basics exposing (..)
+import List exposing (List, (::))
+import Maybe exposing (Maybe(..))
+import Result exposing (Result(..))
+import String exposing (String)
+import Char exposing (Char)
+import Tuple
+
+import Debug
+
+import Platform exposing ( Program )
+import Platform.Cmd as Cmd exposing ( Cmd )
+import Platform.Sub as Sub exposing ( Sub )
+--
+
 func1: Int
 func1 = 0
 

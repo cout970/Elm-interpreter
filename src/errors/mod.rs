@@ -9,8 +9,9 @@ use parsers::SyntaxError;
 use rust_interop::InteropError;
 use tokenizer::LexicalError;
 use util::format::print_vec;
+use std::fmt::Debug;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum ErrorWrapper {
     Lexical(LexicalError),
     Syntactic(SyntaxError),
@@ -187,6 +188,12 @@ pub fn format_interop_error(error: InteropError) -> String {
 }
 
 impl Display for ErrorWrapper {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", format_error(self.clone()))
+    }
+}
+
+impl Debug for ErrorWrapper {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self.clone()))
     }

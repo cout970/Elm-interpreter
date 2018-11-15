@@ -98,17 +98,19 @@ fn skip_empty_lines(input: Input) -> Result<Input, ParseError> {
     Ok(i)
 }
 
+
+
 fn parse_module_header(input: Input) -> Result<(ModuleHeader, Input), ParseError> {
     let (name, i) = match input.read() {
         Token::ModuleTk => {
             // module String exposing (..)
             let i = input.next();
-            expect_upper(i)?
+            expect_upper_chain(i)?
         }
         Token::EffectTk => {
             // effect module Task where { command = MyCmd } exposing (..)
             let i = expect(Token::ModuleTk, input.next())?;
-            let (name, i) = expect_upper(i)?;
+            let (name, i) = expect_upper_chain(i)?;
             let i = expect(Token::WhereTk, i)?;
             let i = expect(Token::LeftBrace, i)?;
             let (_, i) = expect_id(i)?;

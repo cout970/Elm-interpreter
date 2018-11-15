@@ -1,12 +1,12 @@
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
+use ast::Int;
 use parsers::new::Input;
 use parsers::new::ParseError;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
-use ast::Int;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
@@ -147,7 +147,7 @@ pub fn expect_indent(expected: u32, input: Input) -> Result<Input, ParseError> {
     while let Token::Indent(found) = i.read() {
         if found == expected {
             i = i.next()
-        }else{
+        } else {
             break;
         }
     }
@@ -208,6 +208,36 @@ pub fn expect_binop(input: Input) -> Result<(String, Input), ParseError> {
         let found = input.read();
         Err(ParseError::ExpectedBinaryOperator { input, found })
     }
+}
+
+pub fn expect_upper_chain(input: Input) -> Result<(String, Input), ParseError> {
+    let mut names = vec![];
+
+    let (name, mut i) = expect_upper(input)?;
+    names.push(name);
+
+    while let Token::Dot = i.read() {
+        let (name, rest) = expect_upper(i.next())?;
+        names.push(name);
+        i = rest;
+    }
+
+    let complete_name = if names.len() == 1 {
+        names.into_iter().next().unwrap()
+    } else {
+        let mut string = String::new();
+        let mut iter = names.iter();
+
+        string.push_str(iter.next().unwrap());
+        for x in iter {
+            string.push('.');
+            string.push_str(x);
+        }
+
+        string
+    };
+
+    Ok((complete_name, i))
 }
 
 pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
