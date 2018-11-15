@@ -3,8 +3,11 @@ use std::collections::HashMap;
 use types::Adt;
 use util::name_sequence::NameSequence;
 use std::sync::Arc;
+use std::fmt::Debug;
+use std::fmt::Error;
+use std::fmt::Formatter;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct StaticEnv {
     blocks: Vec<Block>,
     pub name_seq: NameSequence,
@@ -101,5 +104,28 @@ impl StaticEnv {
 
     pub fn exit_block(&mut self) {
         self.blocks.pop().expect("Tried to pop the global environment");
+    }
+}
+
+impl Debug for StaticEnv {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "StaticEnv:\nname_seq: {:?}\n", self.name_seq)?;
+        for i in 0..self.blocks.len() {
+            let spaces = " ".repeat(i);
+            let block = &self.blocks[i];
+
+            for (name, ty) in &block.alias {
+                write!(f, "{}Alias '{}' : {}\n", spaces, name, ty)?;
+            }
+
+            for (name, adt) in &block.adts {
+                write!(f, "{}Adt '{}' : {:?}\n", spaces, name, adt)?;
+            }
+
+            for (name, ty) in &block.functions {
+                write!(f, "{}Def '{}' : {}\n", spaces, name, ty)?;
+            }
+        }
+        Ok(())
     }
 }

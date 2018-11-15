@@ -22,16 +22,38 @@ pub fn type_bool() -> Type {
     Type::Tag(String::from("Bool"), vec![])
 }
 
+pub fn type_string() -> Type {
+    Type::Tag(String::from("String"), vec![])
+}
+
+pub fn type_char() -> Type {
+    Type::Tag(String::from("Char"), vec![])
+}
+
 pub fn type_list(var: Type) -> Type {
     Type::Tag(String::from("List"), vec![var])
+}
+
+pub fn type_array(var: Type) -> Type {
+    Type::Tag(String::from("Array"), vec![var])
+}
+
+pub fn type_maybe(var: Type) -> Type {
+    Type::Tag(String::from("Maybe"), vec![var])
 }
 
 pub fn type_var(var: &str) -> Type {
     Type::Var(String::from(var))
 }
 
-pub fn type_tuple(values: Vec<Type>) -> Type {
-    Type::Tuple(values)
+pub fn type_tag(var: &str) -> Type {
+    Type::Tag(String::from(var), vec![])
+}
+
+pub fn type_tuple<T>(values: T) -> Type
+    where T: IntoIterator<Item=Type, IntoIter=IntoIter<Type>>
+{
+    Type::Tuple(values.into_iter().collect())
 }
 
 pub fn type_fun<T>(types: T) -> Type

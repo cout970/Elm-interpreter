@@ -20,6 +20,8 @@ use util::StringConversion;
 use analyzer::function_analyzer::analyze_let_destructuring;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
+//    println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
+//    println!("analyze_expression {{ env: {:?} }}", env);
     match expr {
         Expr::Ref(name) => {
             let def =

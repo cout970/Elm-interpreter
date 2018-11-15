@@ -1,34 +1,46 @@
-use analyzer::static_env::StaticEnv;
+use ast::Type;
 use constructors::*;
 
-pub fn register_basics(env: &mut StaticEnv) {
-    env.add_definition("+", type_fun(vec![type_number(), type_number(), type_number()]));
-    env.add_definition("-", type_fun(vec![type_number(), type_number(), type_number()]));
-    env.add_definition("*", type_fun(vec![type_number(), type_number(), type_number()]));
-    env.add_definition("/", type_fun(vec![type_float(), type_float(), type_float()]));
-    env.add_definition("//", type_fun(vec![type_int(), type_int(), type_int()]));
-    env.add_definition("^", type_fun(vec![type_number(), type_number(), type_number()]));
-    env.add_definition("remainderBy", type_fun(vec![type_int(), type_int(), type_int()]));
-    env.add_definition("modBy", type_fun(vec![type_int(), type_int(), type_int()]));
-    env.add_definition("pi", type_float());
-    env.add_definition("e", type_float());
-    env.add_definition("cos", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("sin", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("tan", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("acos", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("asin", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("atan", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("atan2", type_fun(vec![type_float(), type_float(), type_float()]));
-    env.add_definition("toFloat", type_fun(vec![type_int(), type_float()]));
-    env.add_definition("truncate", type_fun(vec![type_float(), type_int()]));
-    env.add_definition("isInfinite", type_fun(vec![type_float(), type_bool()]));
-    env.add_definition("ceiling", type_fun(vec![type_float(), type_int()]));
-    env.add_definition("floor", type_fun(vec![type_float(), type_int()]));
-    env.add_definition("round", type_fun(vec![type_float(), type_int()]));
-    env.add_definition("sqrt", type_fun(vec![type_float(), type_float()]));
-    env.add_definition("isNaN", type_fun(vec![type_float(), type_bool()]));
-    env.add_definition("&&", type_fun(vec![type_bool(), type_bool(), type_bool()]));
-    env.add_definition("||", type_fun(vec![type_bool(), type_bool(), type_bool()]));
-    env.add_definition("xor", type_fun(vec![type_bool(), type_bool(), type_bool()]));
-    env.add_definition("not", type_fun(vec![type_bool(), type_bool()]));
+pub fn get_basics_types() -> Vec<(&'static str, Type)> {
+    //@formatter:off
+    vec![
+        ("+",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("add",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("-",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("sub",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("*",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("mul",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("/",           type_fun(vec![type_float(),  type_float(),  type_float()])),
+        ("idiv",           type_fun(vec![type_float(),  type_float(),  type_float()])),
+        ("//",          type_fun(vec![type_int(),    type_int(),    type_int()])),
+        ("fdiv",          type_fun(vec![type_int(),    type_int(),    type_int()])),
+        ("^",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("pow",         type_fun(vec![type_number(), type_number(), type_number()])),
+        ("remainderBy", type_fun(vec![type_int(),    type_int(),    type_int()])),
+        ("modBy",       type_fun(vec![type_int(),    type_int(),    type_int()])),
+        ("pi",          type_float()),
+        ("e",           type_float()),
+        ("cos",         type_fun(vec![type_float(),  type_float()])),
+        ("sin",         type_fun(vec![type_float(),  type_float()])),
+        ("tan",         type_fun(vec![type_float(),  type_float()])),
+        ("acos",        type_fun(vec![type_float(),  type_float()])),
+        ("asin",        type_fun(vec![type_float(),  type_float()])),
+        ("atan",        type_fun(vec![type_float(),  type_float()])),
+        ("atan2",       type_fun(vec![type_float(),  type_float(),   type_float()])),
+        ("toFloat",     type_fun(vec![type_int(),    type_float()])),
+        ("truncate",    type_fun(vec![type_float(),  type_int()])),
+        ("isInfinite",  type_fun(vec![type_float(),  type_bool()])),
+        ("ceiling",     type_fun(vec![type_float(),  type_int()])),
+        ("floor",       type_fun(vec![type_float(),  type_int()])),
+        ("round",       type_fun(vec![type_float(),  type_int()])),
+        ("sqrt",        type_fun(vec![type_float(),  type_float()])),
+        ("isNaN",       type_fun(vec![type_float(),  type_bool()])),
+        ("&&",          type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
+        ("and",          type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
+        ("||",          type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
+        ("or",          type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
+        ("xor",         type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
+        ("not",         type_fun(vec![type_bool(),   type_bool()])),
+    ]
+    //@formatter:on
 }

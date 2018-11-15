@@ -8,6 +8,7 @@ use std::sync::Arc;
 use analyzer::module_analyser::analyze_module;
 use analyzer::module_analyser::CheckedModule;
 use ast::*;
+use core::get_core_module_by_path;
 use errors::ErrorWrapper;
 use interpreter::RuntimeError;
 use parsers::parse_module;
@@ -45,8 +46,14 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
     let mut to_visit: Vec<ModulePath> = vec![path.clone()];
 
     while let Some(path) = to_visit.pop() {
-        let module_code = getter(&path)?;
-        let module = parse_module(&module_code)?;
+        let module = match get_core_module_by_path(&path) {
+            Some(module) => module,
+            None => {
+                let module_code = getter(&path)?;
+                parse_module(&module_code)?
+            }
+        };
+
         let deps = get_module_dependencies(&module);
 
         for dep in deps {
@@ -55,12 +62,13 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
             }
         }
 
-        visited.insert(path.clone());
-        inv_load_order.push((path, module));
+        inv_load_order.push((path.clone(), module));
+        visited.insert(path);
     }
 
     Ok(inv_load_order.into_iter().rev().collect())
 }
+
 
 fn get_module_dependencies(module: &Module) -> Vec<ModulePath> {
     let mut dependencies = vec![];
@@ -109,7 +117,7 @@ pub fn find_module_func(base_paths: &'static [&str]) -> impl Fn(&ModulePath) -> 
                 let mut code = String::new();
                 BufReader::new(file).read_to_string(&mut code).unwrap();
 
-                 Ok(code)
+                Ok(code)
             }
             None => Err(ErrorWrapper::Runtime(RuntimeError::MissingSourceFile))
         }
@@ -127,7 +135,7 @@ mod test {
             find_module_func(&[
                 "benches/data",
                 "/Data/Dev/Elm/core-master/src"
-            ])
+            ]),
         ).unwrap();
 
         let checked = analyze_all_modules(mods).unwrap();
