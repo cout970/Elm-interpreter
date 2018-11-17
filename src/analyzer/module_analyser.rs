@@ -124,7 +124,9 @@ fn get_default_header() -> ModuleHeader {
 
 /* The environment must contain all the imports resolved */
 fn analyze_module_declarations(env: &mut StaticEnv, module: &Module) -> Result<Declarations, TypeError> {
-    let statements = sort_statement_dependencies(&module.statements);
+    // TODO add back
+//    let statements = sort_statement_dependencies(&module.statements);
+    let statements = &module.statements;
     let mut declarations = Declarations::new();
 
     for stm in statements {

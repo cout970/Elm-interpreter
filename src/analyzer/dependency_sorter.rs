@@ -94,7 +94,7 @@ fn get_stm_dependencies(def: &Statement) -> Vec<String> {
 }
 
 fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) {
-    for (_, entries) in analyze_function_arguments(&mut env.name_seq, patterns) {
+    for (_, entries) in analyze_function_arguments(env, patterns, &None) {
         for (name, _) in entries {
             env.add_definition(&name, Type::Unit);
         }

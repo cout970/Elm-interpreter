@@ -7,12 +7,12 @@ use parsers::new::util::expect;
 use parsers::new::util::expect_id;
 use parsers::new::util::many0;
 use tokenizer::Token;
+use util::create_vec;
 
 pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> {
     let (mut patt, mut i) = parse_pattern(input)?;
 
     if let Token::BinaryOperator(_) = i.read() {
-
         while let Token::BinaryOperator(op) = i.read() {
             let (patt2, rest) = parse_pattern(i.next())?;
             patt = Pattern::BinaryOp(op, Box::from(patt), Box::from(patt2));
@@ -35,6 +35,7 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
         }
         Token::LeftParen => {
             // Unit => ()
+            // Parens => (a)
             // Tuple => (a,) (a, b,) (a, b, c)
 
             let input = input.next();
@@ -43,9 +44,20 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
                     (Pattern::Unit, input.next())
                 }
                 _ => {
-                    let (values, i) = comma0(&parse_pattern_expr, input)?;
-                    let i = expect(Token::RightParen, i)?;
-                    (Pattern::Tuple(values), i)
+                    let (first, i) = parse_pattern_expr(input)?;
+                    match i.read() {
+                        Token::RightParen => {
+                            // Parens (a)
+                            (first, i.next())
+                        }
+                        _ => {
+                            // Tuple (a,)
+                            let i = expect(Token::Comma, i)?;
+                            let (rest, i) = comma0(&parse_pattern_expr, i)?;
+                            let i = expect(Token::RightParen, i)?;
+                            (Pattern::Tuple(create_vec(first, rest)), i)
+                        }
+                    }
                 }
             }
         }

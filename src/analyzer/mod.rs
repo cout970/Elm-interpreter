@@ -40,6 +40,7 @@ pub enum TypeError {
     VariableNameShadowed(String),
     UndeclaredTypeVariables(Vec<String>),
     UnusedTypeVariables(Vec<String>),
+    InvalidPatternAmount(usize, usize),
     InternalError,
 }
 
@@ -122,7 +123,6 @@ mod tests {
         let module = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
         let info = InterModuleInfo::new();
         let path = vec![];
-
 
 
         let checked = analyze_module(&info, &path, module).expect("Type error");

@@ -1,6 +1,11 @@
 use std::vec::IntoIter;
 
+use ast::Int;
+use ast::Literal;
+use ast::Pattern;
 use ast::Type;
+
+// Type
 
 pub fn type_unit() -> Type {
     Type::Unit
@@ -50,6 +55,10 @@ pub fn type_tag(var: &str) -> Type {
     Type::Tag(String::from(var), vec![])
 }
 
+pub fn type_tag_args(var: &str, args: Vec<Type>) -> Type {
+    Type::Tag(String::from(var), args)
+}
+
 pub fn type_tuple<T>(values: T) -> Type
     where T: IntoIterator<Item=Type, IntoIter=IntoIter<Type>>
 {
@@ -84,4 +93,58 @@ pub fn type_record(entries: Vec<(&str, Type)>) -> Type {
             .map(|(s, t)| (String::from(s), t))
             .collect()
     )
+}
+
+// Pattern
+
+pub fn pattern_var(name: &str) -> Pattern {
+    Pattern::Var(String::from(name))
+}
+
+pub fn pattern_tag(var: &str) -> Pattern {
+    Pattern::Adt(String::from(var), vec![])
+}
+
+pub fn pattern_tag_args(var: &str, args: Vec<Pattern>) -> Pattern {
+    Pattern::Adt(String::from(var), args)
+}
+
+pub fn pattern_wildcard() -> Pattern {
+    Pattern::Wildcard
+}
+
+pub fn pattern_unit() -> Pattern {
+    Pattern::Unit
+}
+
+pub fn pattern_int(value: Int) -> Pattern {
+    Pattern::Literal(Literal::Int(value))
+}
+
+pub fn pattern_cons(left: Pattern, right: Pattern) -> Pattern {
+    Pattern::BinaryOp("::".to_owned(), Box::from(left), Box::from(right))
+}
+
+pub fn pattern_tuple<T>(values: T) -> Pattern
+    where T: IntoIterator<Item=Pattern, IntoIter=IntoIter<Pattern>>
+{
+    Pattern::Tuple(values.into_iter().collect())
+}
+
+pub fn pattern_list<T>(values: T) -> Pattern
+    where T: IntoIterator<Item=Pattern, IntoIter=IntoIter<Pattern>>
+{
+    Pattern::List(values.into_iter().collect())
+}
+
+pub fn pattern_record(entries: Vec<&str>) -> Pattern {
+    Pattern::Record(
+        entries.into_iter()
+            .map(|s| String::from(s))
+            .collect()
+    )
+}
+
+pub fn pattern_alias(value: Pattern, alias: &str) -> Pattern {
+    Pattern::Alias(Box::from(value), String::from(alias))
 }

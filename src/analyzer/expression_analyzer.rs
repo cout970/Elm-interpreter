@@ -53,7 +53,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             type_of_app(env, &**fun, &**arg)
         }
         Expr::Lambda(patterns, expr) => {
-            let (tys, new_vars) = analyze_function_arguments(&mut env.name_seq, patterns)?;
+            let (tys, new_vars) = analyze_function_arguments(env, patterns, &None)?;
 
             env.enter_block();
             for (name, value) in &new_vars {
