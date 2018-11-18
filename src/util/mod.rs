@@ -129,6 +129,11 @@ pub fn parse_int(negative: bool, digits: Vec<char>) -> Int {
     if negative { -value } else { value }
 }
 
+pub fn parse_int_base(base: u32, digits: Vec<char>) -> Int {
+    let s: String = digits.into_iter().collect();
+    i64::from_str_radix(&s, base).unwrap() as Int
+}
+
 pub fn parse_float(integer_part: Vec<char>, decimal_part: Vec<char>) -> Float {
     let int_part: String = integer_part.into_iter().collect();
     let dec_part: String = decimal_part.into_iter().collect();

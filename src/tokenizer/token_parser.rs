@@ -1,16 +1,18 @@
 use nom::*;
+
+use ast::Int;
 use tokenizer::Token::*;
 use tokenizer::Token;
 use util::*;
 
 named!(lower<char>, one_of!("abcdefghijklmnopqrstuvwxyz"));
-
 named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
 
 named!(number<char>, one_of!("0123456789"));
+named!(hex_number<char>, one_of!("0123456789ABCDEFabcdef"));
+named!(oct_number<char>, one_of!("01234567"));
 
 named!(newline<char>, one_of!("\r\n"));
-
 named!(binop_char<char>, one_of!(":~!@#$%^&*-+=<>/?._|"));
 
 named!(id_char<char>, alt!(lower | upper | number | one_of!("_'")));
@@ -36,8 +38,25 @@ named!(read_literal<Token>, alt!(
 
 named!(read_int<Token>, do_parse!(
     minus: opt!(char!('-')) >>
+    int: alt!(read_int_hex | read_int_oct | read_int_dec) >>
+    (LitInt(if minus.is_some() { -int } else { int }))
+));
+
+named!(read_int_dec<Int>, do_parse!(
     numbers: many1!(number) >>
-    (LitInt(parse_int(minus.is_some(), numbers)))
+    (parse_int_base(10, numbers))
+));
+
+named!(read_int_hex<Int>, do_parse!(
+    tag!("0x") >>
+    numbers: many1!(hex_number) >>
+    (parse_int_base(16, numbers))
+));
+
+named!(read_int_oct<Int>, do_parse!(
+    tag!("0") >>
+    numbers: many1!(oct_number) >>
+    (parse_int_base(8, numbers))
 ));
 
 named!(read_float<Token>, do_parse!(
@@ -207,6 +226,13 @@ mod tests {
         assert_ok!(read_int(b"1|"), LitInt(1));
         assert_ok!(read_int(b"99999|"), LitInt(99999));
         assert_ok!(read_int(b"-1234|"), LitInt(-1234));
+    }
+
+    #[test]
+    fn check_int_base() {
+        assert_ok!(read_int(b"0|"), LitInt(0));
+        assert_ok!(read_int(b"0123|"), LitInt(0o123));
+        assert_ok!(read_int(b"0x123|"), LitInt(0x123));
     }
 
     #[test]
