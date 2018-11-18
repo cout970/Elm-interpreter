@@ -11,9 +11,9 @@ import Tuple
 
 import Debug
 
-import Platform exposing ( Program )
-import Platform.Cmd as Cmd exposing ( Cmd )
-import Platform.Sub as Sub exposing ( Sub )
+--import Platform exposing ( Program )
+--import Platform.Cmd as Cmd exposing ( Cmd )
+--import Platform.Sub as Sub exposing ( Sub )
 --
 
 func1: Int

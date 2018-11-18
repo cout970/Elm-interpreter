@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
+use types::AdtVariant;
 
 #[derive(Clone, PartialEq)]
 pub struct StaticEnv {
@@ -18,6 +19,7 @@ struct Block {
     functions: HashMap<String, Type>,
     alias: HashMap<String, Type>,
     adts: HashMap<String, Arc<Adt>>,
+    adt_variants: HashMap<String, Arc<Adt>>,
 }
 
 impl StaticEnv {
@@ -28,6 +30,7 @@ impl StaticEnv {
                     functions: HashMap::new(),
                     alias: HashMap::new(),
                     adts: HashMap::new(),
+                    adt_variants: HashMap::new(),
                 }
             ],
             name_seq: NameSequence::new(),
@@ -65,11 +68,19 @@ impl StaticEnv {
     pub fn add_adt(&mut self, name: &str, var: Arc<Adt>) {
         let block = self.blocks.last_mut().unwrap();
 
-        block.adts.insert(name.to_owned(), var);
+        block.adts.insert(name.to_owned(), var.clone());
+        // variants for reverse adt lookup
+        for AdtVariant{ name, .. } in &var.variants {
+            block.adt_variants.insert(name.to_owned(), var.clone());
+        }
     }
 
     pub fn find_adt(&self, name: &str) -> Option<Arc<Adt>> {
         self.search(name, |block| &block.adts)
+    }
+
+    pub fn find_adt_variant(&self, name: &str) -> Option<Arc<Adt>> {
+        self.search(name, |block| &block.adt_variants)
     }
 
     fn search<T: Clone, F: Fn(&Block)->&HashMap<String, T>>(&self, name: &str, func: F) -> Option<T> {
@@ -99,6 +110,7 @@ impl StaticEnv {
             functions: HashMap::new(),
             alias: HashMap::new(),
             adts: HashMap::new(),
+            adt_variants: HashMap::new(),
         });
     }
 

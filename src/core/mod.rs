@@ -25,6 +25,9 @@ pub fn register_core(env: &mut StaticEnv) {
     for (name, ty) in get_basics_types() {
         env.add_definition(name, ty);
     }
+    for (name, ty) in get_utils_types() {
+        env.add_definition(name, ty);
+    }
 }
 
 pub fn get_core_module_by_path(path: &ModulePath) -> Option<Module> {

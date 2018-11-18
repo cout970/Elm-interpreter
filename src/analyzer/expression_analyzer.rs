@@ -18,6 +18,7 @@ use util::expression_fold::ExprTree;
 use util::qualified_name;
 use util::StringConversion;
 use analyzer::function_analyzer::analyze_let_destructuring;
+use analyzer::function_analyzer::analyze_pattern_with_type;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
 //    println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
@@ -211,19 +212,31 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             }
         }
         Expr::Case(expr, branches) => {
+
             let mut iter = branches.iter();
             let (_, e) = iter.next().unwrap();
             let first_type = analyze_expression(env, None, e)?;
 
-            while let Some((_, e)) = iter.next() {
-                let ret = analyze_expression(env, Some(&first_type), e)?;
+            // check that the case expression has a valid type
+            let cond_type = analyze_expression(env, Some(&first_type), expr)?;
+
+            while let Some((pattern, expression)) = iter.next() {
+
+                let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
+                    .map_err(|e| TypeError::InvalidPattern(e))?;
+
+                env.enter_block();
+                for (name, ty) in &vars {
+                    env.add_definition(name, ty.clone());
+                }
+                env.exit_block();
+
+                let ret = analyze_expression(env, Some(&first_type), expression)?;
+
                 if !is_assignable(&first_type, &ret) {
                     return Err(CaseBranchDontMatchReturnType("".s()));
                 }
             }
-
-            // check that the case expression has a valid type
-            analyze_expression(env, Some(&first_type), expr)?;
 
             Ok(first_type)
         }

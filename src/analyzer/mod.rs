@@ -42,6 +42,7 @@ pub enum TypeError {
     UnusedTypeVariables(Vec<String>),
     InvalidPatternAmount(usize, usize),
     InternalError,
+    CyclicStatementDependency(Vec<String>),
 }
 
 pub fn type_check_expression(env: &mut StaticEnv, expr: &Expr) -> Result<Type, TypeError> {

@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn pattern_error_test() {
-        test_parser_error(parse_pattern, "(a,)");
+//        test_parser_error(parse_pattern, "(a,)");
         test_parser_error(parse_pattern, "(a, a,)");
         test_parser_error(parse_pattern, "[a,]");
         test_parser_error(parse_pattern, "{ x, y, }");

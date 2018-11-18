@@ -5,6 +5,7 @@ use std::io::BufReader;
 use std::io::Read;
 use std::sync::Arc;
 
+use analyzer::dependency_sorter::sort_modules;
 use analyzer::module_analyser::analyze_module;
 use analyzer::module_analyser::CheckedModule;
 use ast::*;
@@ -31,6 +32,7 @@ pub fn analyze_all_modules(modules: Vec<(ModulePath, Module)>) -> Result<InterMo
     let mut loaded: HashMap<ModulePath, CheckedModule> = HashMap::new();
 
     for (path, module) in modules {
+        println!("analyze_module: {:?}", path);
         let view = analyze_module(&loaded, &path, module)
             .map_err(|e| ErrorWrapper::Type(e))?;
         loaded.insert(path, view);
@@ -45,6 +47,7 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
     let mut inv_load_order: Vec<(ModulePath, Module)> = vec![];
     let mut to_visit: Vec<ModulePath> = vec![path.clone()];
 
+    // lazy loading
     while let Some(path) = to_visit.pop() {
         let module = match get_core_module_by_path(&path) {
             Some(module) => module,
@@ -66,7 +69,25 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
         visited.insert(path);
     }
 
-    Ok(inv_load_order.into_iter().rev().collect())
+    // sorting
+    let order = sort_modules(&inv_load_order)
+        .map_err(|e| {
+            let paths: Vec<ModulePath> = e.iter().map(|&p| p.clone()).collect();
+            ErrorWrapper::Runtime(RuntimeError::CyclicModuleDependency(paths))
+        })?;
+
+    let mut result: Vec<(ModulePath, Module)> = vec![];
+
+    for path_ref in order {
+        let item = inv_load_order
+            .iter()
+            .find(|(path, _)| path == path_ref)
+            .unwrap();
+
+        result.push(item.clone());
+    }
+
+    Ok(result)
 }
 
 
@@ -138,9 +159,13 @@ mod test {
             ]),
         ).unwrap();
 
+        for (path, _) in &mods {
+            println!("Pre: {:?}", path);
+        }
+
         let checked = analyze_all_modules(mods).unwrap();
         for (path, module) in checked {
-            println!("{:?}: {:?}", path, module);
+            println!("Post: {:?}: {:?}", path, module);
         }
     }
 }

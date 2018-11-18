@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use analyzer::dependency_sorter::sort_statement_dependencies;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::inter_mod_analyzer::Declaration;
 use analyzer::inter_mod_analyzer::Declarations;
@@ -10,13 +9,14 @@ use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use ast::*;
+use core::register_core;
 use types::*;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::get_fun_return;
 use util::qualified_name;
 use util::visitors::type_visitor;
-use core::register_core;
+use analyzer::dependency_sorter::sort_statements;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CheckedModule {
@@ -55,7 +55,10 @@ fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<S
 
     for import in &module.imports {
         let module = info.get(&import.path)
-            .ok_or_else(|| TypeError::MissingModule(import.path.clone()))?;
+            .ok_or_else(|| {
+                println!("info: {:?}", info.keys());
+                TypeError::MissingModule(import.path.clone())
+            })?;
 
         if let Some(alias) = &import.alias {
             for decl in &module.exposing {
@@ -124,9 +127,13 @@ fn get_default_header() -> ModuleHeader {
 
 /* The environment must contain all the imports resolved */
 fn analyze_module_declarations(env: &mut StaticEnv, module: &Module) -> Result<Declarations, TypeError> {
-    // TODO add back
-//    let statements = sort_statement_dependencies(&module.statements);
-    let statements = &module.statements;
+    // TODO this doesnt work
+    let statements = sort_statements(&module.statements)
+        .map_err(|e| {
+            TypeError::CyclicStatementDependency(e)
+        })?;
+
+
     let mut declarations = Declarations::new();
 
     for stm in statements {
@@ -154,19 +161,35 @@ fn analyze_module_declarations(env: &mut StaticEnv, module: &Module) -> Result<D
 fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Declarations, TypeError> {
     let decls = match stm {
         Statement::Alias(name, vars, ty) => {
+            println!("analyze_type_alias: {}", name);
             analyze_type_alias(name, vars, ty)?
         }
         Statement::Adt(name, vars, variants) => {
+            println!("analyze_adt: {}", name);
             analyze_adt(name, vars, variants)?
         }
         Statement::Port(name, ty) => {
+            println!("analyze_port: {}", name);
             analyze_port(name, ty)?
         }
         Statement::Def(def) => {
             vec![Declaration::Def(def.name.clone(), analyze_function(env, def)?)]
         }
-        Statement::Infix(_, _, _, _) => {
-            vec![]
+        Statement::Infix(_, _, name, def) => {
+            println!("ignore infix operator: {}", name);
+
+            match env.find_definition(name) {
+                None => {
+                    let func = env.find_definition(def);
+                    match func {
+                        Some(ty) => {
+                            vec![Declaration::Def(name.clone(), ty)]
+                        }
+                        _ => vec![]
+                    }
+                }
+                _ => vec![]
+            }
         }
     };
 
@@ -319,7 +342,10 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
 
                 exposed_decls.push(decl);
             }
-            Exposing::Definition(name) | Exposing::BinaryOperator(name) => {
+            Exposing::BinaryOperator(_) => {
+                // Ignore
+            }
+            Exposing::Definition(name) => {
                 let decl = all_decls.iter()
                     .find(|decl| {
                         if let Declaration::Def(def_name, _) = decl {

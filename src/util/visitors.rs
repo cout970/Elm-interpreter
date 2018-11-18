@@ -1,4 +1,5 @@
 use ast::Expr;
+use ast::Pattern;
 use ast::Type;
 
 pub fn type_visitor<S, F: Fn(&mut S, &Type)>(state: &mut S, root: &Type, f: &F) {
@@ -96,6 +97,47 @@ pub fn expr_visitor_block<S, F: Fn(&mut S, &Expr), G: Fn(&mut S, &Expr)>(state: 
         }
         Expr::Literal(_) => {}
         Expr::Ref(_) => {}
+    }
+
+    exit(state, root);
+}
+
+
+pub fn pattern_visitor<S, F: Fn(&mut S, &Pattern)>(state: &mut S, root: &Pattern, f: &F) {
+    pattern_visitor_block(state, root, f, &|_, _| ());
+}
+
+pub fn pattern_visitor_block<S, F: Fn(&mut S, &Pattern), G: Fn(&mut S, &Pattern)>(state: &mut S, root: &Pattern, enter: &F, exit: &G) {
+    enter(state, root);
+
+    match root {
+        Pattern::Var(_) => {}
+        Pattern::Adt(_, items) => {
+            for item in items {
+                pattern_visitor_block(state, item, enter, exit);
+            }
+        }
+        Pattern::Wildcard => {}
+        Pattern::Unit => {}
+        Pattern::Tuple(items) => {
+            for item in items {
+                pattern_visitor_block(state, item, enter, exit);
+            }
+        }
+        Pattern::List(items) => {
+            for item in items {
+                pattern_visitor_block(state, item, enter, exit);
+            }
+        }
+        Pattern::BinaryOp(_, left, right) => {
+            pattern_visitor_block(state, &*left, enter, exit);
+            pattern_visitor_block(state, &*right, enter, exit);
+        }
+        Pattern::Record(_) => {}
+        Pattern::Literal(_) => {}
+        Pattern::Alias(child, _) => {
+            pattern_visitor_block(state, &*child, enter, exit);
+        }
     }
 
     exit(state, root);

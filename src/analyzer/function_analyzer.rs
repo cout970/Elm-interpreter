@@ -14,6 +14,7 @@ use util::VecExt;
 pub enum PatternMatchingError {
     ListPatternsAreNotHomogeneous(Type, Type),
     UnknownOperatorPattern(String),
+    UnknownAdtVariant(String),
     ExpectedListType(Type),
     ExpectedUnit(Type),
     ExpectedTuple(Pattern, Type),
@@ -141,6 +142,8 @@ pub fn analyze_function_arguments(env: &mut StaticEnv, patterns: &Vec<Pattern>, 
             let list = unpack_types(ty);
 
             if patterns.len() > list.len() {
+//                println!("patterns: {:?}", patterns);
+//                println!("list: {:?}", list);
                 return Err(TypeError::InvalidPatternAmount(list.len(), patterns.len()));
             }
 
@@ -193,7 +196,7 @@ fn is_exhaustive(pattern: &Pattern) -> bool {
     }
 }
 
-fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, Vec<(String, Type)>), PatternMatchingError> {
+pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, Vec<(String, Type)>), PatternMatchingError> {
     match pattern {
         Pattern::Var(name) => {
             let ty_name = env.name_seq.next();
@@ -211,7 +214,10 @@ fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, Vec<
                 }
             }
 
-            Ok((Type::Tag(name.to_owned(), sub_input), sub_vars))
+            let adt = env.find_adt_variant(name)
+                .ok_or_else(|| PatternMatchingError::UnknownAdtVariant(name.clone()))?;
+
+            Ok((Type::Tag(adt.name.clone(), sub_input), sub_vars))
         }
         Pattern::Wildcard => {
             Ok((Type::Var(env.name_seq.next()), vec![]))
@@ -286,7 +292,7 @@ fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, Vec<
     }
 }
 
-fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Type) -> Result<(Type, Vec<(String, Type)>), PatternMatchingError> {
+pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Type) -> Result<(Type, Vec<(String, Type)>), PatternMatchingError> {
     match pattern {
         Pattern::Var(name) => {
             Ok((ty.clone(), vec![(name.to_owned(), ty)]))
@@ -295,15 +301,20 @@ fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Type) -
             let mut sub_input = Vec::new();
             let mut sub_vars = Vec::new();
 
-            let params = if let Type::Tag(ty_name, params) = ty.clone() {
-                if &ty_name == name {
-                    assert_eq!(params.len(), sub_patterns.len());
-                    params
+            let adt = env.find_adt_variant(name)
+                .ok_or_else(|| PatternMatchingError::UnknownAdtVariant(name.clone()))?;
+
+            let variant = adt.variants.iter().find(|v| &v.name == name).unwrap();
+
+            let params = if let Type::Tag(ty_name, _) = ty.clone() {
+                if ty_name == adt.name {
+                    assert_eq!(variant.types.len(), sub_patterns.len());
+                    variant.types.clone()
                 } else {
-                    return Err(PatternMatchingError::ExpectedAdt(name.to_owned(), ty));
+                    return Err(PatternMatchingError::ExpectedAdt(adt.name.clone(), ty));
                 }
             } else {
-                return Err(PatternMatchingError::ExpectedAdt(name.to_owned(), ty.clone()));
+                return Err(PatternMatchingError::ExpectedAdt(adt.name.clone(), ty.clone()));
             };
 
             for (pattern, param_ty) in sub_patterns.iter().zip(params) {
@@ -314,7 +325,7 @@ fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Type) -
                 }
             }
 
-            Ok((Type::Tag(name.to_owned(), sub_input), sub_vars))
+            Ok((Type::Tag(adt.name.clone(), sub_input), sub_vars))
         }
         Pattern::Wildcard => {
             Ok((ty, vec![]))
@@ -652,10 +663,11 @@ mod tests {
 
     #[test]
     fn analyze_patterns_2() {
+        // this should not pass, but there is not parameter count checking
         analyze_pattern_test(
-            type_tag_args("List", vec![type_var("item")]),
-            pattern_tag_args("List", vec![pattern_var("a")]),
-            "List item",
+            type_tag_args("Bool", vec![type_var("item")]),
+            pattern_tag_args("True", vec![pattern_var("a")]),
+            "Bool item",
             r#"[("a", Var("item"))]"#,
         );
     }

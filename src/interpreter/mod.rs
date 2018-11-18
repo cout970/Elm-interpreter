@@ -8,6 +8,7 @@ use parsers::parse_expression;
 use parsers::parse_statement;
 use types::Value;
 use util::expression_fold::ExprTreeError;
+use analyzer::inter_mod_analyzer::ModulePath;
 
 pub mod dynamic_env;
 mod builtins;
@@ -41,6 +42,7 @@ pub enum RuntimeError {
     BuiltinFunctionError,
     ImpossibleConversion,
     MissingSourceFile,
+    CyclicModuleDependency(Vec<ModulePath>),
 }
 
 pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>, ErrorWrapper> {
