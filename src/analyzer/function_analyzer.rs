@@ -142,8 +142,8 @@ pub fn analyze_function_arguments(env: &mut StaticEnv, patterns: &Vec<Pattern>, 
             let list = unpack_types(ty);
 
             if patterns.len() > list.len() {
-//                println!("patterns: {:?}", patterns);
-//                println!("list: {:?}", list);
+                println!("patterns: {:?}", patterns);
+                println!("list: {:?}", list);
                 return Err(TypeError::InvalidPatternAmount(list.len(), patterns.len()));
             }
 

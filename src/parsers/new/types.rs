@@ -43,7 +43,7 @@ pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
                 _ => (name.to_owned(), i)
             };
 
-            let (params, i) = many0(&parse_type, i)?;
+            let (params, i) = many0(&parse_type_base, i)?;
             (Type::Tag(name, params), i)
         }
         Token::LeftParen => {
@@ -180,6 +180,19 @@ mod tests {
         test_parser_error(parse_type, "{ Int : x }");
         test_parser_error(parse_type, "Int ->");
         test_parser_error(parse_type, "-> Int");
+    }
+
+    #[test]
+    fn check_maybe_priority() {
+        let expected = Type::Fun(
+            Box::from(Type::Tag("Maybe".s(), vec![Type::Var("a".s())])),
+            Box::from(Type::Fun(
+                Box::from(Type::Tag("Maybe".s(), vec![Type::Var("b".s())])),
+                Box::from(Type::Tag("Maybe".s(), vec![Type::Var("value".s())])),
+            ))
+        );
+
+        test_parser_result(parse_type, "Maybe a -> Maybe b -> Maybe value", expected);
     }
 
     #[test]

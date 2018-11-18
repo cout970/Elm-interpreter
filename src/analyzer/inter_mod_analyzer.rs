@@ -150,6 +150,7 @@ mod test {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_project() {
         let mods = load_all_modules(
             &vec!["type_check".to_owned()],
