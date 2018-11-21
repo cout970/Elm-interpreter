@@ -212,28 +212,46 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             }
         }
         Expr::Case(expr, branches) => {
+            let cond_type = analyze_expression(env, None, expr)?;
             let mut iter = branches.iter();
-            let (_, e) = iter.next().unwrap();
+            let (first_pattern, first_expr) = iter.next().unwrap();
 
-            // first value doesn't check pattern variables
-            let first_type = analyze_expression(env, None, e)?;
-
-            // check that the case expression has a valid type
-            let cond_type = analyze_expression(env, Some(&first_type), expr)?;
-
-            while let Some((pattern, expression)) = iter.next() {
-                let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
+            let first_type = {
+                // check patterns for varibles
+                let (_, vars) = analyze_pattern_with_type(env, first_pattern, cond_type.clone())
                     .map_err(|e| TypeError::InvalidPattern(e))?;
 
+                // add variable to the environment
                 env.enter_block();
-
-                println!("Pattern: {}, variables: {:?}", pattern, vars);
 
                 for (name, ty) in &vars {
                     env.add_definition(name, ty.clone());
                 }
+
+                let result = analyze_expression(env, expected, first_expr);
+
+                // reset environment
+                env.exit_block();
+
+                result?
+            };
+
+            while let Some((pattern, expression)) = iter.next() {
+
+                // check patterns for varibles
+                let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
+                    .map_err(|e| TypeError::InvalidPattern(e))?;
+
+                // add variable to the environment
+                env.enter_block();
+
+                for (name, ty) in &vars {
+                    env.add_definition(name, ty.clone());
+                }
+
                 let result = analyze_expression(env, Some(&first_type), expression);
 
+                // reset environment
                 env.exit_block();
 
                 let ret = result?;

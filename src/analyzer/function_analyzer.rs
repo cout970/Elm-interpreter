@@ -400,7 +400,13 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
         Pattern::Literal(literal) => {
             match literal {
                 Literal::Int(_) => {
-                    check_type_literal(&ty, "Int")?;
+                    if let Type::Var(name) = &ty {
+                        if name != "number" {
+                            return Err(PatternMatchingError::ExpectedLiteral("Int or number".to_owned(), ty.clone()));
+                        }
+                    } else {
+                        check_type_literal(&ty, "Int")?;
+                    }
                     Ok((ty, vec![]))
                 }
                 Literal::Float(_) => {

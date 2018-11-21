@@ -18,3 +18,4 @@ Small Elm interpreter made in Rust with the library [Nom](https://github.com/Gea
 - Add builtin functions and types from elm-core
 - Benchmarking every step in the interpreter
 - Create a language driver for Amethyst
+- Make real world tests
