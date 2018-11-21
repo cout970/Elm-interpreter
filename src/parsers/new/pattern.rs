@@ -1,4 +1,3 @@
-use ast::Literal;
 use ast::Pattern;
 use parsers::new::Input;
 use parsers::new::ParseError;
@@ -41,6 +40,7 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
             let input = input.next();
             match input.read() {
                 Token::RightParen => {
+                    // Unit ()
                     (Pattern::Unit, input.next())
                 }
                 _ => {
@@ -72,10 +72,9 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
             (Pattern::Record(values), i)
         }
         Token::Underscore => (Pattern::Wildcard, input.next()),
-        Token::LitInt(value) => (Pattern::Literal(Literal::Int(value)), input.next()),
-        Token::LitFloat(value) => (Pattern::Literal(Literal::Float(value)), input.next()),
-        Token::LitChar(value) => (Pattern::Literal(Literal::Char(value)), input.next()),
-        Token::LitString(value) => (Pattern::Literal(Literal::String(value)), input.next()),
+        Token::LitInt(value) => (Pattern::LitInt(value), input.next()),
+        Token::LitChar(value) => (Pattern::LitChar(value), input.next()),
+        Token::LitString(value) => (Pattern::LitString(value), input.next()),
         _ => {
             let found = input.read();
             return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
@@ -127,7 +126,7 @@ mod tests {
 
     #[test]
     fn check_literal() {
-        test_parser_result(parse_pattern, "1", Pattern::Literal(Literal::Int(1)));
+        test_parser_result(parse_pattern, "1", Pattern::LitInt(1));
     }
 
     #[test]

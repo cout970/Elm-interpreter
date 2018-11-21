@@ -192,7 +192,9 @@ fn is_exhaustive(pattern: &Pattern) -> bool {
         Pattern::Alias(pat, _) => is_exhaustive(pat),
         Pattern::BinaryOp(_, _, _) => false,
         Pattern::Record(_) => true,
-        Pattern::Literal(_) => false,
+        Pattern::LitInt(_) => false,
+        Pattern::LitString(_) => false,
+        Pattern::LitChar(_) => false,
     }
 }
 
@@ -277,14 +279,9 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
             Ok((Type::Record(entries.clone()), entries))
         }
-        Pattern::Literal(literal) => {
-            match literal {
-                Literal::Int(_) => Ok((type_int(), vec![])),
-                Literal::Float(_) => Ok((type_float(), vec![])),
-                Literal::String(_) => Ok((type_string(), vec![])),
-                Literal::Char(_) => Ok((type_char(), vec![])),
-            }
-        }
+        Pattern::LitInt(_) => Ok((type_int(), vec![])),
+        Pattern::LitString(_) => Ok((type_string(), vec![])),
+        Pattern::LitChar(_) => Ok((type_char(), vec![])),
         Pattern::Alias(pat, alias) => {
             let (ret_ty, vars) = analyze_pattern(env, pat)?;
             Ok((ret_ty.clone(), create_vec((alias.to_owned(), ret_ty), vars)))
@@ -397,31 +394,23 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
 
             Ok((type_list(list_param.clone()), left_vars.join_vec(&right_vars)))
         }
-        Pattern::Literal(literal) => {
-            match literal {
-                Literal::Int(_) => {
-                    if let Type::Var(name) = &ty {
-                        if name != "number" {
-                            return Err(PatternMatchingError::ExpectedLiteral("Int or number".to_owned(), ty.clone()));
-                        }
-                    } else {
-                        check_type_literal(&ty, "Int")?;
-                    }
-                    Ok((ty, vec![]))
+        Pattern::LitInt(_) => {
+            if let Type::Var(name) = &ty {
+                if name != "number" {
+                    return Err(PatternMatchingError::ExpectedLiteral("Int or number".to_owned(), ty.clone()));
                 }
-                Literal::Float(_) => {
-                    check_type_literal(&ty, "Float")?;
-                    Ok((ty, vec![]))
-                }
-                Literal::String(_) => {
-                    check_type_literal(&ty, "String")?;
-                    Ok((ty, vec![]))
-                }
-                Literal::Char(_) => {
-                    check_type_literal(&ty, "Char")?;
-                    Ok((ty, vec![]))
-                }
+            } else {
+                check_type_literal(&ty, "Int")?;
             }
+            Ok((ty, vec![]))
+        }
+        Pattern::LitString(_) => {
+            check_type_literal(&ty, "String")?;
+            Ok((ty, vec![]))
+        }
+        Pattern::LitChar(_) => {
+            check_type_literal(&ty, "Char")?;
+            Ok((ty, vec![]))
         }
         Pattern::Alias(pat, alias) => {
             let (ret_ty, vars) = analyze_pattern_with_type(env, pat, ty)?;

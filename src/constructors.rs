@@ -118,7 +118,7 @@ pub fn pattern_unit() -> Pattern {
 }
 
 pub fn pattern_int(value: Int) -> Pattern {
-    Pattern::Literal(Literal::Int(value))
+    Pattern::LitInt(value)
 }
 
 pub fn pattern_cons(left: Pattern, right: Pattern) -> Pattern {

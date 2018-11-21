@@ -1,19 +1,20 @@
+use std::sync::Arc;
+
 use analyzer::type_check_expression;
 use analyzer::type_of_value;
+use ast::*;
+use interpreter::builtins::builtin_record_access;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
-use std::sync::Arc;
-use ast::*;
-use types::Function;
 use types::FunCall;
+use types::Function;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
+use util::qualified_name;
 use util::StringConversion;
 use util::VecExt;
-use util::qualified_name;
-use interpreter::builtins::builtin_record_access;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
     let res: Value = match expr {
@@ -170,7 +171,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
                     env.add_to_cache(fun_call, value.clone());
                     value
-                },
+                }
                 _ => {
                     return Err(ExpectedFunction(fun_value.clone()));
                 }
@@ -252,31 +253,24 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
                 false
             }
         }
-        Pattern::Literal(lit) => {
-            match lit {
-                Literal::Int(p) => {
-                    match value {
-                        Value::Int(v) => {
-                            (*p) == (*v)
-                        }
-                        Value::Number(v) => {
-                            (*p) == (*v)
-                        }
-                        _ => {
-                            false
-                        }
-                    }
+        Pattern::LitInt(p) => {
+            match value {
+                Value::Int(v) => {
+                    (*p) == (*v)
                 }
-                Literal::Float(p) => {
-                    if let Value::Float(v) = value { *p == *v } else { false }
+                Value::Number(v) => {
+                    (*p) == (*v)
                 }
-                Literal::String(p) => {
-                    if let Value::String(v) = value { p == v } else { false }
-                }
-                Literal::Char(p) => {
-                    if let Value::Char(v) = value { *p == *v } else { false }
+                _ => {
+                    false
                 }
             }
+        }
+        Pattern::LitString(p) => {
+            if let Value::String(v) = value { p == v } else { false }
+        }
+        Pattern::LitChar(p) => {
+            if let Value::Char(v) = value { *p == *v } else { false }
         }
     }
 }
@@ -330,7 +324,9 @@ pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value
                 return Err(ExpectedList(value.clone()));
             }
         }
-        Pattern::Literal(_) => {}
+        Pattern::LitInt(_) => {}
+        Pattern::LitString(_) => {}
+        Pattern::LitChar(_) => {}
         Pattern::Wildcard => {}
         Pattern::Unit => {}
         Pattern::BinaryOp(ref op, ref a, ref b) => {
@@ -383,12 +379,13 @@ fn tree_as_expr(env: &mut DynamicEnv, expr: &ExprTree) -> Expr {
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code;
-    use super::*;
     use ast::Pattern;
     use ast::Type;
-    use util::builtin_fun_of;
     use interpreter::builtins::builtin_unit_fun;
+    use parsers::from_code;
+    use util::builtin_fun_of;
+
+    use super::*;
 
     #[test]
     fn check_unit() {

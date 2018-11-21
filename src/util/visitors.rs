@@ -134,7 +134,9 @@ pub fn pattern_visitor_block<S, F: Fn(&mut S, &Pattern), G: Fn(&mut S, &Pattern)
             pattern_visitor_block(state, &*right, enter, exit);
         }
         Pattern::Record(_) => {}
-        Pattern::Literal(_) => {}
+        Pattern::LitInt(_) => {}
+        Pattern::LitString(_) => {}
+        Pattern::LitChar(_) => {}
         Pattern::Alias(child, _) => {
             pattern_visitor_block(state, &*child, enter, exit);
         }

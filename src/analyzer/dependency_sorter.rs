@@ -136,7 +136,9 @@ fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) -> Vec<String> {
                     s.push(op.to_owned());
                 }
                 Pattern::Record(_) => {}
-                Pattern::Literal(_) => {}
+                Pattern::LitInt(_) => {}
+                Pattern::LitString(_) => {}
+                Pattern::LitChar(_) => {}
                 Pattern::Alias(_, _) => {}
             }
         });

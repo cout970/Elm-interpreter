@@ -110,7 +110,9 @@ pub enum Pattern {
     List(Vec<Pattern>),
     BinaryOp(String, Box<Pattern>, Box<Pattern>),
     Record(Vec<String>),
-    Literal(Literal),
+    LitInt(Int),
+    LitString(String),
+    LitChar(char),
     Alias(Box<Pattern>, String),
 }
 
