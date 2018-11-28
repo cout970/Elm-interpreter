@@ -1,7 +1,6 @@
 use std::vec::IntoIter;
 
 use ast::Int;
-use ast::Literal;
 use ast::Pattern;
 use ast::Type;
 

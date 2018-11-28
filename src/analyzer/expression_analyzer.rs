@@ -4,9 +4,6 @@ use std::sync::Arc;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::analyze_let_destructuring;
-use analyzer::function_analyzer::analyze_pattern_with_type;
-use analyzer::function_analyzer::calculate_common_type;
-use analyzer::function_analyzer::is_assignable;
 use analyzer::static_env::StaticEnv;
 use analyzer::type_of_value;
 use analyzer::TypeError::*;
@@ -19,6 +16,9 @@ use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::qualified_name;
 use util::StringConversion;
+use analyzer::pattern_analyzer::analyze_pattern_with_type;
+use analyzer::type_helper::is_assignable;
+use analyzer::type_helper::calculate_common_type;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
@@ -217,7 +217,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             let (first_pattern, first_expr) = iter.next().unwrap();
 
             let first_type = {
-                // check patterns for varibles
+                // check patterns for variables
                 let (_, vars) = analyze_pattern_with_type(env, first_pattern, cond_type.clone())
                     .map_err(|e| TypeError::InvalidPattern(e))?;
 

@@ -1,5 +1,4 @@
 use analyzer::expression_analyzer::analyze_expression;
-use analyzer::function_analyzer::PatternMatchingError;
 use ast::Expr;
 use types::Function;
 use ast::Type;
@@ -10,6 +9,7 @@ use analyzer::function_analyzer::analyze_function;
 use analyzer::static_env::StaticEnv;
 use analyzer::expression_analyzer::get_adt_type;
 use std::ops::Deref;
+use analyzer::pattern_analyzer::PatternMatchingError;
 
 pub mod static_env;
 pub mod inter_mod_analyzer;
@@ -17,6 +17,8 @@ mod function_analyzer;
 mod expression_analyzer;
 mod module_analyser;
 mod dependency_sorter;
+mod pattern_analyzer;
+mod type_helper;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
