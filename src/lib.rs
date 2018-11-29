@@ -9,16 +9,17 @@ extern crate nom;
 #[macro_use]
 extern crate pretty_assertions;
 
+use std::sync::Arc;
+
+use ast::Type;
 use errors::ErrorWrapper;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::eval_expression;
 use interpreter::eval_statement;
-use types::Value;
 use types::BuiltinFunctionRef;
-use ast::Type;
-use util::build_fun_type;
 use types::Function;
-use std::sync::Arc;
+use types::Value;
+use util::build_fun_type;
 use util::create_vec_inv;
 
 pub mod ast;
@@ -32,14 +33,13 @@ pub mod constructors;
 mod core;
 mod interpreter;
 pub mod errors;
-mod rust_interop;
+pub mod rust_interop;
 
 pub struct Interpreter {
     env: DynamicEnv,
 }
 
 impl Interpreter {
-
     /// Creates a new Interpreter
     pub fn new() -> Interpreter {
         Interpreter {
@@ -112,10 +112,44 @@ impl Interpreter {
 #[cfg(test)]
 mod test {
     use super::*;
+    use ast::Int;
 
     #[test]
-    fn test_eval_expr(){
+    fn test_eval_expr() {
         let mut i = Interpreter::new();
         i.eval_expr("1 + 2 / 3").expect("Expect expression to execute correctly");
+    }
+
+    #[test]
+    fn test_eval_stm() {
+        let mut i = Interpreter::new();
+        i.eval_statement("x = 2").expect("Expect x to be defined as 2");
+        i.eval_expr("1 + x / 3").expect("Expect expression to execute correctly");
+    }
+
+    #[test]
+    fn test_eval_module() {
+        let mut i = Interpreter::new();
+        let module = r#"
+        sum x y = x + y
+        div x y = x / y
+        result = sum 1 (div 2 3)
+        "#;
+
+        i.eval_module(module).expect("Expect x to be defined as 2");
+        i.eval_expr("result").expect("Expect expression to execute correctly");
+    }
+
+    #[test]
+    fn test_register_fn() {
+        use rust_interop::function_register::RegisterFn;
+
+        let mut i = Interpreter::new();
+
+        fn sum(x: Int, y: Int) -> Int { x + y }
+
+        i.register_fn("sum", sum).expect("Expect sum to be defined");
+
+        i.eval_expr("sum 1 3").expect("Expect expression to execute correctly");
     }
 }
