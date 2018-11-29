@@ -122,6 +122,7 @@ mod tests {
     use analyzer::inter_mod_analyzer::InterModuleInfo;
 
     #[test]
+    #[ignore]
     fn type_check1(){
         let module = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
         let info = InterModuleInfo::new();

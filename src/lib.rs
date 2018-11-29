@@ -25,12 +25,12 @@ pub mod ast;
 pub mod types;
 #[macro_use]
 mod util;
-pub mod tokenizer;
-pub mod parsers;
+mod tokenizer;
+mod parsers;
 pub mod analyzer;
 pub mod constructors;
-pub mod core;
-pub mod interpreter;
+mod core;
+mod interpreter;
 pub mod errors;
 mod rust_interop;
 
@@ -49,15 +49,6 @@ impl Interpreter {
 
     /// Evaluates an expression like `1 + 2`
     pub fn eval_expr(&mut self, expr: &str) -> Result<Value, ErrorWrapper> {
-//        let tokens = tokenize(expr.as_bytes())
-//            .map_err(|e| ErrorWrapper::Lexical(e))?;
-//
-//        let expr = parse_expr(TokenStream::new(&tokens))
-//            .map_err(|e| ErrorWrapper::Syntactic(e))?;
-//
-//        eval_expr(&mut self.env, &expr)
-//            .map_err(|e| ErrorWrapper::Runtime(e))?;
-
         eval_expression(&mut self.env, expr)
     }
 
@@ -115,5 +106,16 @@ impl Interpreter {
     /// Clear the state of the interpreter, erasing all the types, modules and definitions
     fn reset(&mut self) {
         self.env = DynamicEnv::default_lang_env();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_eval_expr(){
+        let mut i = Interpreter::new();
+        i.eval_expr("1 + 2 / 3").expect("Expect expression to execute correctly");
     }
 }

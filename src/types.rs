@@ -14,16 +14,27 @@ use std::cell::RefCell;
 // Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
+    /// The unit value, similar to void in other languages
     Unit,
+    /// Value that can be automatically converted to Float or Int based on the context
     Number(Int),
+    /// A integer value
     Int(Int),
+    /// A float value
     Float(Float),
+    /// UTF-8 string
     String(String),
+    /// Unicode character
     Char(char),
+    /// Collection of values of the same type
     List(Vec<Value>),
+    /// Collection of values of different types
     Tuple(Vec<Value>),
+    /// A map between keys and values, where keys are identifiers
     Record(Vec<(String, Value)>),
+    /// A custom type a.k.a enum a.k.a algebraic data type
     Adt(String, Vec<Value>, Arc<Adt>),
+    /// A function value, contains values from partial application
     Fun {
         arg_count: u32,
         args: Vec<Value>,
