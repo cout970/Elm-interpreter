@@ -21,7 +21,6 @@ use analyzer::type_helper::is_assignable;
 use analyzer::type_helper::calculate_common_type;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::PatternMatchingError;
-use itertools::Itertools;
 use analyzer::type_helper::get_common_type;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
