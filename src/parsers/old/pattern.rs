@@ -66,7 +66,7 @@ rule!(spaces<()>, do_parse!(
 
 // Removed Pattern::Literal and added LitInt, LitString, LitChar
 // This is old code and it's not worth updating
-rule!(literal<Pattern>, map!(literal!(), |l| Pattern::LitInt(1)));
+rule!(literal<Pattern>, map!(literal!(), |_| Pattern::LitInt(1)));
 
 //#[cfg(test)]
 //mod tests {

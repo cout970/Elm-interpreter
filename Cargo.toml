@@ -21,9 +21,8 @@ path = "src/lib.rs"
 name = "repl"
 path = "src/main.rs"
 
-[dependencies.nom]
-version = "4.0.0"
-features = ["verbose-errors"]
+[dependencies]
+nom = { version = "4.0.0", features = ["verbose-errors"] }
 
 [dev-dependencies]
 pretty_assertions = "*"

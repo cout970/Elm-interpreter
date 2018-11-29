@@ -128,6 +128,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_eval_module() {
         let mut i = Interpreter::new();
         let module = r#"
@@ -141,6 +142,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_register_fn() {
         use rust_interop::function_register::RegisterFn;
 

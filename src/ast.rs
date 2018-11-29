@@ -87,6 +87,7 @@ pub enum Type {
     Fun(Box<Type>, Box<Type>),
     Tuple(Vec<Type>),
     Record(Vec<(String, Type)>),
+    /// Record with a set of required fields, that can have more fields
     RecExt(String, Vec<(String, Type)>),
 }
 

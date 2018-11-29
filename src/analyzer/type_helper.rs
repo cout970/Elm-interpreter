@@ -11,6 +11,32 @@ pub fn calculate_common_type(types: &[Type]) -> Result<&Type, (&Type, &Type)> {
     Ok(first)
 }
 
+pub fn get_common_type<'a>(a: &'a Type, b: &'a Type) -> Option<&'a Type> {
+    let ab = is_assignable(a, b);
+    let ba = is_assignable(b, a);
+
+    if !ab && !ba {
+        None
+    } else if ab && ba {
+        Some(a)
+    } else if ab {
+        Some(a)
+    } else {
+        Some(b)
+    }
+}
+
+// expected, found, result
+// Int, Int,        true
+// Int, number,     true
+// Int, a,          true
+// Int, Float,      false
+// Int, () -> (),   false
+// Int, {},         false
+// a,   Int,        true
+// a,   a,          true
+// a,   b,          false
+//
 pub fn is_assignable(expected: &Type, found: &Type) -> bool {
     if expected == found { return true; }
 

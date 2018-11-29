@@ -170,6 +170,7 @@ mod tests {
 
     use super::*;
     use constructors::*;
+    use core::register_core;
 
     fn from_code_def(code: &[u8]) -> Definition {
         let stm = from_code_stm(code);
@@ -286,9 +287,9 @@ mod tests {
     fn analyze_patterns_2() {
         // this should not pass, but there is not parameter count checking
         analyze_pattern_test(
-            type_tag_args("Bool", vec![type_var("item")]),
-            pattern_tag_args("True", vec![pattern_var("a")]),
-            "Bool item",
+            type_tag_args("Maybe", vec![type_var("item")]),
+            pattern_tag_args("Just", vec![pattern_var("a")]),
+            "Maybe item",
             r#"[("a", Var("item"))]"#,
         );
     }
@@ -375,6 +376,8 @@ mod tests {
 
     fn analyze_pattern_test(ty: Type, pattern: Pattern, type_str: &str, vars_str: &str) {
         let mut env = StaticEnv::new();
+        register_core(&mut env);
+
         let (res_ty, vars) = analyze_pattern_with_type(&mut env, &pattern, ty)
             .expect("Error");
 

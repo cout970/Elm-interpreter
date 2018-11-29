@@ -19,6 +19,10 @@ use util::StringConversion;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::type_helper::is_assignable;
 use analyzer::type_helper::calculate_common_type;
+use analyzer::pattern_analyzer::analyze_pattern;
+use analyzer::pattern_analyzer::PatternMatchingError;
+use itertools::Itertools;
+use analyzer::type_helper::get_common_type;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
@@ -212,56 +216,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             }
         }
         Expr::Case(expr, branches) => {
-            let cond_type = analyze_expression(env, None, expr)?;
-            let mut iter = branches.iter();
-            let (first_pattern, first_expr) = iter.next().unwrap();
-
-            let first_type = {
-                // check patterns for variables
-                let (_, vars) = analyze_pattern_with_type(env, first_pattern, cond_type.clone())
-                    .map_err(|e| TypeError::InvalidPattern(e))?;
-
-                // add variable to the environment
-                env.enter_block();
-
-                for (name, ty) in &vars {
-                    env.add_definition(name, ty.clone());
-                }
-
-                let result = analyze_expression(env, expected, first_expr);
-
-                // reset environment
-                env.exit_block();
-
-                result?
-            };
-
-            while let Some((pattern, expression)) = iter.next() {
-
-                // check patterns for varibles
-                let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
-                    .map_err(|e| TypeError::InvalidPattern(e))?;
-
-                // add variable to the environment
-                env.enter_block();
-
-                for (name, ty) in &vars {
-                    env.add_definition(name, ty.clone());
-                }
-
-                let result = analyze_expression(env, Some(&first_type), expression);
-
-                // reset environment
-                env.exit_block();
-
-                let ret = result?;
-
-                if !is_assignable(&first_type, &ret) {
-                    return Err(CaseBranchDontMatchReturnType("".s()));
-                }
-            }
-
-            Ok(first_type)
+            analyze_case_expr(env, expected, &*expr, branches)
         }
         Expr::If(cond, a, b) => {
             let cond = analyze_expression(env, Some(&Type::Tag("Bool".s(), vec![])), cond)?;
@@ -288,6 +243,80 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             Ok(type_of_literal(lit, expected))
         }
     }
+}
+
+fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, branches: &Vec<(Pattern, Expr)>) -> Result<Type, TypeError> {
+
+    let patterns_types = branches.iter()
+        .map(|(p,_)| analyze_pattern(env, p).map(|(ty, _)| ty))
+        .collect::<Result<Vec<_>, PatternMatchingError>>()
+        .map_err(|e| TypeError::InvalidPattern(e))?;
+
+    let mut patterns_types_iter = patterns_types.iter();
+    let mut patterns_type = patterns_types_iter.next().unwrap();
+
+    while let Some(ty) = patterns_types_iter.next() {
+        match get_common_type(patterns_type, ty) {
+            Some(ty) => { patterns_type = ty; }
+            None => {
+                return Err(TypeError::InvalidPattern(
+                    PatternMatchingError::ListPatternsAreNotHomogeneous(patterns_type.clone(), ty.clone())
+                ))
+            }
+        }
+    }
+
+    let cond_type = analyze_expression(env, Some(patterns_type), expr)?;
+
+    let mut iter = branches.iter();
+    let (first_pattern, first_expr) = iter.next().unwrap();
+
+    let first_type = {
+        // check patterns for variables
+        let (_, vars) = analyze_pattern_with_type(env, first_pattern, cond_type.clone())
+            .map_err(|e| TypeError::InvalidPattern(e))?;
+
+        // add variable to the environment
+        env.enter_block();
+
+        for (name, ty) in &vars {
+            env.add_definition(name, ty.clone());
+        }
+
+        let result = analyze_expression(env, expected, first_expr);
+
+        // reset environment
+        env.exit_block();
+
+        result?
+    };
+
+    while let Some((pattern, expression)) = iter.next() {
+
+        // check patterns for variables
+        let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
+            .map_err(|e| TypeError::InvalidPattern(e))?;
+
+        // add variable to the environment
+        env.enter_block();
+
+        for (name, ty) in &vars {
+            env.add_definition(name, ty.clone());
+        }
+
+        let result = analyze_expression(env, Some(&first_type), expression);
+
+        // reset environment
+        env.exit_block();
+
+        let ret = result?;
+
+        if !is_assignable(&first_type, &ret) {
+            return Err(CaseBranchDontMatchReturnType("".s()));
+        }
+    }
+
+    Ok(first_type)
 }
 
 fn type_of_literal(lit: &Literal, expected: Option<&Type>) -> Type {

@@ -21,6 +21,7 @@ pub enum PatternMatchingError {
     PatternNotExhaustive(Pattern),
     InvalidRecordEntryName(String),
     ExpectedLiteral(String, Type),
+    TODO,
 }
 
 

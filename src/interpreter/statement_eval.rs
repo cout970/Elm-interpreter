@@ -133,7 +133,7 @@ mod tests {
         let stm = from_code_stm(b"fib num = case num of \n 0 -> 0\n 1 -> 1\n _ -> fib (num - 1) + fib (num - 2)");
         let mut env = DynamicEnv::default_lang_env();
 
-        assert_eq!(formatted(&mut env, &stm), "<function> : number -> number".s());
+        assert_eq!(formatted(&mut env, &stm), "<function> : Int -> number".s());
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
 
         eval_stm(&mut env, &decl).unwrap();
 
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib")), "<function> : number -> number".s());
+        assert_eq!(formatted_expr(&mut env, &from_code(b"fib")), "<function> : Int -> number".s());
         assert_eq!(formatted_expr(&mut env, &from_code(b"fib 0")), "0 : number".s());
         assert_eq!(formatted_expr(&mut env, &from_code(b"fib 1")), "1 : number".s());
         assert_eq!(formatted_expr(&mut env, &from_code(b"fib 2")), "1 : number".s());
