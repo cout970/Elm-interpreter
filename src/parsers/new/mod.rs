@@ -12,6 +12,7 @@ use parsers::SyntaxError;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
+use ast::Type;
 
 pub mod util;
 mod pattern;
@@ -59,6 +60,16 @@ pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&module::parse_module, input)
+        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+}
+
+pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
+    let tk = tokenize(code.as_bytes())
+        .map_err(|e| ErrorWrapper::Lexical(e))?;
+
+    let input = Input::new(code.to_owned(), tk);
+
+    complete(&types::parse_type, input)
         .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
 }
 

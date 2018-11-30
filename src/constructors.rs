@@ -3,8 +3,14 @@ use std::vec::IntoIter;
 use ast::Int;
 use ast::Pattern;
 use ast::Type;
+use parsers::parse_type;
+
 
 // Type
+
+pub fn type_of(code: &str) -> Type {
+    parse_type(code).unwrap()
+}
 
 pub fn type_unit() -> Type {
     Type::Unit

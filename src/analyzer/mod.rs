@@ -22,6 +22,7 @@ mod type_helper;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
+    List(Vec<TypeError>),
     MissingModule(Vec<String>),
     MissingAdt(String),
     MissingDefinition(String),

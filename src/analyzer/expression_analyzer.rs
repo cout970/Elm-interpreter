@@ -31,7 +31,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             let def =
                 env.find_definition(name)
                     .or_else(|| env.find_alias(name))
-                    .ok_or(MissingDefinition(format!("Missing def {}", name)))?;
+                    .ok_or(MissingDefinition(name.clone()))?;
 
 
             if let Some(expected_ty) = expected {

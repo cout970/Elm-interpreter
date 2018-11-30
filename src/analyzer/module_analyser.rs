@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use analyzer::dependency_sorter::sort_statements;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::inter_mod_analyzer::Declaration;
 use analyzer::inter_mod_analyzer::Declarations;
@@ -16,7 +17,6 @@ use util::create_vec_inv;
 use util::get_fun_return;
 use util::qualified_name;
 use util::visitors::type_visitor;
-use analyzer::dependency_sorter::sort_statements;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CheckedModule {
@@ -127,7 +127,6 @@ fn get_default_header() -> ModuleHeader {
 
 /* The environment must contain all the imports resolved */
 fn analyze_module_declarations(env: &mut StaticEnv, module: &Module) -> Result<Declarations, TypeError> {
-    // TODO this doesnt work
     let statements = sort_statements(&module.statements)
         .map_err(|e| {
             TypeError::CyclicStatementDependency(e)
@@ -135,27 +134,35 @@ fn analyze_module_declarations(env: &mut StaticEnv, module: &Module) -> Result<D
 
 
     let mut declarations = Declarations::new();
+    let mut errors = vec![];
 
     for stm in statements {
-        let decls = analyze_statement(env, stm)?;
-
-        for decl in decls.into_iter() {
-            declarations.push(decl.clone());
-            match decl {
-                Declaration::Def(name, ty) => {
-                    env.add_definition(&name, ty);
-                }
-                Declaration::Alias(name, ty) => {
-                    env.add_alias(&name, ty);
-                }
-                Declaration::Adt(name, adt) => {
-                    env.add_adt(&name, adt);
+        match analyze_statement(env, stm) {
+            Ok(decls) => {
+                for decl in decls.into_iter() {
+                    declarations.push(decl.clone());
+                    match decl {
+                        Declaration::Def(name, ty) => {
+                            env.add_definition(&name, ty);
+                        }
+                        Declaration::Alias(name, ty) => {
+                            env.add_alias(&name, ty);
+                        }
+                        Declaration::Adt(name, adt) => {
+                            env.add_adt(&name, adt);
+                        }
+                    }
                 }
             }
+            Err(e) => { errors.push(e); }
         }
     }
 
-    Ok(declarations)
+    if errors.is_empty() {
+        Ok(declarations)
+    } else {
+        Err(TypeError::List(errors))
+    }
 }
 
 fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Declarations, TypeError> {

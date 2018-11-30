@@ -4,8 +4,7 @@ use constructors::*;
 pub fn get_string_types() -> Vec<(&'static str, Type)> {
     //@formatter:off
     vec![
-        ("::",          type_fun(vec![type_char(),   type_string()])),
-        ("cons",          type_fun(vec![type_char(),   type_string()])),
+        ("cons",        type_fun(vec![type_char(),   type_string()])),
         ("uncons",      type_fun(vec![type_string(), type_tuple(vec![type_char(), type_string()])])),
         ("append",      type_fun(vec![type_string(), type_string(), type_string()])),
         ("length",      type_fun(vec![type_string(), type_int()])),

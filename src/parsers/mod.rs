@@ -25,6 +25,10 @@ pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
     new::parse_module(code)
 }
 
+pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
+    new::parse_type(code)
+}
+
 #[cfg(test)]
 pub fn from_code(code: &[u8]) -> Expr {
 //    old::from_code(code)

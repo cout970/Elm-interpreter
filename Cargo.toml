@@ -23,6 +23,7 @@ path = "src/main.rs"
 
 [dependencies]
 nom = { version = "4.0.0", features = ["verbose-errors"] }
+serde = "1.0.80"
 
 [dev-dependencies]
 pretty_assertions = "*"

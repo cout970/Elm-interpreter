@@ -50,12 +50,12 @@ pub fn format_type_error(error: TypeError) -> String {
         TypeError::MissingAdt(name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "I cannot find a `{}` constructor:\n", name).unwrap();
-            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
+//            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
         }
         TypeError::MissingDefinition(name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "I cannot find a `{}` variable:\n", name).unwrap();
-            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
+//            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
         }
 //        TypeError::ListNotHomogeneous(_) => {},
 //        TypeError::IfWithNonBoolCondition(_) => {},
@@ -73,6 +73,15 @@ pub fn format_type_error(error: TypeError) -> String {
 //        TypeError::UnableToCalculateFunctionType(_) => {},
 //        TypeError::VariableNameShadowed(_) => {},
 //        TypeError::InternalError => {},
+        TypeError::List(errors) => {
+            let len = errors.len();
+            for e in errors {
+                msg.push_str(&format_type_error(e));
+                msg.push('\n');
+            }
+
+            write!(&mut msg, "\nFound {} errors\n", len).unwrap();
+        }
         _ => {
             write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "{:?}", error).unwrap();

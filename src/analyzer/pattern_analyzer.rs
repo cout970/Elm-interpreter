@@ -7,6 +7,7 @@ use constructors::type_int;
 use constructors::type_string;
 use constructors::type_char;
 use analyzer::type_helper::calculate_common_type;
+use constructors::type_var;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternMatchingError {
@@ -99,10 +100,17 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
                 }
             }
 
-            let ty = calculate_common_type(&sub_input)
-                .map_err(|(expected, found)| PatternMatchingError::ListPatternsAreNotHomogeneous(expected.clone(), found.clone()))?;
+            let ty = if sub_input.is_empty() {
+                type_var("a")
+            }else {
+                calculate_common_type(&sub_input)
+                    .map_err(|(expected, found)| {
+                        PatternMatchingError::ListPatternsAreNotHomogeneous(expected.clone(), found.clone())
+                    })?
+                    .clone()
+            };
 
-            Ok((type_list(ty.clone()), sub_vars))
+            Ok((type_list(ty), sub_vars))
         }
         Pattern::BinaryOp(operand, left, right) => {
             if operand != "::" {
