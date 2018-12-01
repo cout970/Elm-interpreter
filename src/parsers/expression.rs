@@ -2,7 +2,7 @@ use ast::Expr;
 use ast::LetDeclaration;
 use ast::Literal;
 use ast::Pattern;
-use parsers::parser::Input;
+use parsers::input::Input;
 use parsers::parser::ParseError;
 use parsers::pattern::parse_pattern;
 use parsers::pattern::parse_pattern_expr;

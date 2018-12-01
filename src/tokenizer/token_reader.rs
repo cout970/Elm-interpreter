@@ -1,5 +1,6 @@
 use nom::*;
 use nom::verbose_errors::Context;
+
 use tokenizer::input::InputSlice;
 use tokenizer::LexicalError;
 use tokenizer::Token;
@@ -23,7 +24,7 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
                 let start = trim_spaces(current_input).0.get_location();
                 let end = rem.get_location();
 
-                tokens.push(TokenInfo { token, start, end });
+                tokens.push(TokenInfo { token, span: (start, end) });
                 current_input = rem;
             }
             Result::Err(e) => {
@@ -57,8 +58,7 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
     }
     tokens.push(TokenInfo {
         token: Token::Eof,
-        start: current_input.get_location(),
-        end: current_input.get_location(),
+        span: (current_input.get_location(), current_input.get_location()),
     });
 
     Ok(tokens)
@@ -67,7 +67,7 @@ pub fn read_tokens(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
 fn next_token<'a>(i: InputSlice) -> IResult<InputSlice, Token> {
     use nom::verbose_errors::Context;
 
-    if i.stream.len() == 0 {
+    if i.len() == 0 {
         return Err(Err::Incomplete(Needed::Size(1)));
     }
 

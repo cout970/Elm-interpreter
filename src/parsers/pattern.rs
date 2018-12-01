@@ -1,5 +1,5 @@
 use ast::Pattern;
-use parsers::parser::Input;
+use parsers::input::Input;
 use parsers::parser::ParseError;
 use parsers::util::comma0;
 use parsers::util::expect;

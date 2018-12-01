@@ -1,15 +1,15 @@
 use ast::Type;
-use parsers::parser::Input;
+use parsers::input::Input;
 use parsers::parser::ParseError;
 use parsers::util::comma0;
 use parsers::util::expect;
 use parsers::util::expect_id;
+use parsers::util::expect_upper;
 use parsers::util::many0;
 use parsers::util::optional_tk;
 use tokenizer::Token;
 use util::create_vec;
 use util::qualified_name;
-use parsers::util::expect_upper;
 use util::uncons;
 
 pub fn parse_type(input: Input) -> Result<(Type, Input), ParseError> {

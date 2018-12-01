@@ -1,6 +1,7 @@
 use ast::*;
 use errors::ErrorWrapper;
 
+mod input;
 mod parser;
 mod util;
 mod pattern;

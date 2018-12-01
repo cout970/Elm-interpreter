@@ -1,6 +1,6 @@
-use ast::{Float, Int};
 use nom::*;
-use tokenizer::input::Location;
+
+use ast::{Float, Int};
 use tokenizer::token_reader::read_tokens;
 
 mod input;
@@ -61,10 +61,11 @@ pub enum Token {
     Eof,
 }
 
+pub type Location = u32;
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct TokenInfo {
-    pub start: Location,
-    pub end: Location,
+    pub span: (Location, Location),
     pub token: Token,
 }
 
@@ -74,10 +75,11 @@ pub fn tokenize<'a>(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::Token::*;
     use util::StringConversion;
     use util::VecExt;
+
+    use super::*;
+    use super::Token::*;
 
     #[test]
     fn check_tokens() {

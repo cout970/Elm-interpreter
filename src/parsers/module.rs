@@ -4,12 +4,12 @@ use ast::Import;
 use ast::Module;
 use ast::ModuleExposing;
 use ast::ModuleHeader;
+use parsers::input::Input;
+use parsers::parser::ParseError;
 use parsers::statement::parse_statement;
 use parsers::util::*;
 use tokenizer::Token;
 use util::create_vec;
-use parsers::parser::Input;
-use parsers::parser::ParseError;
 
 pub fn parse_module(input: Input) -> Result<(Module, Input), ParseError> {
     let i = skip_empty_lines(input)?;
