@@ -4,7 +4,13 @@ use std::sync::Arc;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::analyze_let_destructuring;
+use analyzer::pattern_analyzer::analyze_pattern;
+use analyzer::pattern_analyzer::analyze_pattern_with_type;
+use analyzer::pattern_analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
+use analyzer::type_helper::calculate_common_type;
+use analyzer::type_helper::get_common_type;
+use analyzer::type_helper::is_assignable;
 use analyzer::type_of_value;
 use analyzer::TypeError::*;
 use analyzer::TypeError;
@@ -16,18 +22,12 @@ use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::qualified_name;
 use util::StringConversion;
-use analyzer::pattern_analyzer::analyze_pattern_with_type;
-use analyzer::type_helper::is_assignable;
-use analyzer::type_helper::calculate_common_type;
-use analyzer::pattern_analyzer::analyze_pattern;
-use analyzer::pattern_analyzer::PatternMatchingError;
-use analyzer::type_helper::get_common_type;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
 //    println!("analyze_expression {{ env: {:?} }}", env);
     match expr {
-        Expr::Ref(name) => {
+        Expr::Ref(_, name) => {
             let def =
                 env.find_definition(name)
                     .or_else(|| env.find_alias(name))
@@ -48,15 +48,15 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 }
             }
         }
-        Expr::QualifiedRef(path, name) => {
+        Expr::QualifiedRef(_, path, name) => {
             let full_name = qualified_name(path, name);
 
-            analyze_expression(env, expected, &Expr::Ref(full_name))
+            analyze_expression(env, expected, &Expr::Ref((0, 0), full_name))
         }
-        Expr::Application(fun, arg) => {
+        Expr::Application(_, fun, arg) => {
             type_of_app(env, &**fun, &**arg)
         }
-        Expr::Lambda(patterns, expr) => {
+        Expr::Lambda(_, patterns, expr) => {
             let (tys, new_vars) = analyze_function_arguments(env, patterns, &None)?;
 
             env.enter_block();
@@ -77,7 +77,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 
             Ok(build_fun_type(&var))
         }
-        Expr::List(exprs) => {
+        Expr::List(_, exprs) => {
             if exprs.is_empty() {
                 Ok(Type::Tag("List".s(), vec![Type::Var(env.next_name())]))
             } else {
@@ -100,7 +100,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 Ok(Type::Tag("List".s(), vec![first]))
             }
         }
-        Expr::Let(decls, expr) => {
+        Expr::Let(_, decls, expr) => {
             env.enter_block();
             for decl in decls {
                 match decl {
@@ -139,26 +139,26 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 
             res
         }
-        Expr::OpChain(exprs, ops) => {
+        Expr::OpChain(_, exprs, ops) => {
             match create_expr_tree(exprs, ops) {
                 Ok(tree) => analyze_expression(env, expected, &expr_tree_to_expr(tree)),
                 Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
             }
         }
-        Expr::Record(entries) => {
+        Expr::Record(_, entries) => {
             let types: Vec<(String, Type)> = entries.iter()
                 .map(|(name, expr)| analyze_expression(env, None, expr).map(|ty| (name.clone(), ty)))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Record(types))
         }
-        Expr::RecordAccess(_) => {
+        Expr::RecordAccess(_, _) => {
             Ok(Type::Fun(
                 Box::new(Type::Var(env.next_name())),
                 Box::new(Type::Var(env.next_name())),
             ))
         }
-        Expr::RecordField(expr, name) => {
+        Expr::RecordField(_, expr, name) => {
             let exp_ty = Type::Record(vec![
                 (name.clone(), expected.map(|e| e.clone()).unwrap_or(Type::Var(env.next_name())))
             ]);
@@ -181,21 +181,21 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 Err(InternalError)
             }
         }
-        Expr::Tuple(items) => {
+        Expr::Tuple(_, items) => {
             let types: Vec<Type> = items.iter()
                 .map(|e| analyze_expression(env, None, e))
                 .collect::<Result<_, _>>()?;
 
             Ok(Type::Tuple(types))
         }
-        Expr::RecordUpdate(name, updates) => {
+        Expr::RecordUpdate(_, name, updates) => {
             let mut update_types = vec![];
             for (name, expr) in updates {
                 update_types.push((name.clone(), analyze_expression(env, None, expr)?));
             }
             let exp_ty = Type::Record(update_types);
 
-            let record_type = analyze_expression(env, Some(&exp_ty), &Expr::Ref(name.to_owned()))?;
+            let record_type = analyze_expression(env, Some(&exp_ty), &Expr::Ref((0, 0), name.to_owned()))?;
 
             if let Type::Record(fields) = &record_type {
                 for (field_name, _) in updates {
@@ -214,10 +214,10 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 ))
             }
         }
-        Expr::Case(expr, branches) => {
+        Expr::Case(_, expr, branches) => {
             analyze_case_expr(env, expected, &*expr, branches)
         }
-        Expr::If(cond, a, b) => {
+        Expr::If(_, cond, a, b) => {
             let cond = analyze_expression(env, Some(&Type::Tag("Bool".s(), vec![])), cond)?;
             let true_branch = analyze_expression(env, expected, a)?;
             let false_branch = analyze_expression(env, expected, b)?;
@@ -235,10 +235,10 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 )
             }
         }
-        Expr::Unit => {
+        Expr::Unit(..) => {
             Ok(Type::Unit)
         }
-        Expr::Literal(lit) => {
+        Expr::Literal(_, lit) => {
             Ok(type_of_literal(lit, expected))
         }
     }
@@ -384,12 +384,18 @@ fn expr_tree_to_expr(tree: ExprTree) -> Expr {
     match tree {
         ExprTree::Leaf(e) => e,
         ExprTree::Branch(op, left, right) => {
+            let left_expr = expr_tree_to_expr(*left);
+            let right_expr = expr_tree_to_expr(*right);
+            let span = (span(&left_expr).0, span(&right_expr).1);
+
             Expr::Application(
+                span,
                 Box::new(Expr::Application(
-                    Box::new(Expr::Ref(op)),
-                    Box::new(expr_tree_to_expr(*left)),
+                    span,
+                    Box::new(Expr::Ref(span, op)),
+                    Box::new(left_expr),
                 )),
-                Box::new(expr_tree_to_expr(*right)),
+                Box::new(right_expr),
             )
         }
     }
@@ -397,55 +403,55 @@ fn expr_tree_to_expr(tree: ExprTree) -> Expr {
 
 fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr) {
     match expr {
-        Expr::Unit => {}
-        Expr::Literal(_) => {}
-        Expr::RecordAccess(_) => {}
-        Expr::Tuple(items) => {
+        Expr::Unit(..) => {}
+        Expr::Literal(_, _) => {}
+        Expr::RecordAccess(_, _) => {}
+        Expr::Tuple(_, items) => {
             items.iter().for_each(|i| backtrack_expr(env, vars, i));
         }
-        Expr::List(items) => {
+        Expr::List(_, items) => {
             items.iter().for_each(|i| backtrack_expr(env, vars, i));
         }
-        Expr::Record(items) => {
+        Expr::Record(_, items) => {
             items.iter().for_each(|(_, i)| backtrack_expr(env, vars, i));
         }
-        Expr::RecordUpdate(_, items) => {
+        Expr::RecordUpdate(_, _, items) => {
             items.iter().for_each(|(_, i)| backtrack_expr(env, vars, i));
         }
-        Expr::RecordField(e, _) => {
+        Expr::RecordField(_, e, _) => {
             backtrack_expr(env, vars, e);
         }
-        Expr::If(a, b, c) => {
+        Expr::If(_, a, b, c) => {
             backtrack_expr(env, vars, a);
             backtrack_expr(env, vars, b);
             backtrack_expr(env, vars, c);
         }
-        Expr::Lambda(_, e) => {
+        Expr::Lambda(_, _, e) => {
             backtrack_expr(env, vars, e);
         }
-        Expr::Application(a, b) => {
+        Expr::Application(_, a, b) => {
             backtrack_expr(env, vars, a);
             backtrack_expr(env, vars, b);
         }
-        Expr::Let(_, e) => {
+        Expr::Let(_, _, e) => {
             backtrack_expr(env, vars, e);
         }
-        Expr::Case(e, items) => {
+        Expr::Case(_, e, items) => {
             backtrack_expr(env, vars, e);
             items.iter().for_each(|(_, i)| backtrack_expr(env, vars, i));
         }
-        Expr::OpChain(exprs, ops) => {
+        Expr::OpChain(_, exprs, ops) => {
             match create_expr_tree(exprs, ops) {
                 Ok(tree) => backtrack_expr(env, vars, &expr_tree_to_expr(tree)),
                 Err(_) => {}
             }
         }
-        Expr::QualifiedRef(path, name) => {
+        Expr::QualifiedRef(_, path, name) => {
             let full_name = qualified_name(path, name);
 
-            backtrack_expr(env, vars, &Expr::Ref(full_name))
+            backtrack_expr(env, vars, &Expr::Ref((0, 0), full_name))
         }
-        Expr::Ref(variable) => {
+        Expr::Ref(_, variable) => {
             match env.find_definition(variable) {
                 Some(variable_type) => {
                     env.replace(variable, replace_vars_with_concrete_types(vars, &variable_type))

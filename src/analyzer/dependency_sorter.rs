@@ -6,6 +6,7 @@ use std::hash::Hash;
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
+use ast::Definition;
 use ast::Expr;
 use ast::LetDeclaration;
 use ast::Module;
@@ -16,7 +17,6 @@ use util::qualified_name;
 use util::visitors::expr_visitor_block;
 use util::visitors::pattern_visitor;
 use util::visitors::type_visitor;
-use ast::Definition;
 
 pub fn sort_modules(modules: &Vec<(ModulePath, Module)>) -> Result<Vec<&ModulePath>, Vec<&ModulePath>> {
     let mut graph: HashMap<&ModulePath, Vec<&ModulePath>> = HashMap::new();
@@ -169,42 +169,42 @@ fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
 
     expr_visitor_block(&mut (env, &mut local_refs), expr, &|(env, refs), sub_expr| {
         match sub_expr {
-            Expr::RecordUpdate(name, _) => {
+            Expr::RecordUpdate(_, name, _) => {
                 if let None = env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }
-            Expr::QualifiedRef(path, name) => {
+            Expr::QualifiedRef(_, path, name) => {
                 let full_name = qualified_name(path, name);
                 if let None = env.find_definition(&full_name) {
                     refs.insert(full_name);
                 }
             }
-            Expr::OpChain(_, ops) => {
+            Expr::OpChain(_, _, ops) => {
                 for op in ops {
                     if let None = env.find_definition(op) {
                         refs.insert(op.clone());
                     }
                 }
             }
-            Expr::Ref(name) => {
+            Expr::Ref(_, name) => {
                 if let None = env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }
 
-            Expr::RecordField(_, _) => {}
-            Expr::RecordAccess(_) => {}
-            Expr::If(_, _, _) => {}
-            Expr::Case(_, _) => {}
-            Expr::Application(_, _) => {}
-            Expr::Literal(_) => {}
+            Expr::RecordField(_, _, _) => {}
+            Expr::RecordAccess(_, _) => {}
+            Expr::If(_, _, _, _) => {}
+            Expr::Case(_, _, _) => {}
+            Expr::Application(_, _, _) => {}
+            Expr::Literal(_, _) => {}
 
-            Expr::Lambda(patterns, _) => {
+            Expr::Lambda(_, patterns, _) => {
                 env.enter_block();
                 add_patterns(env, patterns);
             }
-            Expr::Let(decls, _) => {
+            Expr::Let(_, decls, _) => {
                 env.enter_block();
                 for decl in decls {
                     match decl {
@@ -225,10 +225,10 @@ fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
         }
     }, &|(env, _), sub_expr| {
         match sub_expr {
-            Expr::Lambda(_, _) => {
+            Expr::Lambda(_, _, _) => {
                 env.exit_block();
             }
-            Expr::Let(_, _) => {
+            Expr::Let(_, _, _) => {
                 env.exit_block();
             }
             _ => {}

@@ -80,55 +80,55 @@ impl Display for Type {
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
-            Expr::Unit => write!(f, "()")?,
-            Expr::Tuple(items) => {
+            Expr::Unit(..) => write!(f, "()")?,
+            Expr::Tuple(_, items) => {
                 write!(f, "(")?;
                 print_vec(f, items)?;
                 write!(f, ")")?;
             }
-            Expr::List(items) => {
+            Expr::List(_, items) => {
                 write!(f, "[")?;
                 print_vec(f, items)?;
                 write!(f, "]")?;
             }
-            Expr::Record(items) => {
+            Expr::Record(_, items) => {
                 write!(f, "{{ ")?;
                 print_pairs(f, items)?;
                 write!(f, " }}")?;
             }
-            Expr::RecordUpdate(name, items) => {
+            Expr::RecordUpdate(_, name, items) => {
                 write!(f, "{{ {} | ", name)?;
                 print_pairs(f, items)?;
                 write!(f, " }}")?;
             }
-            Expr::QualifiedRef(path, name) => {
+            Expr::QualifiedRef(_, path, name) => {
                 for p in path {
                     write!(f, "{}.", p)?
                 }
                 write!(f, "{}", name)?
             }
-            Expr::RecordField(expr, name) => write!(f, "{}.{}", expr, name)?,
-            Expr::RecordAccess(name) => write!(f, ".{}", name)?,
-            Expr::If(cond, t_branch, f_branch) => {
+            Expr::RecordField(_, expr, name) => write!(f, "{}.{}", expr, name)?,
+            Expr::RecordAccess(_, name) => write!(f, ".{}", name)?,
+            Expr::If(_, cond, t_branch, f_branch) => {
                 write!(f, "if {} then {} else {}", cond, t_branch, f_branch)?
             }
-            Expr::Case(expr, branches) => {
+            Expr::Case(_, expr, branches) => {
                 write!(f, "case {} of (", expr)?;
                 print_pairs(f, branches)?;
                 write!(f, ")")?;
             }
-            Expr::Lambda(patt, expr) => {
+            Expr::Lambda(_, patt, expr) => {
                 write!(f, "\\")?;
                 print_vec(f, patt)?;
                 write!(f, " -> {}", expr)?
             }
-            Expr::Application(a, b) => write!(f, "({} {})", a, b)?,
-            Expr::Let(decls, expr) => {
+            Expr::Application(_, a, b) => write!(f, "({} {})", a, b)?,
+            Expr::Let(_, decls, expr) => {
                 write!(f, "let (")?;
                 print_vec(f, decls)?;
                 write!(f, ") in ({})", expr)?;
             }
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(exprs, ops);
                 match tree {
                     Ok(t) => {
@@ -139,8 +139,8 @@ impl Display for Expr {
                     }
                 }
             }
-            Expr::Literal(lit) => write!(f, "{}", lit)?,
-            Expr::Ref(name) => write!(f, "{}", name)?,
+            Expr::Literal(_, lit) => write!(f, "{}", lit)?,
+            Expr::Ref(_, name) => write!(f, "{}", name)?,
         }
         Ok(())
     }

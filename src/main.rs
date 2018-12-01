@@ -6,7 +6,6 @@ use std::io::stdout;
 use std::io::Write;
 
 use elm_interpreter::analyzer::type_of_value;
-use elm_interpreter::errors::format_error;
 use elm_interpreter::Interpreter;
 
 /*

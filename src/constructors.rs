@@ -3,8 +3,8 @@ use std::vec::IntoIter;
 use ast::Int;
 use ast::Pattern;
 use ast::Type;
+use parsers::parse_pattern;
 use parsers::parse_type;
-
 
 // Type
 
@@ -101,6 +101,11 @@ pub fn type_record(entries: Vec<(&str, Type)>) -> Type {
 }
 
 // Pattern
+
+pub fn pattern_of(code: &str) -> Pattern {
+    parse_pattern(code).unwrap()
+}
+
 
 pub fn pattern_var(name: &str) -> Pattern {
     Pattern::Var(String::from(name))

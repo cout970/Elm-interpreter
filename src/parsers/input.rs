@@ -4,6 +4,7 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 use std::rc::Rc;
 
+use ast::Span;
 use tokenizer::Location;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
@@ -90,6 +91,16 @@ impl Input {
             levels: Rc::new(copy),
             ptr: self.ptr,
         }
+    }
+
+    pub fn span(&self) -> Span {
+        let ptr = self.skip_indent();
+        self.raw.tokens[ptr].span
+    }
+
+    pub fn pos(&self) -> u32 {
+        let ptr = self.skip_indent();
+        self.raw.tokens[ptr].span.0
     }
 }
 

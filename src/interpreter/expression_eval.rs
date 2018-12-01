@@ -18,24 +18,24 @@ use util::VecExt;
 
 pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeError> {
     let res: Value = match expr {
-        Expr::Unit => Value::Unit,
-        Expr::Tuple(items) => {
+        Expr::Unit(..) => Value::Unit,
+        Expr::Tuple(_, items) => {
             Value::Tuple(items.iter()
                 .map(|e| eval_expr(env, e))
                 .collect::<Result<Vec<_>, _>>()?)
         }
-        Expr::List(items) => {
+        Expr::List(_, items) => {
             Value::List(items.iter()
                 .map(|e| eval_expr(env, e))
                 .collect::<Result<Vec<_>, _>>()?)
         }
-        Expr::Record(items) => {
+        Expr::Record(_, items) => {
             Value::Record(items.iter()
                 .map(|(s, e)| eval_expr(env, e).map(|e| (s.clone(), e)))
                 .collect::<Result<Vec<_>, _>>()?)
         }
-        Expr::RecordUpdate(name, items) => {
-            let val = eval_expr(env, &Expr::Ref(name.clone()))?;
+        Expr::RecordUpdate(_, name, items) => {
+            let val = eval_expr(env, &Expr::Ref((0, 0), name.clone()))?;
 
             if let Value::Record(values) = &val {
                 Value::Record(values.iter().map(|(name, value)| {
@@ -50,7 +50,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 return Err(RuntimeError::RecordUpdateOnNonRecord(name.to_owned(), val.clone()));
             }
         }
-        Expr::If(cond, a, b) => {
+        Expr::If(_, cond, a, b) => {
             let cond = eval_expr(env, cond)?;
 
             match &cond {
@@ -66,7 +66,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 _ => return Err(InvalidIfCondition(cond.clone()))
             }
         }
-        Expr::Lambda(patt, _expr) => {
+        Expr::Lambda(_, patt, _expr) => {
             let ty = type_check_expression(&mut env.types, expr)
                 .map_err(|e| IncorrectDefType(e))?;
 
@@ -79,7 +79,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             }
         }
 
-        Expr::OpChain(exprs, ops) => {
+        Expr::OpChain(_, exprs, ops) => {
             let tree = create_expr_tree(exprs, ops)
                 .map_err(|e| InvalidExpressionChain(e))?;
 
@@ -87,7 +87,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             eval_expr(env, &expr)?
         }
-        Expr::Literal(lit) => {
+        Expr::Literal(_, lit) => {
             match lit {
                 Literal::Int(i) => Value::Number(*i),
                 Literal::Float(i) => Value::Float(*i),
@@ -95,19 +95,19 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 Literal::Char(i) => Value::Char(*i),
             }
         }
-        Expr::Ref(name) => {
+        Expr::Ref(_, name) => {
             env.find(name)
                 .map(|(val, _)| val)
                 .ok_or(MissingDefinition(name.clone(), env.clone()))?
         }
-        Expr::QualifiedRef(path, name) => {
+        Expr::QualifiedRef(_, path, name) => {
             let full_name = qualified_name(path, name);
 
-            let expr = Expr::Ref(full_name);
+            let expr = Expr::Ref((0, 0), full_name);
 
             eval_expr(env, &expr)?
         }
-        Expr::RecordField(record, field) => {
+        Expr::RecordField(_, record, field) => {
             let rec = eval_expr(env, record)?;
             if let Value::Record(ref entries) = &rec {
                 let (_, value) = entries.iter()
@@ -119,7 +119,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 return Err(ExpectedRecord(rec.clone()));
             }
         }
-        Expr::RecordAccess(field) => {
+        Expr::RecordAccess(_, field) => {
             let ty = Type::Fun(
                 Box::new(Type::RecExt("b".s(), vec![(field.to_owned(), Type::Var("a".s()))])),
                 Box::new(Type::Var("a".s())),
@@ -131,7 +131,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 arg_count: 1,
             }
         }
-        Expr::Case(cond, branches) => {
+        Expr::Case(_, cond, branches) => {
             let cond_val = eval_expr(env, cond)?;
             for (patt, expr) in branches {
                 if matches_pattern(patt, &cond_val) {
@@ -141,9 +141,9 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             return Err(CaseExpressionNonExhaustive(cond_val, branches.map(|(p, _)| p.clone())));
         }
-        Expr::Let(_, _) => Value::Unit, // TODO
+        Expr::Let(..) => Value::Unit, // TODO
 
-        Expr::Application(fun, input) => {
+        Expr::Application(_, fun, input) => {
             let mut fun_value = eval_expr(env, fun)?;
             let input = eval_expr(env, input)?;
             let fun_call = FunCall { function: fun_value.clone(), argument: input.clone() };
@@ -360,13 +360,17 @@ fn tree_as_expr(env: &mut DynamicEnv, expr: &ExprTree) -> Expr {
     match expr {
         ExprTree::Leaf(e) => e.clone(),
         ExprTree::Branch(op, a, b) => {
-            let op_fun = Expr::Ref(op.clone());
+
             let a_branch = tree_as_expr(env, &**a);
             let b_branch = tree_as_expr(env, &**b);
+            let span = (span(&a_branch).0, span(&b_branch).1);
+            let op_fun = Expr::Ref(span, op.clone());
 
             Expr::Application(
+                span,
                 Box::new(
                     Expr::Application(
+                        span,
                         Box::new(op_fun),
                         Box::new(a_branch),
                     )
@@ -419,7 +423,7 @@ mod tests {
                 fun: Arc::new(Function::Expr(
                     0,
                     vec![Pattern::Var("x".s())],
-                    Expr::Literal(Literal::Int(1)),
+                    Expr::Literal((0, 0), Literal::Int(1)),
                     Type::Fun(
                         Box::new(Type::Var("a".s())),
                         Box::new(Type::Var("number".s())),

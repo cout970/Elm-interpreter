@@ -58,7 +58,7 @@ pub enum AdtExposing {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Import {
     pub path: Vec<String>,
-    pub alias : Option<String>,
+    pub alias: Option<String>,
     pub exposing: Option<ModuleExposing>,
 }
 
@@ -117,44 +117,46 @@ pub enum Pattern {
     Alias(Box<Pattern>, String),
 }
 
+pub type Span = (u32, u32);
+
 // An unevaluated expression tree
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     /* The unit value `()` */
-    Unit,
+    Unit(Span),
     /* A tuple of 2 or more elements */
-    Tuple(Vec<Expr>),
+    Tuple(Span, Vec<Expr>),
     /* A list of homogeneous values */
-    List(Vec<Expr>),
+    List(Span, Vec<Expr>),
     /* A record, also know as map of key-value pairs, the keys must be valid identifiers */
-    Record(Vec<(String, Expr)>),
+    Record(Span, Vec<(String, Expr)>),
     /* An update operation over a record value, this operation changes the value of a record field */
-    RecordUpdate(String, Vec<(String, Expr)>),
+    RecordUpdate(Span, String, Vec<(String, Expr)>),
     /* A reference to a definition specifying a Module path `List.map` */
-    QualifiedRef(Vec<String>, String),
+    QualifiedRef(Span, Vec<String>, String),
     /* Access to a field in a record */
-    RecordField(Box<Expr>, String),
+    RecordField(Span, Box<Expr>, String),
     /* Creation of a definition that can extract a value from a record field */
-    RecordAccess(String),
+    RecordAccess(Span, String),
     /* If expression */
-    If(Box<Expr>, Box<Expr>, Box<Expr>),
+    If(Span, Box<Expr>, Box<Expr>, Box<Expr>),
     /* Case expression */
-    Case(Box<Expr>, Vec<(Pattern, Expr)>),
+    Case(Span, Box<Expr>, Vec<(Pattern, Expr)>),
     /* Creation of an anonymous function */
-    Lambda(Vec<Pattern>, Box<Expr>),
+    Lambda(Span, Vec<Pattern>, Box<Expr>),
     /* Function call, the first expression if the function and the second it's argument */
-    Application(Box<Expr>, Box<Expr>),
+    Application(Span, Box<Expr>, Box<Expr>),
     /* A let definition, allows to create local functions to use in the final expression */
-    Let(Vec<LetDeclaration>, Box<Expr>),
+    Let(Span, Vec<LetDeclaration>, Box<Expr>),
     /* Stores a chain of binary operations,
      * the order and associativity of the operations can be changed later
      * to create a binary tree (with Expr::Application, see expression_fold.rs)
      */
-    OpChain(Vec<Expr>, Vec<String>),
+    OpChain(Span, Vec<Expr>, Vec<String>),
     /* A value literal, `1`, '"Hello World"', '3.14', etc */
-    Literal(Literal),
+    Literal(Span, Literal),
     /* A reference to a definition `map`, `sum`, etc */
-    Ref(String),
+    Ref(Span, String),
 }
 
 /// A let declaration, yeah, really
@@ -171,6 +173,82 @@ pub enum Literal {
     Float(Float),
     String(String),
     Char(char),
+}
+
+pub fn span(a: &Expr) -> Span {
+    *match a {
+        Expr::Unit(span) => span,
+        Expr::Tuple(span, _) => span,
+        Expr::List(span, _) => span,
+        Expr::Record(span, _) => span,
+        Expr::RecordUpdate(span, _, _) => span,
+        Expr::QualifiedRef(span, _, _) => span,
+        Expr::RecordField(span, _, _) => span,
+        Expr::RecordAccess(span, _) => span,
+        Expr::If(span, _, _, _) => span,
+        Expr::Case(span, _, _) => span,
+        Expr::Lambda(span, _, _) => span,
+        Expr::Application(span, _, _) => span,
+        Expr::Let(span, _, _) => span,
+        Expr::OpChain(span, _, _) => span,
+        Expr::Literal(span, _) => span,
+        Expr::Ref(span, _) => span,
+    }
+}
+
+impl PartialEq for Expr {
+    fn eq(&self, other: &Expr) -> bool {
+        match self {
+            Expr::Unit(_) => {
+                if let Expr::Unit(_) = other { true } else { false }
+            }
+            Expr::Tuple(_, a) => {
+                if let Expr::Tuple(_, a2) = other { a == a2 } else { false }
+            }
+            Expr::List(_, a) => {
+                if let Expr::List(_, a2) = other { a == a2 } else { false }
+            }
+            Expr::Record(_, a) => {
+                if let Expr::Record(_, a2) = other { a == a2 } else { false }
+            }
+            Expr::RecordUpdate(_, a, b) => {
+                if let Expr::RecordUpdate(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::QualifiedRef(_, a, b) => {
+                if let Expr::QualifiedRef(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::RecordField(_, a, b) => {
+                if let Expr::RecordField(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::RecordAccess(_, a) => {
+                if let Expr::RecordAccess(_, a2) = other { a == a2 } else { false }
+            }
+            Expr::If(_, a, b, c) => {
+                if let Expr::If(_, a2, b2, c2) = other { a == a2 && b == b2 && c == c2 } else { false }
+            }
+            Expr::Case(_, a, b) => {
+                if let Expr::Case(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::Lambda(_, a, b) => {
+                if let Expr::Lambda(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::Application(_, a, b) => {
+                if let Expr::Application(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::Let(_, a, b) => {
+                if let Expr::Let(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::OpChain(_, a, b) => {
+                if let Expr::OpChain(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Expr::Literal(_, a) => {
+                if let Expr::Literal(_, a2) = other { a == a2 } else { false }
+            }
+            Expr::Ref(_, a) => {
+                if let Expr::Ref(_, a2) = other { a == a2 } else { false }
+            }
+        }
+    }
 }
 
 /// Literals implement hash for function memoization,

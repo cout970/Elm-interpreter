@@ -177,7 +177,7 @@ mod tests {
                 header: None,
                 name: "my_fun".s(),
                 patterns: vec![Pattern::Var("x".s())],
-                expr: Expr::Unit,
+                expr: Expr::Unit((0, 0)),
             }
         ));
     }
@@ -189,7 +189,7 @@ mod tests {
                 header: None,
                 name: "x".s(),
                 patterns: vec![],
-                expr: Expr::Literal(Literal::Int(5)),
+                expr: Expr::Literal((0, 0), Literal::Int(5)),
             }
         ));
     }
@@ -201,7 +201,7 @@ mod tests {
                 header: Some(Type::Tag("Int".s(), vec![])),
                 name: "my_fun".s(),
                 patterns: vec![],
-                expr: Expr::Literal(Literal::Int(5)),
+                expr: Expr::Literal((0, 0), Literal::Int(5)),
             }
         ));
     }
@@ -218,19 +218,22 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
                 name: "update".s(),
                 patterns: vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
                 expr: Expr::Case(
-                    Box::new(Expr::Ref("msg".s())),
+                    (0, 0),
+                    Box::new(Expr::Ref((0, 0), "msg".s())),
                     vec![
                         (
                             Pattern::Adt("Increment".s(), vec![]),
                             Expr::OpChain(
-                                vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                (0, 0),
+                                vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
                                 vec!["+".s()],
                             )
                         ),
                         (
                             Pattern::Adt("Decrement".s(), vec![]),
                             Expr::OpChain(
-                                vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                                (0, 0),
+                                vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
                                 vec!["-".s()],
                             )
                         )
@@ -258,23 +261,27 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
                 Pattern::Var("flags".s())
             ],
             expr: Expr::Tuple(
+                (0, 0),
                 vec![
                     Expr::Record(
+                        (0, 0),
                         vec![
                             (
                                 "grid".s(),
                                 Expr::Application(
-                                    Box::from(Expr::Ref("createGrid".s())),
-                                    Box::from(Expr::Literal(Literal::Int(32))),
+                                    (0, 0),
+                                    Box::from(Expr::Ref((0, 0), "createGrid".s())),
+                                    Box::from(Expr::Literal((0, 0), Literal::Int(32))),
                                 )
                             )
-                        ]
+                        ],
                     ),
                     Expr::Application(
-                        Box::from(Expr::Ref("loadMap".s())),
-                        Box::from(Expr::Literal(Literal::String("/src/map.txt".s()))),
+                        (0, 0),
+                        Box::from(Expr::Ref((0, 0), "loadMap".s())),
+                        Box::from(Expr::Literal((0, 0), Literal::String("/src/map.txt".s()))),
                     )
-                ]
+                ],
             ),
         }));
     }

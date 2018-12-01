@@ -1,5 +1,5 @@
-use util::expression_fold::ExprTreeError::*;
 use ast::Expr;
+use util::expression_fold::ExprTreeError::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprTree {
@@ -173,35 +173,36 @@ pub fn get_operator_associativity(op: &str) -> Associativity {
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code;
-    use super::*;
-    use super::ExprTree::*;
     use ast::Expr;
     use ast::Expr::Ref;
+    use parsers::from_code;
     use util::StringConversion;
+
+    use super::*;
+    use super::ExprTree::*;
 
     #[test]
     fn check_operator_precedence() {
         let expr = from_code(b"a + b * c / d - f");
         match expr {
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     "-".s(),
                     Box::new(Branch(
                         "+".s(),
-                        Box::new(Leaf(Ref("a".s()))),
+                        Box::new(Leaf(Ref((0, 0), "a".s()))),
                         Box::new(Branch(
                             "/".s(),
                             Box::new(Branch(
                                 "*".s(),
-                                Box::new(Leaf(Ref("b".s()))),
-                                Box::new(Leaf(Ref("c".s()))),
+                                Box::new(Leaf(Ref((0, 0), "b".s()))),
+                                Box::new(Leaf(Ref((0, 0), "c".s()))),
                             )),
-                            Box::new(Leaf(Ref("d".s()))),
+                            Box::new(Leaf(Ref((0, 0), "d".s()))),
                         )),
                     )),
-                    Box::new(Leaf(Ref("f".s()))),
+                    Box::new(Leaf(Ref((0, 0), "f".s()))),
                 )));
             }
             _ => panic!("Invalid type")
@@ -212,16 +213,16 @@ mod tests {
     fn check_operator_associativity_1() {
         let expr = from_code(b"a >> b >> c"); // (a >> b) >> c
         match expr {
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     ">>".s(),
                     Box::new(Branch(
                         ">>".s(),
-                        Box::new(Leaf(Ref("a".s()))),
-                        Box::new(Leaf(Ref("b".s()))),
+                        Box::new(Leaf(Ref((0, 0), "a".s()))),
+                        Box::new(Leaf(Ref((0, 0), "b".s()))),
                     )),
-                    Box::new(Leaf(Ref("c".s()))),
+                    Box::new(Leaf(Ref((0, 0), "c".s()))),
                 )));
             }
             _ => panic!("Invalid type")
@@ -232,15 +233,15 @@ mod tests {
     fn check_operator_associativity_2() {
         let expr = from_code(b"a << b << c"); // a << (b << c)
         match expr {
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     "<<".s(),
-                    Box::new(Leaf(Ref("a".s()))),
+                    Box::new(Leaf(Ref((0, 0), "a".s()))),
                     Box::new(Branch(
                         "<<".s(),
-                        Box::new(Leaf(Ref("b".s()))),
-                        Box::new(Leaf(Ref("c".s()))),
+                        Box::new(Leaf(Ref((0, 0), "b".s()))),
+                        Box::new(Leaf(Ref((0, 0), "c".s()))),
                     )),
                 )));
             }
@@ -252,7 +253,7 @@ mod tests {
     fn check_operator_associativity_3() {
         let expr = from_code(b"a >> b << c"); // Error
         match expr {
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Err(AssociativityError));
             }
@@ -264,7 +265,7 @@ mod tests {
     fn check_operator_associativity_4() {
         let expr = from_code(b"a == b == c"); // Error
         match expr {
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Err(AssociativityError));
             }
@@ -276,12 +277,12 @@ mod tests {
     fn check_operator_associativity_5() {
         let expr = from_code(b"a == b");
         match expr {
-            Expr::OpChain(exprs, ops) => {
+            Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
                 assert_eq!(tree, Ok(Branch(
                     "==".s(),
-                    Box::new(Leaf(Ref("a".s()))),
-                    Box::new(Leaf(Ref("b".s()))),
+                    Box::new(Leaf(Ref((0, 0), "a".s()))),
+                    Box::new(Leaf(Ref((0, 0), "b".s()))),
                 )));
             }
             _ => panic!("Invalid type")

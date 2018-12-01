@@ -1,6 +1,7 @@
 use nom::*;
 
 use ast::{Float, Int};
+use ast::Span;
 use tokenizer::token_reader::read_tokens;
 
 mod input;
@@ -61,11 +62,12 @@ pub enum Token {
     Eof,
 }
 
+// TODO move to ast
 pub type Location = u32;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TokenInfo {
-    pub span: (Location, Location),
+    pub span: Span,
     pub token: Token,
 }
 

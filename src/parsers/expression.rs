@@ -2,6 +2,7 @@ use ast::Expr;
 use ast::LetDeclaration;
 use ast::Literal;
 use ast::Pattern;
+use ast::span;
 use parsers::input::Input;
 use parsers::ParseError;
 use parsers::pattern::parse_pattern;
@@ -22,21 +23,21 @@ fn parse_expr_application(input: Input) -> Result<(Expr, Input), ParseError> {
     let (exprs, i): (Vec<Expr>, Input) = many1(&parse_expr_base, input)?;
     let mut iter = exprs.into_iter();
     let first = iter.next().unwrap();
-    let tree = iter.fold(first, |acc, b| Expr::Application(Box::new(acc), Box::new(b)));
+    let tree = iter.fold(first, |acc, b| Expr::Application((0, 0), Box::new(acc), Box::new(b)));
 
     Ok((tree, i))
 }
 
 fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
     let (expr, i) = match input.read() {
-        Token::LitInt(value) => (Expr::Literal(Literal::Int(value)), input.next()),
-        Token::LitFloat(value) => (Expr::Literal(Literal::Float(value)), input.next()),
-        Token::LitChar(value) => (Expr::Literal(Literal::Char(value)), input.next()),
-        Token::LitString(value) => (Expr::Literal(Literal::String(value)), input.next()),
-        Token::Id(name) => (Expr::Ref(name), input.next()),
+        Token::LitInt(value) => (Expr::Literal(input.span(), Literal::Int(value)), input.next()),
+        Token::LitFloat(value) => (Expr::Literal(input.span(), Literal::Float(value)), input.next()),
+        Token::LitChar(value) => (Expr::Literal(input.span(), Literal::Char(value)), input.next()),
+        Token::LitString(value) => (Expr::Literal(input.span(), Literal::String(value)), input.next()),
+        Token::Id(name) => (Expr::Ref(input.span(), name), input.next()),
         Token::Dot => {
             let (name, i) = expect_id(input.next())?;
-            (Expr::RecordAccess(name), i)
+            (Expr::RecordAccess((input.pos(), i.pos()), name), i)
         }
         Token::UpperId(first) => {
             // Options:
@@ -52,10 +53,10 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                     let i = expect(Token::Dot, i)?;
                     let (name, i) = expect_id(i)?;
                     // Parsed: Upper.A.B.C.func
-                    (Expr::QualifiedRef(create_vec(first, rest), name), i)
+                    (Expr::QualifiedRef((input.pos(), i.pos()), create_vec(first, rest), name), i)
                 }
                 _ => {
-                    (Expr::Ref(first), input.next())
+                    (Expr::Ref((input.pos(), i.pos()), first), input.next())
                 }
             }
         }
@@ -66,7 +67,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = expect(Token::Else, i)?;
             let (false_branch, i) = parse_expr(i)?;
 
-            (Expr::If(Box::from(condition), Box::from(true_branch), Box::from(false_branch)), i)
+            (Expr::If((input.pos(), i.pos()), Box::from(condition), Box::from(true_branch), Box::from(false_branch)), i)
         }
         Token::LeftParen => {
             // Options:
@@ -79,12 +80,13 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             match i.read() {
                 Token::RightParen => {
                     // ()
-                    (Expr::Unit, i.next())
+                    let i = i.next();
+                    (Expr::Unit((input.pos(), i.pos())), i)
                 }
                 Token::BinaryOperator(op) => {
                     // (+)
                     let i = expect(Token::RightParen, i.next())?;
-                    (Expr::Ref(op), i)
+                    (Expr::Ref((input.pos(), i.pos()), op), i)
                 }
                 _ => {
                     let (value, i) = parse_expr(i)?;
@@ -98,7 +100,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                             let i = expect(Token::Comma, i)?;
                             let (rest, i) = comma1(&parse_expr, i)?;
                             let i = expect(Token::RightParen, i)?;
-                            (Expr::Tuple(create_vec(value, rest)), i)
+                            (Expr::Tuple((input.pos(), i.pos()), create_vec(value, rest)), i)
                         }
                     }
                 }
@@ -108,7 +110,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = input.next();
             let (values, i) = comma0(&parse_expr, i)?;
             let i = expect(Token::RightBracket, i)?;
-            (Expr::List(values), i)
+            (Expr::List((input.pos(), i.pos()), values), i)
         }
         Token::LeftBrace => {
             // Options
@@ -119,7 +121,8 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             match i.read() {
                 Token::RightBrace => {
                     // {}
-                    (Expr::Record(vec![]), i.next())
+                    let i = i.next();
+                    (Expr::Record((input.pos(), i.pos()), vec![]), i)
                 }
                 Token::Id(name) => {
                     let i = i.next();
@@ -130,7 +133,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                             let (values, i) = many0(&parse_record_entry, i)?;
 
                             let i = expect(Token::RightBrace, i)?;
-                            (Expr::Record(create_vec((name, expr), values)), i)
+                            (Expr::Record((input.pos(), i.pos()), create_vec((name, expr), values)), i)
                         }
                         Token::Pipe => {
                             // { a | x = 0 }
@@ -140,7 +143,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                             let (values, i) = comma0(&parse_record_entry, i)?;
 
                             let i = expect(Token::RightBrace, i)?;
-                            (Expr::RecordUpdate(name, create_vec((first_name, first_expr), values)), i)
+                            (Expr::RecordUpdate((input.pos(), i.pos()), name, create_vec((first_name, first_expr), values)), i)
                         }
                         _ => {
                             let input = i;
@@ -161,7 +164,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = expect(Token::RightArrow, i)?;
             let (expr, i) = parse_expr(i)?;
 
-            (Expr::Lambda(pats, Box::from(expr)), i)
+            (Expr::Lambda((input.pos(), i.pos()), pats, Box::from(expr)), i)
         }
         Token::Let => {
             let i = input.next();
@@ -178,7 +181,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = expect(Token::In, i)?;
             let (expr, i) = parse_expr(i)?;
 
-            (Expr::Let(defs, Box::from(expr)), i)
+            (Expr::Let((input.pos(), i.pos()), defs, Box::from(expr)), i)
         }
         Token::Case => {
             let (cond, i) = parse_expr(input.next())?;
@@ -187,11 +190,11 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             let i = i.enter_level(level);
             let (branches, i) = many1(&|i| parse_case_branch(level, i), i)?;
             let i = i.exit_level(level);
-            (Expr::Case(Box::from(cond), branches), i)
+            (Expr::Case((input.pos(), i.pos()), Box::from(cond), branches), i)
         }
         Token::PrefixMinus => {
             let (expr, i) = parse_expr(input.next())?;
-            (Expr::Application(Box::from(Expr::Ref(String::from("-"))), Box::from(expr)), i)
+            (Expr::Application((input.pos(), i.pos()), Box::from(Expr::Ref((input.pos(), input.pos() + 1), String::from("-"))), Box::from(expr)), i)
         }
         _ => {
             let found = input.read();
@@ -203,7 +206,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
     // TODO repeat? `{ x = { y = 0 } }.x.y`
     let (expr, i) = if i.read() == Token::Dot {
         let (name, i) = expect_id(i.next())?;
-        (Expr::RecordField(Box::from(expr), name), i)
+        (Expr::RecordField((input.pos(), i.pos()), Box::from(expr), name), i)
     } else {
         (expr, i)
     };
@@ -274,7 +277,7 @@ fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
         exprs.push(expr);
     }
 
-    Expr::OpChain(exprs, ops)
+    Expr::OpChain((span(exprs.first().unwrap()).0, span(exprs.last().unwrap()).1), exprs, ops)
 }
 
 
@@ -350,62 +353,70 @@ mod tests {
 
     #[test]
     fn check_unit() {
-        test_parser_result(parse_expr, "()", Expr::Unit);
+        test_parser_result(parse_expr, "()", Expr::Unit((0, 0)));
     }
 
     #[test]
     fn check_parens() {
-        test_parser_result(parse_expr, "(a)", Expr::Ref("a".s()));
+        test_parser_result(parse_expr, "(a)", Expr::Ref((0, 0), "a".s()));
     }
 
     #[test]
     fn check_tuple() {
-        test_parser_result(parse_expr, "(a, b)", Expr::Tuple(vec![
-            Expr::Ref("a".s()),
-            Expr::Ref("b".s())]),
-        );
+        test_parser_result(parse_expr, "(a, b)", Expr::Tuple(
+            (0, 0),
+            vec![
+                Expr::Ref((0, 0), "a".s()),
+                Expr::Ref((0, 0), "b".s())
+            ],
+        ));
     }
 
     #[test]
     fn check_list() {
-        test_parser_result(parse_expr, "[a, b]", Expr::List(vec![
-            Expr::Ref("a".s()),
-            Expr::Ref("b".s())]),
-        );
+        test_parser_result(parse_expr, "[a, b]", Expr::List(
+            (0, 0),
+            vec![
+                Expr::Ref((0, 0), "a".s()),
+                Expr::Ref((0, 0), "b".s())],
+        ));
     }
 
     #[test]
     fn check_empty_list() {
-        test_parser_result(parse_expr, "[]", Expr::List(vec![]));
+        test_parser_result(parse_expr, "[]", Expr::List((0, 0), vec![]));
     }
 
     #[test]
     fn check_if() {
         test_parser_result(parse_expr, "if a then b else c", Expr::If(
-            Box::new(Expr::Ref("a".s())),
-            Box::new(Expr::Ref("b".s())),
-            Box::new(Expr::Ref("c".s())),
+            (0, 0),
+            Box::new(Expr::Ref((0, 0), "a".s())),
+            Box::new(Expr::Ref((0, 0), "b".s())),
+            Box::new(Expr::Ref((0, 0), "c".s())),
         ));
     }
 
     #[test]
     fn check_lambda() {
         test_parser_result(parse_expr, "\\x -> x", Expr::Lambda(
+            (0, 0),
             vec![Pattern::Var("x".s())],
-            Box::new(Expr::Ref("x".s())),
+            Box::new(Expr::Ref((0, 0), "x".s())),
         ));
     }
 
     #[test]
     fn check_case() {
         test_parser_result(parse_expr, "case x of\n  [] -> 0\n  _ -> 1", Expr::Case(
-            Box::new(Expr::Ref("x".s())),
+            (0, 0),
+            Box::new(Expr::Ref((0, 0), "x".s())),
             vec![(
                      Pattern::List(vec![]),
-                     Expr::Literal(Literal::Int(0))
+                     Expr::Literal((0, 0), Literal::Int(0))
                  ), (
                      Pattern::Wildcard,
-                     Expr::Literal(Literal::Int(1))
+                     Expr::Literal((0, 0), Literal::Int(1))
                  )],
         ));
     }
@@ -413,80 +424,93 @@ mod tests {
     #[test]
     fn check_let() {
         test_parser_result(parse_expr, "let x = 5 in 3", Expr::Let(
+            (0, 0),
             vec![
                 LetDeclaration::Def(Definition {
                     header: None,
                     name: "x".s(),
                     patterns: vec![],
-                    expr: Expr::Literal(Literal::Int(5)),
+                    expr: Expr::Literal((0, 0), Literal::Int(5)),
                 })
             ],
-            Box::new(Expr::Literal(Literal::Int(3))),
+            Box::new(Expr::Literal((0, 0), Literal::Int(3))),
         ));
     }
 
     #[test]
     fn check_binop_chain() {
-        test_parser_result(parse_expr, "1 + 2 + 3 + 4", Expr::OpChain(vec![
-            Expr::Literal(Literal::Int(1)),
-            Expr::Literal(Literal::Int(2)),
-            Expr::Literal(Literal::Int(3)),
-            Expr::Literal(Literal::Int(4)),
-        ], vec!["+".s(), "+".s(), "+".s()],
+        test_parser_result(parse_expr, "1 + 2 + 3 + 4", Expr::OpChain(
+            (0, 0),
+            vec![
+                Expr::Literal((0, 0), Literal::Int(1)),
+                Expr::Literal((0, 0), Literal::Int(2)),
+                Expr::Literal((0, 0), Literal::Int(3)),
+                Expr::Literal((0, 0), Literal::Int(4)),
+            ],
+            vec!["+".s(), "+".s(), "+".s()],
         ));
     }
 
 
     #[test]
     fn check_binop_chain_multiline() {
-        test_parser_result(parse_expr, "1 + \n 2 + \n 3 + \n 4", Expr::OpChain(vec![
-            Expr::Literal(Literal::Int(1)),
-            Expr::Literal(Literal::Int(2)),
-            Expr::Literal(Literal::Int(3)),
-            Expr::Literal(Literal::Int(4)),
-        ], vec!["+".s(), "+".s(), "+".s()],
+        test_parser_result(parse_expr, "1 + \n 2 + \n 3 + \n 4", Expr::OpChain(
+            (0, 0),
+            vec![
+                Expr::Literal((0, 0), Literal::Int(1)),
+                Expr::Literal((0, 0), Literal::Int(2)),
+                Expr::Literal((0, 0), Literal::Int(3)),
+                Expr::Literal((0, 0), Literal::Int(4)),
+            ],
+            vec!["+".s(), "+".s(), "+".s()],
         ));
     }
 
     #[test]
     fn check_priorities() {
-        test_parser_result(parse_expr, "1 * 2 + 3 * 4", Expr::OpChain(vec![
-            Expr::Literal(Literal::Int(1)),
-            Expr::Literal(Literal::Int(2)),
-            Expr::Literal(Literal::Int(3)),
-            Expr::Literal(Literal::Int(4)),
-        ], vec!["*".s(), "+".s(), "*".s()],
+        test_parser_result(parse_expr, "1 * 2 + 3 * 4", Expr::OpChain(
+            (0, 0),
+            vec![
+                Expr::Literal((0, 0), Literal::Int(1)),
+                Expr::Literal((0, 0), Literal::Int(2)),
+                Expr::Literal((0, 0), Literal::Int(3)),
+                Expr::Literal((0, 0), Literal::Int(4)),
+            ],
+            vec!["*".s(), "+".s(), "*".s()],
         ));
     }
 
     #[test]
     fn check_record_update() {
         test_parser_result(parse_expr, "{ a | b = 0 }", Expr::RecordUpdate(
+            (0, 0),
             "a".s(),
-            vec![("b".s(), Expr::Literal(Literal::Int(0)))],
+            vec![("b".s(), Expr::Literal((0, 0), Literal::Int(0)))],
         ));
     }
 
     #[test]
     fn check_record_update2() {
         test_parser_result(parse_expr, "{ a | b = 0, c = 1 }", Expr::RecordUpdate(
+            (0, 0),
             "a".s(),
             vec![
-                ("b".s(), Expr::Literal(Literal::Int(0))),
-                ("c".s(), Expr::Literal(Literal::Int(1))),
+                ("b".s(), Expr::Literal((0, 0), Literal::Int(0))),
+                ("c".s(), Expr::Literal((0, 0), Literal::Int(1))),
             ],
         ));
     }
 
     #[test]
     fn check_record_access() {
-        test_parser_result(parse_expr, ".x", Expr::RecordAccess("x".s()));
+        test_parser_result(parse_expr, ".x", Expr::RecordAccess((0, 0), "x".s()));
     }
 
     #[test]
     fn check_record_field() {
         test_parser_result(parse_expr, "{}.x", Expr::RecordField(
-            Box::new(Expr::Record(vec![])),
+            (0, 0),
+            Box::new(Expr::Record((0, 0), vec![])),
             "x".s(),
         ));
     }
@@ -494,6 +518,7 @@ mod tests {
     #[test]
     fn check_qualified_ref() {
         test_parser_result(parse_expr, "List.map", Expr::QualifiedRef(
+            (0, 0),
             vec!["List".s()],
             "map".s(),
         ));
@@ -502,34 +527,40 @@ mod tests {
     #[test]
     fn check_function_application() {
         test_parser_result(parse_expr, "my_fun 1", Expr::Application(
-            Box::new(Expr::Ref("my_fun".s())),
-            Box::new(Expr::Literal(Literal::Int(1))),
+            (0, 0),
+            Box::new(Expr::Ref((0, 0), "my_fun".s())),
+            Box::new(Expr::Literal((0, 0), Literal::Int(1))),
         ));
     }
 
     #[test]
     fn check_function_application2() {
         test_parser_result(parse_expr, "my_fun 1 2", Expr::Application(
+            (0, 0),
             Box::new(Expr::Application(
-                Box::new(Expr::Ref("my_fun".s())),
-                Box::new(Expr::Literal(Literal::Int(1))),
+                (0, 0),
+                Box::new(Expr::Ref((0, 0), "my_fun".s())),
+                Box::new(Expr::Literal((0, 0), Literal::Int(1))),
             )),
-            Box::new(Expr::Literal(Literal::Int(2))),
+            Box::new(Expr::Literal((0, 0), Literal::Int(2))),
         ));
     }
 
     #[test]
     fn check_function_application_priority() {
         test_parser_result(parse_expr, "my_fun 1 2 + 3", Expr::OpChain(
+            (0, 0),
             vec![
                 Expr::Application(
+                    (0, 0),
                     Box::new(Expr::Application(
-                        Box::new(Expr::Ref("my_fun".s())),
-                        Box::new(Expr::Literal(Literal::Int(1))),
+                        (0, 0),
+                        Box::new(Expr::Ref((0, 0), "my_fun".s())),
+                        Box::new(Expr::Literal((0, 0), Literal::Int(1))),
                     )),
-                    Box::new(Expr::Literal(Literal::Int(2))),
+                    Box::new(Expr::Literal((0, 0), Literal::Int(2))),
                 ),
-                Expr::Literal(Literal::Int(3))
+                Expr::Literal((0, 0), Literal::Int(3))
             ],
             vec!["+".s()],
         ));
@@ -539,11 +570,13 @@ mod tests {
     fn check_multiline_expr() {
         test_parser_result(parse_expr, "my_fun []\n  []",
                            Expr::Application(
+                               (0, 0),
                                Box::new(Expr::Application(
-                                   Box::new(Expr::Ref("my_fun".s())),
-                                   Box::new(Expr::List(vec![])),
+                                   (0, 0),
+                                   Box::new(Expr::Ref((0, 0), "my_fun".s())),
+                                   Box::new(Expr::List((0, 0), vec![])),
                                )),
-                               Box::new(Expr::List(vec![])),
+                               Box::new(Expr::List((0, 0), vec![])),
                            ),
         );
     }
@@ -553,19 +586,22 @@ mod tests {
         test_parser_result(parse_expr, "\
 case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
         ", Expr::Case(
-            Box::new(Expr::Ref("msg".s())),
+            (0, 0),
+            Box::new(Expr::Ref((0, 0), "msg".s())),
             vec![
                 (
                     Pattern::Adt("Increment".s(), vec![]),
                     Expr::OpChain(
-                        vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                        (0, 0),
+                        vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
                         vec!["+".s()],
                     )
                 ),
                 (
                     Pattern::Adt("Decrement".s(), vec![]),
                     Expr::OpChain(
-                        vec![Expr::Ref("model".s()), Expr::Literal(Literal::Int(1))],
+                        (0, 0),
+                        vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
                         vec!["-".s()],
                     )
                 )
@@ -577,9 +613,11 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     #[test]
     fn check_prefix_minus() {
         test_parser_result(parse_expr, "-(1+2)", Expr::Application(
-            Box::from(Expr::Ref("-".s())),
+            (0, 0),
+            Box::from(Expr::Ref((0, 0), "-".s())),
             Box::from(Expr::OpChain(
-                vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+                (0, 0),
+                vec![Expr::Literal((0, 0), Literal::Int(1)), Expr::Literal((0, 0), Literal::Int(2))],
                 vec!["+".s()],
             )),
         ));
@@ -588,7 +626,8 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     #[test]
     fn check_infix_minus() {
         test_parser_result(parse_expr, "1 - 2", Expr::OpChain(
-            vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+            (0, 0),
+            vec![Expr::Literal((0, 0), Literal::Int(1)), Expr::Literal((0, 0), Literal::Int(2))],
             vec!["-".s()],
         ));
     }
@@ -596,10 +635,12 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     #[test]
     fn check_infix_minus_precedence() {
         test_parser_result(parse_expr, "1 -2", Expr::Application(
-            Box::new(Expr::Literal(Literal::Int(1))),
+            (0, 0),
+            Box::new(Expr::Literal((0, 0), Literal::Int(1))),
             Box::new(Expr::Application(
-                Box::new(Expr::Ref("-".s())),
-                Box::new(Expr::Literal(Literal::Int(2))),
+                (0, 0),
+                Box::new(Expr::Ref((0, 0), "-".s())),
+                Box::new(Expr::Literal((0, 0), Literal::Int(2))),
             )),
         ));
     }
@@ -607,7 +648,8 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     #[test]
     fn check_infix_minus_validity() {
         test_parser_result(parse_expr, "1- 2", Expr::OpChain(
-            vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+            (0, 0),
+            vec![Expr::Literal((0, 0), Literal::Int(1)), Expr::Literal((0, 0), Literal::Int(2))],
             vec!["-".s()],
         ));
     }
@@ -621,7 +663,8 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     #[ignore]
     fn check_infix_minus_edge_case() {
         test_parser_result(parse_expr, "1-2", Expr::OpChain(
-            vec![Expr::Literal(Literal::Int(1)), Expr::Literal(Literal::Int(2))],
+            (0, 0),
+            vec![Expr::Literal((0, 0), Literal::Int(1)), Expr::Literal((0, 0), Literal::Int(2))],
             vec!["-".s()],
         ));
     }
@@ -637,18 +680,21 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
         ";
 
         test_parser_result(parse_expr, code, Expr::Application(
+            (0, 0),
             Box::from(Expr::QualifiedRef(
+                (0, 0),
                 vec![
                     "Browser".s()
                 ],
                 "element".s(),
             )),
             Box::from(Expr::Record(
+                (0, 0),
                 vec![
-                    ("init".s(), Expr::Ref("init".s())),
-                    ("view".s(), Expr::Ref("view".s())),
-                    ("update".s(), Expr::Ref("update".s())),
-                    ("subscriptions".s(), Expr::Ref("subscriptions".s()))
+                    ("init".s(), Expr::Ref((0, 0), "init".s())),
+                    ("view".s(), Expr::Ref((0, 0), "view".s())),
+                    ("update".s(), Expr::Ref((0, 0), "update".s())),
+                    ("subscriptions".s(), Expr::Ref((0, 0), "subscriptions".s()))
                 ]
             )),
         ));
@@ -671,6 +717,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
             ";
 
         test_parser_result(parse_expr, code, Expr::Let(
+            (0, 0),
             vec![
                 LetDeclaration::Def(Definition {
                     header: None,
@@ -679,21 +726,27 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                         Pattern::Var("x".s())
                     ],
                     expr: Expr::OpChain(
+                        (0, 0),
                         vec![
                             Expr::Application(
+                                (0, 0),
                                 Box::from(Expr::Application(
-                                    Box::from(Expr::QualifiedRef(vec!["List".s()], "range".s())),
-                                    Box::from(Expr::Literal(Literal::Int(0))),
+                                    (0, 0),
+                                    Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "range".s())),
+                                    Box::from(Expr::Literal((0, 0), Literal::Int(0))),
                                 )),
-                                Box::from(Expr::Ref("x".s())),
+                                Box::from(Expr::Ref((0, 0), "x".s())),
                             ),
                             Expr::Application(
-                                Box::from(Expr::QualifiedRef(vec!["List".s()], "map".s())),
+                                (0, 0),
+                                Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "map".s())),
                                 Box::from(Expr::Lambda(
+                                    (0, 0),
                                     vec![Pattern::Var("y".s())],
                                     Box::from(Expr::Application(
-                                        Box::from(Expr::Ref("Cell".s())),
-                                        Box::from(Expr::Ref("Dirt".s())),
+                                        (0, 0),
+                                        Box::from(Expr::Ref((0, 0), "Cell".s())),
+                                        Box::from(Expr::Ref((0, 0), "Dirt".s())),
                                     )),
                                 )),
                             )
@@ -709,21 +762,27 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                         Pattern::Var("y".s())
                     ],
                     expr: Expr::OpChain(
+                        (0, 0),
                         vec![
                             Expr::Application(
+                                (0, 0),
                                 Box::from(Expr::Application(
-                                    Box::from(Expr::QualifiedRef(vec!["List".s()], "range".s())),
-                                    Box::from(Expr::Literal(Literal::Int(0))),
+                                    (0, 0),
+                                    Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "range".s())),
+                                    Box::from(Expr::Literal((0, 0), Literal::Int(0))),
                                 )),
-                                Box::from(Expr::Ref("y".s())),
+                                Box::from(Expr::Ref((0, 0), "y".s())),
                             ),
                             Expr::Application(
-                                Box::from(Expr::QualifiedRef(vec!["List".s()], "map".s())),
+                                (0, 0),
+                                Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "map".s())),
                                 Box::from(Expr::Lambda(
+                                    (0, 0),
                                     vec![Pattern::Var("s".s())],
                                     Box::from(Expr::Application(
-                                        Box::from(Expr::Ref("row".s())),
-                                        Box::from(Expr::Ref("x".s())),
+                                        (0, 0),
+                                        Box::from(Expr::Ref((0, 0), "row".s())),
+                                        Box::from(Expr::Ref((0, 0), "x".s())),
                                     )),
                                 )),
                             )
@@ -732,20 +791,22 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     ),
                 })
             ],
-            Box::from(Expr::Record(vec![
+            Box::from(Expr::Record((0, 0), vec![
                 (
                     "cells".s(),
                     Expr::Application(
+                        (0, 0),
                         Box::from(Expr::Application(
-                            Box::from(Expr::Ref("column".s())),
-                            Box::from(Expr::Ref("size".s())),
+                            (0, 0),
+                            Box::from(Expr::Ref((0, 0), "column".s())),
+                            Box::from(Expr::Ref((0, 0), "size".s())),
                         )),
-                        Box::from(Expr::Ref("size".s())),
+                        Box::from(Expr::Ref((0, 0), "size".s())),
                     )
                 ),
                 (
                     "entities".s(),
-                    Expr::List(vec![])
+                    Expr::List((0, 0), vec![])
                 )
             ]
             )),

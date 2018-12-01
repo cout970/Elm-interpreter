@@ -99,7 +99,6 @@ fn skip_empty_lines(input: Input) -> Result<Input, ParseError> {
 }
 
 
-
 fn parse_module_header(input: Input) -> Result<(ModuleHeader, Input), ParseError> {
     let (name, i) = match input.read() {
         Token::ModuleTk => {
@@ -330,7 +329,8 @@ mod tests {
                     name: "func".s(),
                     patterns: vec![Pattern::Var("a".s())],
                     expr: Expr::OpChain(
-                        vec![Expr::Ref("a".s()), Expr::Literal(Literal::Int(1))],
+                        (0, 0),
+                        vec![Expr::Ref((0, 0), "a".s()), Expr::Literal((0, 0), Literal::Int(1))],
                         vec!["+".s()],
                     ),
                 })
