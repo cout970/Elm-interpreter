@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use ast::Int;
 use parsers::input::Input;
-use parsers::parser::ParseError;
+use parsers::ParseError;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;

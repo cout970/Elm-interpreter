@@ -3,7 +3,7 @@ use ast::Statement;
 use ast::Type;
 use parsers::expression::parse_expr;
 use parsers::input::Input;
-use parsers::parser::ParseError;
+use parsers::ParseError;
 use parsers::pattern::parse_pattern;
 use parsers::types::parse_type;
 use parsers::util::expect;

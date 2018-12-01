@@ -1,6 +1,6 @@
 use ast::Type;
 use parsers::input::Input;
-use parsers::parser::ParseError;
+use parsers::ParseError;
 use parsers::util::comma0;
 use parsers::util::expect;
 use parsers::util::expect_id;

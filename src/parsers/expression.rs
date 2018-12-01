@@ -3,7 +3,7 @@ use ast::LetDeclaration;
 use ast::Literal;
 use ast::Pattern;
 use parsers::input::Input;
-use parsers::parser::ParseError;
+use parsers::ParseError;
 use parsers::pattern::parse_pattern;
 use parsers::pattern::parse_pattern_expr;
 use parsers::statement::parse_definition;

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -5,11 +6,11 @@ use std::fmt::Write;
 
 use analyzer::TypeError;
 use interpreter::RuntimeError;
+use parsers::ParseError;
 use parsers::SyntaxError;
 use rust_interop::InteropError;
 use tokenizer::LexicalError;
 use util::format::print_vec;
-use std::fmt::Debug;
 
 #[derive(PartialEq, Clone)]
 pub enum ErrorWrapper {
@@ -205,5 +206,36 @@ impl Display for ErrorWrapper {
 impl Debug for ErrorWrapper {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self.clone()))
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self {
+            ParseError::Expected { input, expected, found } => {
+                write!(f, "Expected token '{}', but found '{}': {}\n", expected, found, input)
+            }
+            ParseError::ExpectedInt { input, found } => {
+                write!(f, "Expected integer, but found '{}': {}\n", found, input)
+            }
+            ParseError::ExpectedId { input, found } => {
+                write!(f, "Expected identifier, but found '{}': {}\n", found, input)
+            }
+            ParseError::ExpectedUpperId { input, found } => {
+                write!(f, "Expected capitalized identifier, but found '{}': {}\n", found, input)
+            }
+            ParseError::ExpectedBinaryOperator { input, found } => {
+                write!(f, "Expected binary operator, but found '{}': {}\n", found, input)
+            }
+            ParseError::UnmatchedToken { input, found, .. } => {
+                write!(f, "Found unexpected token '{}': {}\n", found, input)
+            }
+            ParseError::ExpectedIndentation { input, found } => {
+                write!(f, "Expected indentation, but found '{}': {}\n", found, input)
+            }
+            ParseError::ExpectedIndentationLevel { input, expected, found } => {
+                write!(f, "Expected indentation of {}, but found {}: {}\n", expected, found, input)
+            }
+        }
     }
 }
