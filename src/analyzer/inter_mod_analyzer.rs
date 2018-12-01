@@ -34,7 +34,7 @@ pub fn analyze_all_modules(modules: Vec<(ModulePath, Module)>) -> Result<InterMo
     for (path, module) in modules {
         println!("analyze_module: {:?}", path);
         let view = analyze_module(&loaded, &path, module)
-            .map_err(|e| ErrorWrapper::Type(e))?;
+            .map_err(|e| ErrorWrapper::TypeError(e))?;
         loaded.insert(path, view);
     }
 
@@ -73,7 +73,7 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
     let order = sort_modules(&inv_load_order)
         .map_err(|e| {
             let paths: Vec<ModulePath> = e.iter().map(|&p| p.clone()).collect();
-            ErrorWrapper::Runtime(RuntimeError::CyclicModuleDependency(paths))
+            ErrorWrapper::RuntimeError(RuntimeError::CyclicModuleDependency(paths))
         })?;
 
     let mut result: Vec<(ModulePath, Module)> = vec![];
@@ -140,7 +140,7 @@ pub fn find_module_func(base_paths: &'static [&str]) -> impl Fn(&ModulePath) -> 
 
                 Ok(code)
             }
-            None => Err(ErrorWrapper::Runtime(RuntimeError::MissingSourceFile))
+            None => Err(ErrorWrapper::RuntimeError(RuntimeError::MissingSourceFile))
         }
     }
 }

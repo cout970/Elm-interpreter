@@ -1,3 +1,8 @@
+use std::any::Any;
+use std::any::TypeId;
+use std::cell::RefCell;
+use std::sync::Arc;
+
 use ast::Float;
 use ast::Int;
 use ast::Type;
@@ -7,15 +12,11 @@ use interpreter::RuntimeError;
 use rust_interop::conversions::convert_from_rust;
 use rust_interop::conversions::convert_to_rust;
 use rust_interop::function_register::FunctionRegister;
-use std::any::Any;
-use std::any::TypeId;
-use std::sync::Arc;
 use types::BuiltinFunction;
+use types::BuiltinFunctionRef;
 use types::Function;
 use types::Value;
 use util::build_fun_type;
-use std::cell::RefCell;
-use types::BuiltinFunctionRef;
 
 pub mod conversions;
 pub mod function_register;
@@ -42,7 +43,7 @@ impl BuiltinFunction for FnWrapper {
 
         for arg in args {
             let value = convert_to_rust(arg)
-                .ok_or_else(|| ErrorWrapper::Runtime(RuntimeError::ImpossibleConversion))?;
+                .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::ImpossibleConversion))?;
 
             rust_values.push(value);
         }
@@ -57,10 +58,10 @@ impl BuiltinFunction for FnWrapper {
         match result {
             Ok(boxed) => {
                 convert_from_rust(&*boxed)
-                    .ok_or_else(|| ErrorWrapper::Runtime(RuntimeError::ImpossibleConversion))
+                    .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::ImpossibleConversion))
             }
             Err(e) => {
-                Err(ErrorWrapper::Interop(e))
+                Err(ErrorWrapper::InteropError(e))
             }
         }
     }
@@ -147,8 +148,9 @@ fn type_from_id(id: TypeId) -> Option<Type> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rust_interop::function_register::RegisterFn;
+
+    use super::*;
 
     #[test]
     fn test_register_function() {

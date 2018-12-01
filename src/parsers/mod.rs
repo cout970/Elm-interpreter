@@ -14,9 +14,6 @@ mod statement;
 mod module;
 
 /// Enum with all possible parsing errors
-pub type SyntaxError = ParseError;
-
-/// Enum with all possible parsing errors
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     //@formatter:off
@@ -34,56 +31,56 @@ pub enum ParseError {
 /// Generates an abstract syntax tree from an elm expression
 pub fn parse_expression(code: &str) -> Result<Expr, ErrorWrapper> {
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
+        .map_err(|e| ErrorWrapper::LexicalError(e))?;
 
     let input = Input::new(code.to_owned(), tk);
 
     complete(&expression::parse_expr, input)
-        .map_err(|e| ErrorWrapper::Syntactic(e))
+        .map_err(|e| ErrorWrapper::ParseError(e))
 }
 
 /// Generates an abstract syntax tree from an elm statement
 pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
+        .map_err(|e| ErrorWrapper::LexicalError(e))?;
 
     let input = Input::new(code.to_owned(), tk);
 
     complete(&statement::parse_statement, input)
-        .map_err(|e| ErrorWrapper::Syntactic(e))
+        .map_err(|e| ErrorWrapper::ParseError(e))
 }
 
 /// Generates an abstract syntax tree from an elm module
 pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
+        .map_err(|e| ErrorWrapper::LexicalError(e))?;
 
     let input = Input::new(code.to_owned(), tk);
 
     complete(&module::parse_module, input)
-        .map_err(|e| ErrorWrapper::Syntactic(e))
+        .map_err(|e| ErrorWrapper::ParseError(e))
 }
 
 /// Generates an abstract syntax tree from an elm type definition
 pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
+        .map_err(|e| ErrorWrapper::LexicalError(e))?;
 
     let input = Input::new(code.to_owned(), tk);
 
     complete(&types::parse_type, input)
-        .map_err(|e| ErrorWrapper::Syntactic(e))
+        .map_err(|e| ErrorWrapper::ParseError(e))
 }
 
 /// Generates an abstract syntax tree from an elm pattern
 pub fn parse_pattern(code: &str) -> Result<Pattern, ErrorWrapper> {
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::Lexical(e))?;
+        .map_err(|e| ErrorWrapper::LexicalError(e))?;
 
     let input = Input::new(code.to_owned(), tk);
 
     complete(&pattern::parse_pattern, input)
-        .map_err(|e| ErrorWrapper::Syntactic(e))
+        .map_err(|e| ErrorWrapper::ParseError(e))
 }
 
 // Utility functions for testing

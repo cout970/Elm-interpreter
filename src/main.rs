@@ -1,11 +1,12 @@
 extern crate elm_interpreter;
 
-use elm_interpreter::analyzer::type_of_value;
-use elm_interpreter::errors::format_error;
 use std::io::BufRead;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
+
+use elm_interpreter::analyzer::type_of_value;
+use elm_interpreter::errors::format_error;
 use elm_interpreter::Interpreter;
 
 /*
@@ -45,7 +46,7 @@ fn repl() {
                         println!("{} : {}", value, type_of_value(&value));
                     }
                     Err(error) => {
-                        println!("{}", format_error(error));
+                        println!("{}", error);
                     }
                 }
             }

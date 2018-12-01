@@ -1,3 +1,4 @@
+use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::TypeError;
 use ast::Pattern;
 use errors::ErrorWrapper;
@@ -8,7 +9,6 @@ use parsers::parse_expression;
 use parsers::parse_statement;
 use types::Value;
 use util::expression_fold::ExprTreeError;
-use analyzer::inter_mod_analyzer::ModulePath;
 
 pub mod dynamic_env;
 mod builtins;
@@ -49,12 +49,12 @@ pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>,
     let stm = parse_statement(code)?;
 
     eval_stm(env, &stm)
-        .map_err(|e| ErrorWrapper::Runtime(e))
+        .map_err(|e| ErrorWrapper::RuntimeError(e))
 }
 
 pub fn eval_expression(env: &mut DynamicEnv, code: &str) -> Result<Value, ErrorWrapper> {
     let expr = parse_expression(code)?;
 
     eval_expr(env, &expr)
-        .map_err(|e| ErrorWrapper::Runtime(e))
+        .map_err(|e| ErrorWrapper::RuntimeError(e))
 }

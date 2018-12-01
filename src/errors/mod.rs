@@ -7,45 +7,71 @@ use std::fmt::Write;
 use analyzer::TypeError;
 use interpreter::RuntimeError;
 use parsers::ParseError;
-use parsers::SyntaxError;
 use rust_interop::InteropError;
 use tokenizer::LexicalError;
 use util::format::print_vec;
 
 #[derive(PartialEq, Clone)]
 pub enum ErrorWrapper {
-    Lexical(LexicalError),
-    Syntactic(SyntaxError),
-    Type(TypeError),
-    Runtime(RuntimeError),
-    Interop(InteropError),
+    LexicalError(LexicalError),
+    ParseError(ParseError),
+    TypeError(TypeError),
+    RuntimeError(RuntimeError),
+    InteropError(InteropError),
 }
 
-pub fn format_error(error: ErrorWrapper) -> String {
+pub fn format_error(error: &ErrorWrapper) -> String {
     match error {
-        ErrorWrapper::Lexical(it) => { format_lexical_error(it) }
-        ErrorWrapper::Syntactic(it) => { format_syntactic_error(it) }
-        ErrorWrapper::Type(it) => { format_type_error(it) }
-        ErrorWrapper::Runtime(it) => { format_runtime_error(it) }
-        ErrorWrapper::Interop(it) => { format_interop_error(it) }
+        ErrorWrapper::LexicalError(it) => { format_lexical_error(it) }
+        ErrorWrapper::ParseError(it) => { format_parse_error(it) }
+        ErrorWrapper::TypeError(it) => { format_type_error(it) }
+        ErrorWrapper::RuntimeError(it) => { format_runtime_error(it) }
+        ErrorWrapper::InteropError(it) => { format_interop_error(it) }
     }
 }
 
-pub fn format_lexical_error(error: LexicalError) -> String {
+pub fn format_lexical_error(error: &LexicalError) -> String {
     let mut msg = String::new();
     msg.push_str("-- PARSE ERROR ------------------------------------------------------------- elm\n");
+
     write!(&mut msg, "{:?}", error).unwrap();
     msg
 }
 
-pub fn format_syntactic_error(error: SyntaxError) -> String {
+pub fn format_parse_error(error: &ParseError) -> String {
     let mut msg = String::new();
     msg.push_str("-- PARSE ERROR ------------------------------------------------------------- elm\n");
-    write!(&mut msg, "{}", error).unwrap();
+
+    match error {
+        ParseError::Expected { input, expected, found } => {
+            write!(&mut msg, "Expected token '{}', but found '{}': {}\n", expected, found, input).unwrap()
+        }
+        ParseError::ExpectedInt { input, found } => {
+            write!(&mut msg, "Expected integer, but found '{}': {}\n", found, input).unwrap()
+        }
+        ParseError::ExpectedId { input, found } => {
+            write!(&mut msg, "Expected identifier, but found '{}': {}\n", found, input).unwrap()
+        }
+        ParseError::ExpectedUpperId { input, found } => {
+            write!(&mut msg, "Expected capitalized identifier, but found '{}': {}\n", found, input).unwrap()
+        }
+        ParseError::ExpectedBinaryOperator { input, found } => {
+            write!(&mut msg, "Expected binary operator, but found '{}': {}\n", found, input).unwrap()
+        }
+        ParseError::UnmatchedToken { input, found, .. } => {
+            write!(&mut msg, "Found unexpected token '{}': {}\n", found, input).unwrap()
+        }
+        ParseError::ExpectedIndentation { input, found } => {
+            write!(&mut msg, "Expected indentation, but found '{}': {}\n", found, input).unwrap()
+        }
+        ParseError::ExpectedIndentationLevel { input, expected, found } => {
+            write!(&mut msg, "Expected indentation of {}, but found {}: {}\n", expected, found, input).unwrap()
+        }
+    }
     msg
 }
 
-pub fn format_type_error(error: TypeError) -> String {
+pub fn format_type_error(error: &TypeError) -> String {
     let mut msg = String::new();
     match error {
         TypeError::MissingAdt(name) => {
@@ -91,7 +117,7 @@ pub fn format_type_error(error: TypeError) -> String {
     msg
 }
 
-pub fn format_runtime_error(error: RuntimeError) -> String {
+pub fn format_runtime_error(error: &RuntimeError) -> String {
     let mut msg = String::new();
     match error {
         RuntimeError::MissingDefinition(name, _env) => {
@@ -190,52 +216,51 @@ pub fn format_runtime_error(error: RuntimeError) -> String {
     msg
 }
 
-pub fn format_interop_error(error: InteropError) -> String {
+pub fn format_interop_error(error: &InteropError) -> String {
     let mut msg = String::new();
-    write!(&mut msg, "-- Interop ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+    write!(&mut msg, "-- interop ERROR ------------------------------------------------------------ elm\n\n").unwrap();
     write!(&mut msg, "{:?}", error).unwrap();
     msg
 }
 
 impl Display for ErrorWrapper {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_error(self.clone()))
+        write!(f, "{}", format_error(self))
     }
 }
 
 impl Debug for ErrorWrapper {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_error(self.clone()))
+        write!(f, "{}", format_error(self))
+    }
+}
+
+impl Display for LexicalError {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", format_lexical_error(self))
     }
 }
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        match self {
-            ParseError::Expected { input, expected, found } => {
-                write!(f, "Expected token '{}', but found '{}': {}\n", expected, found, input)
-            }
-            ParseError::ExpectedInt { input, found } => {
-                write!(f, "Expected integer, but found '{}': {}\n", found, input)
-            }
-            ParseError::ExpectedId { input, found } => {
-                write!(f, "Expected identifier, but found '{}': {}\n", found, input)
-            }
-            ParseError::ExpectedUpperId { input, found } => {
-                write!(f, "Expected capitalized identifier, but found '{}': {}\n", found, input)
-            }
-            ParseError::ExpectedBinaryOperator { input, found } => {
-                write!(f, "Expected binary operator, but found '{}': {}\n", found, input)
-            }
-            ParseError::UnmatchedToken { input, found, .. } => {
-                write!(f, "Found unexpected token '{}': {}\n", found, input)
-            }
-            ParseError::ExpectedIndentation { input, found } => {
-                write!(f, "Expected indentation, but found '{}': {}\n", found, input)
-            }
-            ParseError::ExpectedIndentationLevel { input, expected, found } => {
-                write!(f, "Expected indentation of {}, but found {}: {}\n", expected, found, input)
-            }
-        }
+        write!(f, "{}", format_parse_error(self))
+    }
+}
+
+impl Display for TypeError {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", format_type_error(self))
+    }
+}
+
+impl Display for RuntimeError {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", format_runtime_error(self))
+    }
+}
+
+impl Display for InteropError {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", format_interop_error(self))
     }
 }

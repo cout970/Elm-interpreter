@@ -1,16 +1,17 @@
+use std::cell::RefCell;
+
 use errors::ErrorWrapper;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use types::BuiltinFunction;
-use types::Value;
 use types::BuiltinFunctionRef;
-use std::cell::RefCell;
+use types::Value;
 
 impl<T> BuiltinFunction for T
     where T: Fn(&Vec<Value>) -> Result<Value, RuntimeError>
 {
     fn call_function(&mut self, args: &Vec<Value>) -> Result<Value, ErrorWrapper> {
-        self(args).map_err(|e| ErrorWrapper::Runtime(e))
+        self(args).map_err(|e| ErrorWrapper::RuntimeError(e))
     }
 }
 
