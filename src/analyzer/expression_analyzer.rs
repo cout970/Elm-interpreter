@@ -28,10 +28,9 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 //    println!("analyze_expression {{ env: {:?} }}", env);
     match expr {
         Expr::Ref(_, name) => {
-            let def =
-                env.find_definition(name)
-                    .or_else(|| env.find_alias(name))
-                    .ok_or(MissingDefinition(name.clone()))?;
+            let def = env.find_definition(name)
+                .or_else(|| env.find_alias(name))
+                .ok_or(MissingDefinition(span(expr), name.clone()))?;
 
 
             if let Some(expected_ty) = expected {
@@ -92,7 +91,8 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                         }
                     } else {
                         return Err(ListNotHomogeneous(
-                            format!("List of '{}', but found element '{}' at index: {}", first, elem, i)
+                            span(expr),
+                            format!("List of '{}', but found element '{}' at index: {}", first, elem, i),
                         ));
                     }
                 }
@@ -142,7 +142,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
         Expr::OpChain(_, exprs, ops) => {
             match create_expr_tree(exprs, ops) {
                 Ok(tree) => analyze_expression(env, expected, &expr_tree_to_expr(tree)),
-                Err(_) => Err(InvalidOperandChain(format!("You cannot mix >> and << without parentheses"))),
+                Err(_) => Err(InvalidOperandChain(span(expr), format!("You cannot mix >> and << without parentheses"))),
             }
         }
         Expr::Record(_, entries) => {
@@ -202,7 +202,8 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                     let found = fields.iter().any(|(field, _)| field == field_name);
                     if !found {
                         return Err(RecordUpdateUnknownField(
-                            format!("Field '{}' not found in record: {} of type: {}", field_name, name, record_type)
+                            span(expr),
+                            format!("Field '{}' not found in record: {} of type: {}", field_name, name, record_type),
                         ));
                     }
                 }
@@ -210,7 +211,8 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
                 Ok(record_type.clone())
             } else {
                 Err(RecordUpdateOnNonRecord(
-                    format!("Expecting record to update but found: {}", record_type)
+                    span(expr),
+                    format!("Expecting record to update but found: {}", record_type),
                 ))
             }
         }
@@ -223,7 +225,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             let false_branch = analyze_expression(env, expected, b)?;
 
             if !is_assignable(&Type::Tag("Bool".s(), vec![]), &cond) {
-                return Err(IfWithNonBoolCondition(format!("Expected Bool expression but found {}", cond)));
+                return Err(IfWithNonBoolCondition(span(expr), format!("Expected Bool expression but found {}", cond)));
             }
 
             let branches = vec![true_branch, false_branch];
@@ -231,7 +233,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             match ret_ty {
                 Ok(ty) => Ok(ty.clone()),
                 Err((a, b)) => Err(
-                    IfBranchesDoesntMatch(format!("True Branch: {}, False Branch: {}", a, b))
+                    IfBranchesDoesntMatch(span(expr), format!("True Branch: {}, False Branch: {}", a, b))
                 )
             }
         }
@@ -245,9 +247,8 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
 }
 
 fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, branches: &Vec<(Pattern, Expr)>) -> Result<Type, TypeError> {
-
     let patterns_types = branches.iter()
-        .map(|(p,_)| analyze_pattern(env, p).map(|(ty, _)| ty))
+        .map(|(p, _)| analyze_pattern(env, p).map(|(ty, _)| ty))
         .collect::<Result<Vec<_>, PatternMatchingError>>()
         .map_err(|e| TypeError::InvalidPattern(e))?;
 
@@ -260,7 +261,7 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
             None => {
                 return Err(TypeError::InvalidPattern(
                     PatternMatchingError::ListPatternsAreNotHomogeneous(patterns_type.clone(), ty.clone())
-                ))
+                ));
             }
         }
     }
@@ -311,7 +312,7 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
         let ret = result?;
 
         if !is_assignable(&first_type, &ret) {
-            return Err(CaseBranchDontMatchReturnType("".s()));
+            return Err(CaseBranchDontMatchReturnType(span(expression), "".s()));
         }
     }
 
@@ -373,10 +374,10 @@ fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr) -> Result<Type, Type
 
             Ok(output)
         } else {
-            Err(ArgumentsDoNotMatch(format!("Expected argument: {}, found: {}", argument, input)))
+            Err(ArgumentsDoNotMatch(span(arg), format!("Expected argument: {}, found: {}", argument, input)))
         }
     } else {
-        Err(NotAFunction(format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg)))
+        Err(NotAFunction(span(arg), format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg)))
     }
 }
 
@@ -739,7 +740,8 @@ mod tests {
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Err(
             ListNotHomogeneous(
-                "List of 'number', but found element 'Char' at index: 2".s()
+                span(&expr),
+                "List of 'number', but found element 'Char' at index: 2".s(),
             )
         ));
     }
@@ -816,6 +818,6 @@ mod tests {
         let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
         let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Err(CaseBranchDontMatchReturnType("".s())));
+        assert_eq!(analyze_expression(&mut env, None, &expr), Err(CaseBranchDontMatchReturnType((24, 27), "".s())));
     }
 }

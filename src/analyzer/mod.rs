@@ -1,15 +1,18 @@
+use std::ops::Deref;
+
 use analyzer::expression_analyzer::analyze_expression;
+use analyzer::expression_analyzer::get_adt_type;
+use analyzer::function_analyzer::analyze_function;
+use analyzer::inter_mod_analyzer::ModulePath;
+use analyzer::pattern_analyzer::PatternMatchingError;
+use analyzer::static_env::StaticEnv;
+use ast::Definition;
 use ast::Expr;
-use types::Function;
+use ast::Span;
 use ast::Type;
+use types::Function;
 use types::Value;
 use util::StringConversion;
-use ast::Definition;
-use analyzer::function_analyzer::analyze_function;
-use analyzer::static_env::StaticEnv;
-use analyzer::expression_analyzer::get_adt_type;
-use std::ops::Deref;
-use analyzer::pattern_analyzer::PatternMatchingError;
 
 pub mod static_env;
 pub mod inter_mod_analyzer;
@@ -23,18 +26,17 @@ mod type_helper;
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
     List(Vec<TypeError>),
-    MissingModule(Vec<String>),
-    MissingAdt(String),
-    MissingDefinition(String),
-    ListNotHomogeneous(String),
-    IfWithNonBoolCondition(String),
-    IfBranchesDoesntMatch(String),
-    ArgumentsDoNotMatch(String),
-    NotAFunction(String),
-    InvalidOperandChain(String),
-    RecordUpdateOnNonRecord(String),
-    RecordUpdateUnknownField(String),
-    CaseBranchDontMatchReturnType(String),
+    MissingModule(ModulePath),
+    MissingDefinition(Span, String),
+    ListNotHomogeneous(Span, String),
+    IfWithNonBoolCondition(Span, String),
+    IfBranchesDoesntMatch(Span, String),
+    ArgumentsDoNotMatch(Span, String),
+    NotAFunction(Span, String),
+    InvalidOperandChain(Span, String),
+    RecordUpdateOnNonRecord(Span, String),
+    RecordUpdateUnknownField(Span, String),
+    CaseBranchDontMatchReturnType(Span, String),
     DefinitionTypeAndReturnTypeMismatch,
     InvalidPattern(PatternMatchingError),
     ConstantEvaluationError(String),
@@ -118,9 +120,9 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 
 #[cfg(test)]
 mod tests {
+    use analyzer::inter_mod_analyzer::InterModuleInfo;
     use analyzer::module_analyser::analyze_module;
     use parsers::from_code_mod;
-    use analyzer::inter_mod_analyzer::InterModuleInfo;
 
     #[test]
     #[ignore]

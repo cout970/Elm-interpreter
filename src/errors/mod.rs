@@ -74,12 +74,12 @@ pub fn format_parse_error(error: &ParseError) -> String {
 pub fn format_type_error(error: &TypeError) -> String {
     let mut msg = String::new();
     match error {
-        TypeError::MissingAdt(name) => {
-            write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-            write!(&mut msg, "I cannot find a `{}` constructor:\n", name).unwrap();
-//            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
-        }
-        TypeError::MissingDefinition(name) => {
+//        TypeError::MissingAdt(name) => {
+//            write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+//            write!(&mut msg, "I cannot find a `{}` constructor:\n", name).unwrap();
+////            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
+//        }
+        TypeError::MissingDefinition(_, name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "I cannot find a `{}` variable:\n", name).unwrap();
 //            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
