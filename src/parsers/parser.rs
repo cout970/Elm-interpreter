@@ -3,23 +3,13 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::rc::Rc;
 
-use ast::Expr;
-use ast::Module;
-use ast::Statement;
+use ast::*;
 use errors::ErrorWrapper;
-use parsers::new::util::complete;
-use parsers::SyntaxError;
+use parsers::*;
+use parsers::util::complete;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
-use ast::Type;
-
-pub mod util;
-mod pattern;
-mod expression;
-mod types;
-mod statement;
-pub mod module;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
@@ -40,7 +30,7 @@ pub fn parse_expression(code: &str) -> Result<Expr, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&expression::parse_expr, input)
-        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+        .map_err(|e| ErrorWrapper::Syntactic(e))
 }
 
 pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
@@ -50,7 +40,7 @@ pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&statement::parse_statement, input)
-        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+        .map_err(|e| ErrorWrapper::Syntactic(e))
 }
 
 pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
@@ -60,7 +50,7 @@ pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&module::parse_module, input)
-        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+        .map_err(|e| ErrorWrapper::Syntactic(e))
 }
 
 pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
@@ -70,20 +60,30 @@ pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&types::parse_type, input)
-        .map_err(|e| ErrorWrapper::Syntactic(SyntaxError::New(e)))
+        .map_err(|e| ErrorWrapper::Syntactic(e))
+}
+
+pub fn parse_pattern(code: &str) -> Result<Pattern, ErrorWrapper> {
+    let tk = tokenize(code.as_bytes())
+        .map_err(|e| ErrorWrapper::Lexical(e))?;
+
+    let input = Input::new(code.to_owned(), tk);
+
+    complete(&pattern::parse_pattern, input)
+        .map_err(|e| ErrorWrapper::Syntactic(e))
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Input {
-    raw: Rc<RawInput>,
-    ptr: usize,
-    levels: Rc<Vec<u32>>,
+    pub raw: Rc<RawInput>,
+    pub ptr: usize,
+    pub levels: Rc<Vec<u32>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-struct RawInput {
-    string: String,
-    tokens: Vec<TokenInfo>,
+pub struct RawInput {
+    pub string: String,
+    pub tokens: Vec<TokenInfo>,
 }
 
 impl Input {
@@ -261,12 +261,12 @@ mod tests {
 
     #[test]
     fn test_bench_1() {
-        from_code_mod(include_bytes!("../../../benches/data/tokenizer_1.elm"));
+        from_code_mod(include_bytes!("../../benches/data/tokenizer_1.elm"));
     }
 
     #[test]
     fn test_bench_2() {
-        from_code_mod(include_bytes!("../../../benches/data/tokenizer_2.elm"));
+        from_code_mod(include_bytes!("../../benches/data/tokenizer_2.elm"));
     }
 
     #[test]

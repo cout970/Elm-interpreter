@@ -1,15 +1,15 @@
 use ast::Type;
-use parsers::new::Input;
-use parsers::new::ParseError;
-use parsers::new::util::comma0;
-use parsers::new::util::expect;
-use parsers::new::util::expect_id;
-use parsers::new::util::many0;
-use parsers::new::util::optional_tk;
+use parsers::parser::Input;
+use parsers::parser::ParseError;
+use parsers::util::comma0;
+use parsers::util::expect;
+use parsers::util::expect_id;
+use parsers::util::many0;
+use parsers::util::optional_tk;
 use tokenizer::Token;
 use util::create_vec;
 use util::qualified_name;
-use parsers::new::util::expect_upper;
+use parsers::util::expect_upper;
 use util::uncons;
 
 pub fn parse_type(input: Input) -> Result<(Type, Input), ParseError> {
@@ -153,9 +153,9 @@ fn create_fun(a: Type, b: Vec<Type>) -> Type {
 
 #[cfg(test)]
 mod tests {
-    use parsers::new::util::test_parser;
-    use parsers::new::util::test_parser_error;
-    use parsers::new::util::test_parser_result;
+    use parsers::util::test_parser;
+    use parsers::util::test_parser_error;
+    use parsers::util::test_parser_result;
     use util::StringConversion;
 
     use super::*;

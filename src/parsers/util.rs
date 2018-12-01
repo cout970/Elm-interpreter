@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 
 use ast::Int;
-use parsers::new::Input;
-use parsers::new::ParseError;
+use parsers::parser::Input;
+use parsers::parser::ParseError;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;

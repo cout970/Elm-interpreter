@@ -3,8 +3,8 @@
 #![allow(dead_code)]
 // }
 
-#[macro_use]
 extern crate nom;
+
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;

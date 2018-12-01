@@ -2,14 +2,14 @@ use ast::Expr;
 use ast::LetDeclaration;
 use ast::Literal;
 use ast::Pattern;
-use parsers::new::Input;
-use parsers::new::ParseError;
-use parsers::new::pattern::parse_pattern;
-use parsers::new::statement::parse_definition;
-use parsers::new::util::*;
+use parsers::parser::Input;
+use parsers::parser::ParseError;
+use parsers::pattern::parse_pattern;
+use parsers::pattern::parse_pattern_expr;
+use parsers::statement::parse_definition;
+use parsers::util::*;
 use tokenizer::Token;
 use util::create_vec;
-use parsers::new::pattern::parse_pattern_expr;
 
 pub fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
     let (first, i) = parse_expr_application(input)?;
@@ -281,8 +281,8 @@ fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
 #[cfg(test)]
 mod tests {
     use ast::Definition;
-    use parsers::new::util::test_parser;
-    use parsers::new::util::test_parser_error;
+    use parsers::util::test_parser;
+    use parsers::util::test_parser_error;
     use util::StringConversion;
 
     use super::*;

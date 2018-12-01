@@ -1,20 +1,20 @@
 use ast::Definition;
 use ast::Statement;
 use ast::Type;
-use parsers::new::expression::parse_expr;
-use parsers::new::Input;
-use parsers::new::ParseError;
-use parsers::new::pattern::parse_pattern;
-use parsers::new::types::parse_type;
-use parsers::new::util::expect;
-use parsers::new::util::expect_id;
-use parsers::new::util::expect_indent;
-use parsers::new::util::expect_upper;
-use parsers::new::util::many0;
-use parsers::new::util::pipe1;
+use parsers::expression::parse_expr;
+use parsers::parser::Input;
+use parsers::parser::ParseError;
+use parsers::pattern::parse_pattern;
+use parsers::types::parse_type;
+use parsers::util::expect;
+use parsers::util::expect_id;
+use parsers::util::expect_indent;
+use parsers::util::expect_upper;
+use parsers::util::many0;
+use parsers::util::pipe1;
 use tokenizer::Token;
-use parsers::new::util::expect_binop;
-use parsers::new::util::expect_int;
+use parsers::util::expect_binop;
+use parsers::util::expect_int;
 
 pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
     let (stm, i) = match input.read() {
@@ -104,9 +104,9 @@ mod tests {
     use ast::Expr;
     use ast::Literal;
     use ast::Pattern;
-    use parsers::new::util::test_parser;
-    use parsers::new::util::test_parser_error;
-    use parsers::new::util::test_parser_result;
+    use parsers::util::test_parser;
+    use parsers::util::test_parser_error;
+    use parsers::util::test_parser_result;
     use util::StringConversion;
 
     use super::*;
