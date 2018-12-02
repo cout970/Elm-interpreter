@@ -6,11 +6,14 @@ use analyzer::function_analyzer::analyze_function;
 use analyzer::inter_mod_analyzer::Declaration;
 use analyzer::inter_mod_analyzer::Declarations;
 use analyzer::inter_mod_analyzer::InterModuleInfo;
+use analyzer::inter_mod_analyzer::ModuleInfo;
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use ast::*;
 use core::register_core;
+use errors::ErrorWrapper;
+use interpreter::RuntimeError;
 use types::*;
 use util::build_fun_type;
 use util::create_vec_inv;
@@ -20,21 +23,24 @@ use util::visitors::type_visitor;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CheckedModule {
-    pub path: ModulePath,
-    pub ast: Module,
+    pub info: ModuleInfo,
     pub env: StaticEnv,
     pub exposing: Vec<Declaration>,
 }
 
-pub fn analyze_module(info: &InterModuleInfo, path: &ModulePath, module: Module) -> Result<CheckedModule, TypeError> {
-    let header = module.header.clone().unwrap_or_else(get_default_header);
+pub fn analyze_module(info: &InterModuleInfo, module_info: ModuleInfo) -> Result<CheckedModule, ErrorWrapper> {
+    let header = module_info.ast.header.clone().unwrap_or_else(get_default_header);
 
-    let mut env = load_import_dependencies(info, &module)?;
-    let all_decls = analyze_module_declarations(&mut env, &module)?;
+    let mut env = load_import_dependencies(info, &module_info.ast)
+        .map_err(|e| ErrorWrapper::RuntimeError(e))?;
+
+    let all_decls = analyze_module_declarations(&mut env, &module_info.ast.statements)
+        .map_err(|e| ErrorWrapper::TypeError(module_info.code.clone(), e))?;
 
     let exposing = match header.exposing {
         ModuleExposing::Just(exposed) => {
-            get_exposed_decls(&all_decls, &exposed)?
+            get_exposed_decls(&all_decls, &exposed)
+                .map_err(|e| ErrorWrapper::RuntimeError(e))?
         }
         ModuleExposing::All => {
             all_decls
@@ -42,14 +48,13 @@ pub fn analyze_module(info: &InterModuleInfo, path: &ModulePath, module: Module)
     };
 
     Ok(CheckedModule {
-        path: path.clone(),
-        ast: module,
+        info: module_info,
         env,
         exposing,
     })
 }
 
-fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<StaticEnv, TypeError> {
+fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<StaticEnv, RuntimeError> {
     let mut env = StaticEnv::new();
     register_core(&mut env);
 
@@ -57,7 +62,7 @@ fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<S
         let module = info.get(&import.path)
             .ok_or_else(|| {
                 println!("info: {:?}", info.keys());
-                TypeError::MissingModule(import.path.clone())
+                RuntimeError::MissingModule(import.path.clone())
             })?;
 
         if let Some(alias) = &import.alias {
@@ -126,12 +131,11 @@ fn get_default_header() -> ModuleHeader {
 }
 
 /* The environment must contain all the imports resolved */
-fn analyze_module_declarations(env: &mut StaticEnv, module: &Module) -> Result<Declarations, TypeError> {
-    let statements = sort_statements(&module.statements)
+fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>) -> Result<Declarations, TypeError> {
+    let statements = sort_statements(statements)
         .map_err(|e| {
             TypeError::CyclicStatementDependency(e)
         })?;
-
 
     let mut declarations = Declarations::new();
     let mut errors = vec![];
@@ -287,7 +291,7 @@ fn analyze_type_alias(name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<
     Ok(decls)
 }
 
-fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Result<Declarations, TypeError> {
+fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Result<Declarations, RuntimeError> {
     let mut exposed_decls = Declarations::new();
 
     for exp in exposed.iter() {
@@ -329,7 +333,7 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
                         }
                     })
                     .map(|decl| decl.clone())
-                    .ok_or_else(|| TypeError::InternalError)?;
+                    .ok_or_else(|| RuntimeError::InternalError)?;
 
                 exposed_decls.push(decl);
             }
@@ -345,7 +349,7 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
                         }
                     })
                     .map(|decl| decl.clone())
-                    .ok_or_else(|| TypeError::InternalError)?;
+                    .ok_or_else(|| RuntimeError::InternalError)?;
 
                 exposed_decls.push(decl);
             }
@@ -362,7 +366,7 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
                         }
                     })
                     .map(|decl| decl.clone())
-                    .ok_or_else(|| TypeError::InternalError)?;
+                    .ok_or_else(|| RuntimeError::InternalError)?;
 
                 exposed_decls.push(decl);
             }

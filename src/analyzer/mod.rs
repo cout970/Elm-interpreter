@@ -26,7 +26,6 @@ mod type_helper;
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
     List(Vec<TypeError>),
-    MissingModule(ModulePath),
     MissingDefinition(Span, String),
     ListNotHomogeneous(Span, String),
     IfWithNonBoolCondition(Span, String),
@@ -121,18 +120,24 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 #[cfg(test)]
 mod tests {
     use analyzer::inter_mod_analyzer::InterModuleInfo;
+    use analyzer::inter_mod_analyzer::ModuleInfo;
     use analyzer::module_analyser::analyze_module;
     use parsers::from_code_mod;
 
     #[test]
     #[ignore]
-    fn type_check1(){
-        let module = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
+    fn type_check1() {
+        let ast = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
         let info = InterModuleInfo::new();
-        let path = vec![];
+
+        let module_info = ModuleInfo {
+            path: vec![],
+            ast,
+            code: String::from(include_str!("../../benches/data/type_check.elm")),
+        };
 
 
-        let checked = analyze_module(&info, &path, module).expect("Type error");
+        let checked = analyze_module(&info, module_info).expect("Type error");
         println!("{:?}", checked);
         panic!();
     }

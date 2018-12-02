@@ -18,6 +18,7 @@ mod module_eval;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
+    MissingModule(ModulePath),
     MissingDefinition(String, DynamicEnv),
     IncorrectDefType(TypeError),
     RecordUpdateOnNonRecord(String, Value),
@@ -43,6 +44,7 @@ pub enum RuntimeError {
     ImpossibleConversion,
     MissingSourceFile,
     CyclicModuleDependency(Vec<ModulePath>),
+    InternalError,
 }
 
 pub fn eval_statement(env: &mut DynamicEnv, code: &str) -> Result<Option<Value>, ErrorWrapper> {

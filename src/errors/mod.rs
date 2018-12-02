@@ -5,6 +5,7 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 
 use analyzer::TypeError;
+use ast::Span;
 use interpreter::RuntimeError;
 use parsers::ParseError;
 use rust_interop::InteropError;
@@ -15,7 +16,7 @@ use util::format::print_vec;
 pub enum ErrorWrapper {
     LexicalError(LexicalError),
     ParseError(String, ParseError),
-    TypeError(TypeError),
+    TypeError(String, TypeError),
     RuntimeError(RuntimeError),
     InteropError(InteropError),
 }
@@ -24,7 +25,7 @@ pub fn format_error(error: &ErrorWrapper) -> String {
     match error {
         ErrorWrapper::LexicalError(it) => { format_lexical_error(it) }
         ErrorWrapper::ParseError(code, it) => { format_parse_error(code, it) }
-        ErrorWrapper::TypeError(it) => { format_type_error(it) }
+        ErrorWrapper::TypeError(code, it) => { format_type_error(code, it) }
         ErrorWrapper::RuntimeError(it) => { format_runtime_error(it) }
         ErrorWrapper::InteropError(it) => { format_interop_error(it) }
     }
@@ -44,53 +45,60 @@ pub fn format_parse_error(code: &str, error: &ParseError) -> String {
 
     match error {
         ParseError::Expected { span, expected, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected token '{}', but found '{}': {}\n", expected, found, loc).unwrap()
         }
         ParseError::ExpectedInt { span, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected integer, but found '{}': {}\n", found, loc).unwrap()
         }
         ParseError::ExpectedId { span, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected identifier, but found '{}': {}\n", found, loc).unwrap()
         }
         ParseError::ExpectedUpperId { span, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected capitalized identifier, but found '{}': {}\n", found, loc).unwrap()
         }
         ParseError::ExpectedBinaryOperator { span, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected binary operator, but found '{}': {}\n", found, loc).unwrap()
         }
         ParseError::UnmatchedToken { span, found, .. } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Found unexpected token '{}': {}\n", found, loc).unwrap()
         }
         ParseError::ExpectedIndentation { span, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected indentation, but found '{}': {}\n", found, loc).unwrap()
         }
         ParseError::ExpectedIndentationLevel { span, expected, found } => {
-            let loc = print_code_location(code, span.0, span.1);
+            let loc = print_code_location(code, span);
             write!(&mut msg, "Expected indentation of {}, but found {}: {}\n", expected, found, loc).unwrap()
         }
     }
     msg
 }
 
-pub fn format_type_error(error: &TypeError) -> String {
+pub fn format_type_error(code: &str, error: &TypeError) -> String {
     let mut msg = String::new();
     match error {
-//        TypeError::MissingAdt(name) => {
-//            write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-//            write!(&mut msg, "I cannot find a `{}` constructor:\n", name).unwrap();
-////            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
-//        }
-        TypeError::MissingDefinition(_, name) => {
+        TypeError::List(errors) => {
+            let len = errors.len();
+            for e in errors {
+                msg.push_str(&format_type_error(code, e));
+                msg.push('\n');
+            }
+
+            write!(&mut msg, "\nFound {} errors\n", len).unwrap();
+        }
+        TypeError::MissingDefinition(span, name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-            write!(&mut msg, "I cannot find a `{}` variable:\n", name).unwrap();
-//            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
+            let upper = name.chars().next().unwrap().is_ascii_uppercase();
+            let ty = if upper { "constructor" } else { "variable" };
+            write!(&mut msg, "I cannot find a `{}` {}:\n", name, ty).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.\n").unwrap();
         }
 //        TypeError::ListNotHomogeneous(_) => {},
 //        TypeError::IfWithNonBoolCondition(_) => {},
@@ -108,15 +116,7 @@ pub fn format_type_error(error: &TypeError) -> String {
 //        TypeError::UnableToCalculateFunctionType(_) => {},
 //        TypeError::VariableNameShadowed(_) => {},
 //        TypeError::InternalError => {},
-        TypeError::List(errors) => {
-            let len = errors.len();
-            for e in errors {
-                msg.push_str(&format_type_error(e));
-                msg.push('\n');
-            }
 
-            write!(&mut msg, "\nFound {} errors\n", len).unwrap();
-        }
         _ => {
             write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "{:?}", error).unwrap();
@@ -134,7 +134,8 @@ pub fn format_runtime_error(error: &RuntimeError) -> String {
             write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
         }
         RuntimeError::IncorrectDefType(e) => {
-            return format_type_error(e);
+            // TODO
+//            return format_type_error(e);
         }
         RuntimeError::RecordUpdateOnNonRecord(field, value) => {
             write!(&mut msg, "-- TYPE MISMATCH ------------------------------------------------------------ elm\n\n").unwrap();
@@ -231,14 +232,14 @@ pub fn format_interop_error(error: &InteropError) -> String {
     msg
 }
 
-pub fn print_code_location(input: &str, start: u32, end: u32) -> String {
+pub fn print_code_location(input: &str, span: &Span) -> String {
     if input.is_empty() {
         return String::from("Empty");
     }
 
     let byte_input: &[u8] = input.as_bytes();
-    let marker_start = start as usize;
-    let marker_end = end as usize;
+    let marker_start = span.0 as usize;
+    let marker_end = span.1 as usize;
 
     let mut line_start = marker_start.min(byte_input.len() - 1).max(0);
     let mut line_end = marker_end.min(byte_input.len() - 1).max(0);

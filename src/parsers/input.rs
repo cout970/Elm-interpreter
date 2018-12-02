@@ -105,8 +105,7 @@ impl Input {
 
 impl Display for Input {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        let (start, end) = self.span();
-        write!(f, "{}", print_code_location(&self.raw.string, start, end))?;
+        write!(f, "{}", print_code_location(&self.raw.string, &self.span()))?;
         Ok(())
     }
 }

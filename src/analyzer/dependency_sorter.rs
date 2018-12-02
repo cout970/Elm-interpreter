@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use analyzer::function_analyzer::analyze_function_arguments;
+use analyzer::inter_mod_analyzer::ModuleInfo;
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use ast::Definition;
@@ -18,13 +19,13 @@ use util::visitors::expr_visitor_block;
 use util::visitors::pattern_visitor;
 use util::visitors::type_visitor;
 
-pub fn sort_modules(modules: &Vec<(ModulePath, Module)>) -> Result<Vec<&ModulePath>, Vec<&ModulePath>> {
+pub fn sort_modules(modules: &Vec<ModuleInfo>) -> Result<Vec<&ModulePath>, Vec<&ModulePath>> {
     let mut graph: HashMap<&ModulePath, Vec<&ModulePath>> = HashMap::new();
 
-    for (path, module) in modules {
-        let deps = module.imports.iter().map(|i| &i.path).collect::<Vec<&ModulePath>>();
+    for info in modules {
+        let deps = info.ast.imports.iter().map(|i| &i.path).collect::<Vec<&ModulePath>>();
 
-        graph.insert(path, deps);
+        graph.insert(&info.path, deps);
     }
 
     get_acyclic_dependency_graph(graph)

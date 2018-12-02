@@ -26,34 +26,42 @@ pub type Declarations = Vec<Declaration>;
 
 pub type ModulePath = Vec<String>;
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct ModuleInfo {
+    pub ast: Module,
+    pub code: String,
+    pub path: ModulePath,
+}
+
 pub type InterModuleInfo = HashMap<ModulePath, CheckedModule>;
 
-pub fn analyze_all_modules(modules: Vec<(ModulePath, Module)>) -> Result<InterModuleInfo, ErrorWrapper> {
+pub fn analyze_all_modules(modules: Vec<ModuleInfo>) -> Result<InterModuleInfo, ErrorWrapper> {
     let mut loaded: HashMap<ModulePath, CheckedModule> = HashMap::new();
 
-    for (path, module) in modules {
+    for info in modules {
+        let path = info.path.clone();
         println!("analyze_module: {:?}", path);
-        let view = analyze_module(&loaded, &path, module)
-            .map_err(|e| ErrorWrapper::TypeError(e))?;
+
+        let view = analyze_module(&loaded, info)?;
         loaded.insert(path, view);
     }
 
     Ok(loaded)
 }
 
-pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePath, Module)>, ErrorWrapper>
+pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<ModuleInfo>, ErrorWrapper>
     where F: Fn(&ModulePath) -> Result<String, ErrorWrapper> {
     let mut visited: HashSet<ModulePath> = HashSet::new();
-    let mut inv_load_order: Vec<(ModulePath, Module)> = vec![];
+    let mut inv_load_order: Vec<ModuleInfo> = vec![];
     let mut to_visit: Vec<ModulePath> = vec![path.clone()];
 
     // lazy loading
     while let Some(path) = to_visit.pop() {
-        let module = match get_core_module_by_path(&path) {
-            Some(module) => module,
+        let (module, code) = match get_core_module_by_path(&path) {
+            Some(module) => (module, String::new()),
             None => {
                 let module_code = getter(&path)?;
-                parse_module(&module_code)?
+                (parse_module(&module_code)?, module_code)
             }
         };
 
@@ -65,7 +73,7 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
             }
         }
 
-        inv_load_order.push((path.clone(), module));
+        inv_load_order.push(ModuleInfo { path: path.clone(), ast: module, code });
         visited.insert(path);
     }
 
@@ -76,14 +84,15 @@ pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<(ModulePa
             ErrorWrapper::RuntimeError(RuntimeError::CyclicModuleDependency(paths))
         })?;
 
-    let mut result: Vec<(ModulePath, Module)> = vec![];
+    let mut result: Vec<ModuleInfo> = vec![];
 
     for path_ref in order {
         let item = inv_load_order
             .iter()
-            .find(|(path, _)| path == path_ref)
+            .find(|ModuleInfo { path, .. }| path == path_ref)
             .unwrap();
 
+        // TODO avoid this clone, is cloning the string with code of the entire file
         result.push(item.clone());
     }
 
@@ -150,7 +159,7 @@ mod test {
     use super::*;
 
     #[test]
-    #[ignore]
+//    #[ignore]
     fn test_project() {
         let mods = load_all_modules(
             &vec!["type_check".to_owned()],
@@ -160,7 +169,7 @@ mod test {
             ]),
         ).unwrap();
 
-        for (path, _) in &mods {
+        for ModuleInfo { path, .. } in &mods {
             println!("Pre: {:?}", path);
         }
 
