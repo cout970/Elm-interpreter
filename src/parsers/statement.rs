@@ -63,7 +63,7 @@ pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
         }
         _ => {
             let found = input.read();
-            return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
+            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![] });
         }
     };
 

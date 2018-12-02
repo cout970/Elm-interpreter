@@ -77,7 +77,7 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
         Token::LitString(value) => (Pattern::LitString(value), input.next()),
         _ => {
             let found = input.read();
-            return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
+            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![] });
         }
     };
 

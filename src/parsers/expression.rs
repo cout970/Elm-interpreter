@@ -148,14 +148,14 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
                         _ => {
                             let input = i;
                             let found = input.read();
-                            return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::Equals, Token::Pipe] });
+                            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![Token::Equals, Token::Pipe] });
                         }
                     }
                 }
                 _ => {
                     let input = i;
                     let found = input.read();
-                    return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::RightBrace, Token::Id(String::from("variable"))] });
+                    return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![Token::RightBrace, Token::Id(String::from("variable"))] });
                 }
             }
         }
@@ -198,7 +198,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
         }
         _ => {
             let found = input.read();
-            return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
+            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![] });
         }
     };
 

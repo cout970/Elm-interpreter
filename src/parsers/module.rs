@@ -121,7 +121,7 @@ fn parse_module_header(input: Input) -> Result<(ModuleHeader, Input), ParseError
         }
         _ => {
             let found = input.read();
-            return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::ModuleTk, Token::EffectTk] });
+            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![Token::ModuleTk, Token::EffectTk] });
         }
     };
 
@@ -221,7 +221,7 @@ fn parse_exposing(input: Input) -> Result<(Exposing, Input), ParseError> {
         _ => {
             let found = input.read();
             let options = vec![Token::Id("definition".to_owned()), Token::UpperId("type".to_owned()), Token::LeftParen];
-            return Err(ParseError::UnmatchedToken { input, found, options });
+            return Err(ParseError::UnmatchedToken { span: input.span(), found, options });
         }
     }
 }

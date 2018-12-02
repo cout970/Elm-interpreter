@@ -104,20 +104,20 @@ pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
                         _ => {
                             let input = i;
                             let found = input.read();
-                            return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::Equals, Token::Pipe] });
+                            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![Token::Equals, Token::Pipe] });
                         }
                     }
                 }
                 _ => {
                     let input = i;
                     let found = input.read();
-                    return Err(ParseError::UnmatchedToken { input, found, options: vec![Token::RightBrace, Token::Id(String::from("variable"))] });
+                    return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![Token::RightBrace, Token::Id(String::from("variable"))] });
                 }
             }
         }
         _ => {
             let found = input.read();
-            return Err(ParseError::UnmatchedToken { input, found, options: vec![] });
+            return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![] });
         }
     };
 

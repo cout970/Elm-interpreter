@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use ast::Int;
+use errors::ErrorWrapper;
 use parsers::input::Input;
 use parsers::ParseError;
 use tokenizer::Token;
@@ -114,7 +115,7 @@ pub fn expect(tk: Token, input: Input) -> Result<Input, ParseError> {
         Ok(input.next())
     } else {
         let found = input.read();
-        Err(ParseError::Expected { input, expected: tk, found })
+        Err(ParseError::Expected { span: input.span(), expected: tk, found })
     }
 }
 
@@ -135,11 +136,11 @@ pub fn expect_indent(expected: u32, input: Input) -> Result<Input, ParseError> {
         if expected == found {
             input.next()
         } else {
-            return Err(ParseError::ExpectedIndentationLevel { input, expected, found });
+            return Err(ParseError::ExpectedIndentationLevel { span: input.span(), expected, found });
         }
     } else {
         let found = input.read();
-        return Err(ParseError::ExpectedIndentation { input, found });
+        return Err(ParseError::ExpectedIndentation { span: input.span(), found });
     };
 
     // Ignore all indentations in the same level
@@ -159,7 +160,7 @@ pub fn read_indent(input: Input) -> Result<u32, ParseError> {
         Ok(found)
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedIndentation { input, found })
+        Err(ParseError::ExpectedIndentation { span: input.span(), found })
     }
 }
 
@@ -176,7 +177,7 @@ pub fn expect_int(input: Input) -> Result<(Int, Input), ParseError> {
         Ok((value, input.next()))
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedInt { input, found })
+        Err(ParseError::ExpectedInt { span: input.span(), found })
     }
 }
 
@@ -185,7 +186,7 @@ pub fn expect_id(input: Input) -> Result<(String, Input), ParseError> {
         Ok((name, input.next()))
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedId { input, found })
+        Err(ParseError::ExpectedId { span: input.span(), found })
     }
 }
 
@@ -194,7 +195,7 @@ pub fn expect_upper(input: Input) -> Result<(String, Input), ParseError> {
         Ok((name, input.next()))
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedUpperId { input, found })
+        Err(ParseError::ExpectedUpperId { span: input.span(), found })
     }
 }
 
@@ -205,7 +206,7 @@ pub fn expect_binop(input: Input) -> Result<(String, Input), ParseError> {
         Ok(("-".to_owned(), input.next()))
     } else {
         let found = input.read();
-        Err(ParseError::ExpectedBinaryOperator { input, found })
+        Err(ParseError::ExpectedBinaryOperator { span: input.span(), found })
     }
 }
 
@@ -260,7 +261,7 @@ pub fn test_parser<F, T: Debug>(func: F, code: &str)
             println!("Value: {:?}\n", res);
         }
         Err(error) => {
-            println!("Error: {}\n", error);
+            println!("Error: {}\n", ErrorWrapper::ParseError(code.to_owned(), error));
             panic!();
         }
     }
@@ -276,7 +277,7 @@ pub fn test_parser_result<F, T: Debug + PartialEq>(func: F, code: &str, value: T
             assert_eq!(value, res);
         }
         Err(error) => {
-            println!("Error: {}\n", error);
+            println!("Error: {}\n", ErrorWrapper::ParseError(code.to_owned(), error));
             panic!();
         }
     }
@@ -292,7 +293,7 @@ pub fn test_parser_error<F, T: Debug>(func: F, code: &str)
             panic!();
         }
         Err(error) => {
-            println!("Error: {}\n", error);
+            println!("Error: {}\n", ErrorWrapper::ParseError(code.to_owned(), error));
         }
     }
 }

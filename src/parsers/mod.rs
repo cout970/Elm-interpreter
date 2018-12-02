@@ -1,4 +1,5 @@
 use ast::{Expr, Module, Pattern, Statement, Type};
+use ast::Span;
 use errors::ErrorWrapper;
 use parsers::input::Input;
 use parsers::util::complete;
@@ -17,14 +18,14 @@ mod module;
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     //@formatter:off
-    Expected                    { input: Input, expected: Token, found: Token },
-    ExpectedInt                 { input: Input, found: Token },
-    ExpectedId                  { input: Input, found: Token },
-    ExpectedUpperId             { input: Input, found: Token },
-    ExpectedBinaryOperator      { input: Input, found: Token },
-    ExpectedIndentationLevel    { input: Input, expected: u32, found: u32 },
-    ExpectedIndentation         { input: Input, found: Token },
-    UnmatchedToken              { input: Input, found: Token, options: Vec<Token> },
+    Expected                    { span: Span, expected: Token, found: Token },
+    ExpectedInt                 { span: Span, found: Token },
+    ExpectedId                  { span: Span, found: Token },
+    ExpectedUpperId             { span: Span, found: Token },
+    ExpectedBinaryOperator      { span: Span, found: Token },
+    ExpectedIndentationLevel    { span: Span, expected: u32, found: u32 },
+    ExpectedIndentation         { span: Span, found: Token },
+    UnmatchedToken              { span: Span, found: Token, options: Vec<Token> },
     //@formatter:on
 }
 
@@ -36,7 +37,7 @@ pub fn parse_expression(code: &str) -> Result<Expr, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&expression::parse_expr, input)
-        .map_err(|e| ErrorWrapper::ParseError(e))
+        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
 }
 
 /// Generates an abstract syntax tree from an elm statement
@@ -47,7 +48,7 @@ pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&statement::parse_statement, input)
-        .map_err(|e| ErrorWrapper::ParseError(e))
+        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
 }
 
 /// Generates an abstract syntax tree from an elm module
@@ -58,7 +59,7 @@ pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&module::parse_module, input)
-        .map_err(|e| ErrorWrapper::ParseError(e))
+        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
 }
 
 /// Generates an abstract syntax tree from an elm type definition
@@ -69,7 +70,7 @@ pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&types::parse_type, input)
-        .map_err(|e| ErrorWrapper::ParseError(e))
+        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
 }
 
 /// Generates an abstract syntax tree from an elm pattern
@@ -80,7 +81,7 @@ pub fn parse_pattern(code: &str) -> Result<Pattern, ErrorWrapper> {
     let input = Input::new(code.to_owned(), tk);
 
     complete(&pattern::parse_pattern, input)
-        .map_err(|e| ErrorWrapper::ParseError(e))
+        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
 }
 
 // Utility functions for testing

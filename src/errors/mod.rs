@@ -14,7 +14,7 @@ use util::format::print_vec;
 #[derive(PartialEq, Clone)]
 pub enum ErrorWrapper {
     LexicalError(LexicalError),
-    ParseError(ParseError),
+    ParseError(String, ParseError),
     TypeError(TypeError),
     RuntimeError(RuntimeError),
     InteropError(InteropError),
@@ -23,7 +23,7 @@ pub enum ErrorWrapper {
 pub fn format_error(error: &ErrorWrapper) -> String {
     match error {
         ErrorWrapper::LexicalError(it) => { format_lexical_error(it) }
-        ErrorWrapper::ParseError(it) => { format_parse_error(it) }
+        ErrorWrapper::ParseError(code, it) => { format_parse_error(code, it) }
         ErrorWrapper::TypeError(it) => { format_type_error(it) }
         ErrorWrapper::RuntimeError(it) => { format_runtime_error(it) }
         ErrorWrapper::InteropError(it) => { format_interop_error(it) }
@@ -38,34 +38,42 @@ pub fn format_lexical_error(error: &LexicalError) -> String {
     msg
 }
 
-pub fn format_parse_error(error: &ParseError) -> String {
+pub fn format_parse_error(code: &str, error: &ParseError) -> String {
     let mut msg = String::new();
     msg.push_str("-- PARSE ERROR ------------------------------------------------------------- elm\n");
 
     match error {
-        ParseError::Expected { input, expected, found } => {
-            write!(&mut msg, "Expected token '{}', but found '{}': {}\n", expected, found, input).unwrap()
+        ParseError::Expected { span, expected, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected token '{}', but found '{}': {}\n", expected, found, loc).unwrap()
         }
-        ParseError::ExpectedInt { input, found } => {
-            write!(&mut msg, "Expected integer, but found '{}': {}\n", found, input).unwrap()
+        ParseError::ExpectedInt { span, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected integer, but found '{}': {}\n", found, loc).unwrap()
         }
-        ParseError::ExpectedId { input, found } => {
-            write!(&mut msg, "Expected identifier, but found '{}': {}\n", found, input).unwrap()
+        ParseError::ExpectedId { span, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected identifier, but found '{}': {}\n", found, loc).unwrap()
         }
-        ParseError::ExpectedUpperId { input, found } => {
-            write!(&mut msg, "Expected capitalized identifier, but found '{}': {}\n", found, input).unwrap()
+        ParseError::ExpectedUpperId { span, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected capitalized identifier, but found '{}': {}\n", found, loc).unwrap()
         }
-        ParseError::ExpectedBinaryOperator { input, found } => {
-            write!(&mut msg, "Expected binary operator, but found '{}': {}\n", found, input).unwrap()
+        ParseError::ExpectedBinaryOperator { span, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected binary operator, but found '{}': {}\n", found, loc).unwrap()
         }
-        ParseError::UnmatchedToken { input, found, .. } => {
-            write!(&mut msg, "Found unexpected token '{}': {}\n", found, input).unwrap()
+        ParseError::UnmatchedToken { span, found, .. } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Found unexpected token '{}': {}\n", found, loc).unwrap()
         }
-        ParseError::ExpectedIndentation { input, found } => {
-            write!(&mut msg, "Expected indentation, but found '{}': {}\n", found, input).unwrap()
+        ParseError::ExpectedIndentation { span, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected indentation, but found '{}': {}\n", found, loc).unwrap()
         }
-        ParseError::ExpectedIndentationLevel { input, expected, found } => {
-            write!(&mut msg, "Expected indentation of {}, but found {}: {}\n", expected, found, input).unwrap()
+        ParseError::ExpectedIndentationLevel { span, expected, found } => {
+            let loc = print_code_location(code, span.0, span.1);
+            write!(&mut msg, "Expected indentation of {}, but found {}: {}\n", expected, found, loc).unwrap()
         }
     }
     msg
@@ -223,6 +231,64 @@ pub fn format_interop_error(error: &InteropError) -> String {
     msg
 }
 
+pub fn print_code_location(input: &str, start: u32, end: u32) -> String {
+    if input.is_empty() {
+        return String::from("Empty");
+    }
+
+    let byte_input: &[u8] = input.as_bytes();
+    let marker_start = start as usize;
+    let marker_end = end as usize;
+
+    let mut line_start = marker_start.min(byte_input.len() - 1).max(0);
+    let mut line_end = marker_end.min(byte_input.len() - 1).max(0);
+
+    while line_start > 0 {
+        if byte_input[line_start] == b'\n' {
+            line_start += 1;
+            break;
+        }
+        line_start -= 1;
+    }
+
+    while line_end < byte_input.len() {
+        if byte_input[line_end] == b'\n' {
+            break;
+        }
+        line_end += 1;
+    }
+
+    let mut line = String::new();
+    let mut pointer = String::new();
+    let mut trail = String::new();
+
+    for index in line_start..line_end {
+        if index == marker_start {
+            trail.push('┘');
+            pointer.push('\u{028C}');
+        } else if index < marker_start {
+            trail.push('─');
+            pointer.push(' ');
+        } else if index < marker_end {
+            pointer.push('\u{028C}');
+        }
+        line.push(byte_input[index] as char);
+    }
+
+    let line_num = (&byte_input[0..marker_start]).iter().filter(|&i| *i == b'\n').count();
+    let line_num_str = format!("{}", line_num + 1);
+    let mut spaces = String::new();
+
+    for _ in 0..line_num_str.len() {
+        spaces.push(' ');
+    }
+
+    let mut output = String::new();
+    write!(&mut output, "\n{} │ {}\n{} │ {}\n{} │ {}", line_num_str, line, spaces, pointer, spaces, trail).unwrap();
+
+    output
+}
+
 impl Display for ErrorWrapper {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self))
@@ -232,35 +298,5 @@ impl Display for ErrorWrapper {
 impl Debug for ErrorWrapper {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self))
-    }
-}
-
-impl Display for LexicalError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_lexical_error(self))
-    }
-}
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_parse_error(self))
-    }
-}
-
-impl Display for TypeError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_type_error(self))
-    }
-}
-
-impl Display for RuntimeError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_runtime_error(self))
-    }
-}
-
-impl Display for InteropError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", format_interop_error(self))
     }
 }
