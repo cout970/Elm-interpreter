@@ -158,7 +158,10 @@ fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>)
                     }
                 }
             }
-            Err(e) => { errors.push(e); }
+            Err(e) => {
+                return Err(e);
+//                errors.push(e);
+            }
         }
     }
 

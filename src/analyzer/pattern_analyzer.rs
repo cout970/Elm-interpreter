@@ -1,13 +1,13 @@
-use ast::*;
 use analyzer::static_env::StaticEnv;
+use analyzer::type_helper::calculate_common_type;
+use ast::*;
+use constructors::type_char;
+use constructors::type_int;
 use constructors::type_list;
+use constructors::type_string;
+use constructors::type_var;
 use util::create_vec;
 use util::VecExt;
-use constructors::type_int;
-use constructors::type_string;
-use constructors::type_char;
-use analyzer::type_helper::calculate_common_type;
-use constructors::type_var;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternMatchingError {
@@ -66,6 +66,7 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
             let adt = env.find_adt_variant(name)
                 .ok_or_else(|| PatternMatchingError::UnknownAdtVariant(name.clone()))?;
 
+            // TODO error Maybe vs Maybe a
             Ok((Type::Tag(adt.name.clone(), sub_input), sub_vars))
         }
         Pattern::Wildcard => {
@@ -102,7 +103,7 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
             let ty = if sub_input.is_empty() {
                 type_var("a")
-            }else {
+            } else {
                 calculate_common_type(&sub_input)
                     .map_err(|(expected, found)| {
                         PatternMatchingError::ListPatternsAreNotHomogeneous(expected.clone(), found.clone())
@@ -117,12 +118,10 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
                 return Err(PatternMatchingError::UnknownOperatorPattern(operand.clone()));
             }
 
-            let (_, left_vars) = analyze_pattern(env, left)?;
-            let (right_ty, right_vars) = analyze_pattern(env, right)?;
+            let (left_ty, left_vars) = analyze_pattern(env, left)?;
+            let (_, right_vars) = analyze_pattern(env, right)?;
 
-            get_list_param_type(&right_ty)?;
-
-            Ok((right_ty, left_vars.join_vec(&right_vars)))
+            Ok((type_list(left_ty), left_vars.join_vec(&right_vars)))
         }
         Pattern::Record(entry_names) => {
             let mut entries = Vec::new();

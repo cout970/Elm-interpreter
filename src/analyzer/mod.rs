@@ -37,7 +37,7 @@ pub enum TypeError {
     RecordUpdateUnknownField(Span, String),
     CaseBranchDontMatchReturnType(Span, String),
     DefinitionTypeAndReturnTypeMismatch,
-    InvalidPattern(PatternMatchingError),
+    InvalidPattern(Span, PatternMatchingError),
     ConstantEvaluationError(String),
     VariableAlreadyDeclared(String),
     UnableToCalculateFunctionType(String),

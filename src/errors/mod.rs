@@ -100,6 +100,11 @@ pub fn format_type_error(code: &str, error: &TypeError) -> String {
             write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
             write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.\n").unwrap();
         }
+        TypeError::InvalidPattern(span, pe) => {
+            write!(&mut msg, "-- PATTERN ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+            write!(&mut msg, "{:?}\n", pe).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+        }
 //        TypeError::ListNotHomogeneous(_) => {},
 //        TypeError::IfWithNonBoolCondition(_) => {},
 //        TypeError::IfBranchesDoesntMatch(_) => {},

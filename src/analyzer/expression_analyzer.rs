@@ -24,7 +24,7 @@ use util::qualified_name;
 use util::StringConversion;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
-    println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
+//    println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
 //    println!("analyze_expression {{ env: {:?} }}", env);
     match expr {
         Expr::Ref(_, name) => {
@@ -250,7 +250,7 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
     let patterns_types = branches.iter()
         .map(|(p, _)| analyze_pattern(env, p).map(|(ty, _)| ty))
         .collect::<Result<Vec<_>, PatternMatchingError>>()
-        .map_err(|e| TypeError::InvalidPattern(e))?;
+        .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
 
     let mut patterns_types_iter = patterns_types.iter();
     let mut patterns_type = patterns_types_iter.next().unwrap();
@@ -260,6 +260,7 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
             Some(ty) => { patterns_type = ty; }
             None => {
                 return Err(TypeError::InvalidPattern(
+                    span(expr),
                     PatternMatchingError::ListPatternsAreNotHomogeneous(patterns_type.clone(), ty.clone())
                 ));
             }
@@ -274,7 +275,7 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
     let first_type = {
         // check patterns for variables
         let (_, vars) = analyze_pattern_with_type(env, first_pattern, cond_type.clone())
-            .map_err(|e| TypeError::InvalidPattern(e))?;
+            .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
 
         // add variable to the environment
         env.enter_block();
@@ -292,10 +293,9 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
     };
 
     while let Some((pattern, expression)) = iter.next() {
-
         // check patterns for variables
         let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
-            .map_err(|e| TypeError::InvalidPattern(e))?;
+            .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
 
         // add variable to the environment
         env.enter_block();

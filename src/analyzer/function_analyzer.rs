@@ -1,16 +1,16 @@
 use analyzer::expression_analyzer::analyze_expression;
+use analyzer::pattern_analyzer::*;
 use analyzer::static_env::StaticEnv;
+use analyzer::type_helper::is_assignable;
 use analyzer::TypeError;
 use ast::*;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::StringConversion;
-use analyzer::pattern_analyzer::*;
-use analyzer::type_helper::is_assignable;
 
 pub fn analyze_let_destructuring(env: &mut StaticEnv, pattern: &Pattern, expr: &Expr) -> Result<Vec<(String, Type)>, TypeError> {
     let (pat_ty, vars) = analyze_pattern(env, pattern)
-        .map_err(|e| TypeError::InvalidPattern(e))?;
+        .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
 
     let ty = analyze_expression(env, Some(&pat_ty), expr)?;
 
@@ -139,17 +139,20 @@ pub fn analyze_function_arguments(env: &mut StaticEnv, patterns: &Vec<Pattern>, 
 
     for (ty, patt) in iter {
         if !is_exhaustive(patt) {
-            return Err(TypeError::InvalidPattern(PatternMatchingError::PatternNotExhaustive(patt.clone())));
+            // TODO
+            return Err(TypeError::InvalidPattern((0, 0), PatternMatchingError::PatternNotExhaustive(patt.clone())));
         }
 
         let (ty, vars) = match ty {
             Some(ty) => {
+                // TODO
                 analyze_pattern_with_type(env, patt, ty)
-                    .map_err(|e| TypeError::InvalidPattern(e))?
+                    .map_err(|e| TypeError::InvalidPattern((0, 0), e))?
             }
             None => {
+                //TODO
                 analyze_pattern(env, patt)
-                    .map_err(|e| TypeError::InvalidPattern(e))?
+                    .map_err(|e| TypeError::InvalidPattern((0, 0), e))?
             }
         };
 
@@ -166,11 +169,11 @@ pub fn analyze_function_arguments(env: &mut StaticEnv, patterns: &Vec<Pattern>, 
 #[cfg(test)]
 mod tests {
     use ast::Statement;
+    use constructors::*;
+    use core::register_core;
     use parsers::from_code_stm;
 
     use super::*;
-    use constructors::*;
-    use core::register_core;
 
     fn from_code_def(code: &[u8]) -> Definition {
         let stm = from_code_stm(code);
