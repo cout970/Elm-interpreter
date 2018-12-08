@@ -2,37 +2,43 @@ use ast::Type;
 use constructors::*;
 
 pub fn get_string_types() -> Vec<(&'static str, Type)> {
+    get_string_type_aux().into_iter()
+        .map(|(a, b)| (a, type_of(b)))
+        .collect()
+}
+
+fn get_string_type_aux() -> Vec<(&'static str, &'static str)> {
     //@formatter:off
     vec![
-        ("cons",        type_fun(vec![type_char(),   type_string()])),
-        ("uncons",      type_fun(vec![type_string(), type_tuple(vec![type_char(), type_string()])])),
-        ("append",      type_fun(vec![type_string(), type_string(), type_string()])),
-        ("length",      type_fun(vec![type_string(), type_int()])),
-        ("map",         type_fun(vec![type_fun(vec![type_char(), type_char()]), type_string(), type_string()])),
-        ("filter",      type_fun(vec![type_fun(vec![type_char(), type_bool()]), type_string(), type_string()])),
-        ("reverse",     type_fun(vec![type_string(), type_string()])),
-        ("foldl",       type_fun(vec![type_fun(vec![type_char(), type_var("b"), type_var("b")]), type_var("b"), type_string(), type_var("b")])),
-        ("foldr",       type_fun(vec![type_fun(vec![type_char(), type_var("b"), type_var("b")]), type_var("b"), type_string(), type_var("b")])),
-        ("split",       type_fun(vec![type_string(), type_string(), type_array(type_string())])),
-        ("join",        type_fun(vec![type_string(), type_array(type_string()), type_string()])),
-        ("slice",       type_fun(vec![type_int(), type_int(), type_string(), type_string()])),
-        ("trim",        type_fun(vec![type_string(), type_string()])),
-        ("trimLeft",    type_fun(vec![type_string(), type_string()])),
-        ("trimRight",   type_fun(vec![type_string(), type_string()])),
-        ("words",       type_fun(vec![type_string(), type_list(type_string())])),
-        ("lines",       type_fun(vec![type_string(), type_list(type_string())])),
-        ("toUpper",     type_fun(vec![type_string(), type_string()])),
-        ("toLower",     type_fun(vec![type_string(), type_string()])),
-        ("any",         type_fun(vec![type_fun(vec![type_char(), type_bool()]), type_string(), type_bool()])),
-        ("all",         type_fun(vec![type_fun(vec![type_char(), type_bool()]), type_string(), type_bool()])),
-        ("contains",    type_fun(vec![type_string(), type_string(), type_bool()])),
-        ("startsWith",  type_fun(vec![type_string(), type_string(), type_bool()])),
-        ("endsWith",    type_fun(vec![type_string(), type_string(), type_bool()])),
-        ("indexes",     type_fun(vec![type_string(), type_string(), type_list(type_int())])),
-        ("fromNumber",  type_fun(vec![type_number(), type_string()])),
-        ("toInt",       type_fun(vec![type_string(), type_maybe(type_int())])),
-        ("toFloat",     type_fun(vec![type_string(), type_maybe(type_float())])),
-        ("fromList",    type_fun(vec![type_list(type_char()), type_string()])),
+        ("cons",        "Char -> String -> String"),
+        ("uncons",      "String -> (Char, String)"),
+        ("append",      "String -> String -> String"),
+        ("length",      "String -> Int"),
+        ("map",         "(Char -> Char) -> String -> String"),
+        ("filter",      "(Char -> Bool) -> String -> String"),
+        ("reverse",     "String -> String"),
+        ("foldl",       "(Char -> b -> b) -> b -> String -> b"),
+        ("foldr",       "(Char -> b -> b) -> b -> String -> b"),
+        ("split",       "String -> String -> Array String"),
+        ("join",        "String -> Array String -> String"),
+        ("slice",       "Int -> Int -> String -> String"),
+        ("trim",        "String -> String"),
+        ("trimLeft",    "String -> String"),
+        ("trimRight",   "String -> String"),
+        ("words",       "String -> List String"),
+        ("lines",       "String -> List String"),
+        ("toUpper",     "String -> String"),
+        ("toLower",     "String -> String"),
+        ("any",         "(Char -> Bool) -> String -> Bool"),
+        ("all",         "(Char -> Bool) -> String -> Bool"),
+        ("contains",    "String -> String -> Bool"),
+        ("startsWith",  "String -> String -> Bool"),
+        ("endsWith",    "String -> String -> Bool"),
+        ("indexes",     "String -> String -> List Int"),
+        ("fromNumber",  "number -> String"),
+        ("toInt",       "String -> Maybe Int"),
+        ("toFloat",     "String -> Maybe Float"),
+        ("fromList",    "List Char -> String"),
     ]
     //@formatter:on
 }

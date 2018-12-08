@@ -14,7 +14,13 @@ fn get_operators_type_aux() -> Vec<(&'static str, &'static str)> {
         ("+",                   "number -> number -> number"),
         ("-",                   "number -> number -> number"),
         ("__internal__minus",   "number -> number"),
-
+        ("*",                   "number -> number -> number"),
+        ("/",                   "Float -> Float -> Float"),
+        ("//",                  "Int -> Int -> Int"),
+        ("^",                   "number -> number -> number"),
+        ("++",                  "String -> String -> String"),
+        ("&&",                  "Bool -> Bool -> Bool"),
+        ("||",                  "Bool -> Bool -> Bool"),
     ]
     //@formatter:on
 }
