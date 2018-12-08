@@ -6,11 +6,12 @@ use ast::ModuleHeader;
 use ast::Statement;
 use ast::Type;
 use core::basics::get_basics_types;
-use core::debug::get_debug_types;
-use core::char::get_char_types;
-use core::string::get_string_types;
-use core::list::get_list_types;
 use core::bitwise::get_bitwise_types;
+use core::char::get_char_types;
+use core::debug::get_debug_types;
+use core::list::get_list_types;
+use core::operators::get_operators_types;
+use core::string::get_string_types;
 use core::utils::get_utils_types;
 
 mod basics;
@@ -20,12 +21,16 @@ mod string;
 mod list;
 mod bitwise;
 mod utils;
+mod operators;
 
 pub fn register_core(env: &mut StaticEnv) {
     for (name, ty) in get_basics_types() {
         env.add_definition(name, ty);
     }
     for (name, ty) in get_utils_types() {
+        env.add_definition(name, ty);
+    }
+    for (name, ty) in get_operators_types() {
         env.add_definition(name, ty);
     }
 }

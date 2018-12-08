@@ -7,7 +7,7 @@ pub fn get_basics_types() -> Vec<(&'static str, Type)> {
         ("+",           type_fun(vec![type_number(), type_number(), type_number()])),
         ("add",         type_fun(vec![type_number(), type_number(), type_number()])),
         ("-",           type_fun(vec![type_number(), type_number(), type_number()])),
-        ("__internal__minus",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("__internal__minus",           type_fun(vec![type_number(), type_number()])),
         ("sub",         type_fun(vec![type_number(), type_number(), type_number()])),
         ("*",           type_fun(vec![type_number(), type_number(), type_number()])),
         ("mul",         type_fun(vec![type_number(), type_number(), type_number()])),

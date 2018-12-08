@@ -4,6 +4,7 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::fmt::Write;
 
+use analyzer::inter_mod_analyzer::declaration_name;
 use analyzer::TypeError;
 use ast::Span;
 use interpreter::RuntimeError;
@@ -227,6 +228,11 @@ pub fn format_runtime_error(error: &RuntimeError) -> String {
                               - the `as` keyword\n\
                               - an arrow (->) followed by an expression\n\
                               - the cons operator (::) followed by more list elements\n").unwrap();
+        }
+        RuntimeError::MissingExposing(name, decls) => {
+            let names = decls.iter().map(|a| declaration_name(a)).collect::<Vec<&str>>();
+            write!(&mut msg, "-- RUNTIME ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+            write!(&mut msg, "Unable to expose '{}', available names: \n\n{:?}\n\n", name, names).unwrap();
         }
 //        RuntimeError::InternalErrorRecordAccess(_) => {}
 //        RuntimeError::InternalErrorAdtCreation(_) => {}

@@ -7,7 +7,6 @@ use analyzer::inter_mod_analyzer::Declaration;
 use analyzer::inter_mod_analyzer::Declarations;
 use analyzer::inter_mod_analyzer::InterModuleInfo;
 use analyzer::inter_mod_analyzer::ModuleInfo;
-use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use ast::*;
@@ -159,8 +158,9 @@ fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>)
                 }
             }
             Err(e) => {
-                return Err(e);
-//                errors.push(e);
+                // TODO add parameter to exit on first error
+//                return Err(e);
+                errors.push(e);
             }
         }
     }

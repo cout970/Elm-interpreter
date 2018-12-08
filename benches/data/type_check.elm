@@ -2,7 +2,7 @@ module TypeCheck exposing (..)
 
 -- Default Imports
 import Basics exposing (..)
-import List exposing (List, (::))
+import List exposing ((::))
 import Maybe exposing (Maybe(..))
 import Result exposing (Result(..))
 import String exposing (String)
@@ -15,6 +15,9 @@ import Debug
 --import Platform.Cmd as Cmd exposing ( Cmd )
 --import Platform.Sub as Sub exposing ( Sub )
 --
+
+func0: List Int
+func0 = [1,2,3]
 
 func1: Int
 func1 = 0

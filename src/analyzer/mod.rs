@@ -3,7 +3,6 @@ use std::ops::Deref;
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::expression_analyzer::get_adt_type;
 use analyzer::function_analyzer::analyze_function;
-use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::pattern_analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
 use ast::Definition;

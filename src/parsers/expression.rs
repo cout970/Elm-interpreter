@@ -20,10 +20,12 @@ pub fn parse_expr(input: Input) -> Result<(Expr, Input), ParseError> {
 }
 
 fn parse_expr_application(input: Input) -> Result<(Expr, Input), ParseError> {
+    let start = input.pos();
     let (exprs, i): (Vec<Expr>, Input) = many1(&parse_expr_base, input)?;
+    let end = i.pos_end();
     let mut iter = exprs.into_iter();
     let first = iter.next().unwrap();
-    let tree = iter.fold(first, |acc, b| Expr::Application((0, 0), Box::new(acc), Box::new(b)));
+    let tree = iter.fold(first, |acc, b| Expr::Application((start, end), Box::new(acc), Box::new(b)));
 
     Ok((tree, i))
 }
@@ -193,7 +195,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
             (Expr::Case((input.pos(), i.pos()), Box::from(cond), branches), i)
         }
         Token::PrefixMinus => {
-            let (expr, i) = parse_expr(input.next())?;
+            let (expr, i) = parse_expr_base(input.next())?;
             (Expr::Application((input.pos(), i.pos()), Box::from(Expr::Ref((input.pos(), input.pos() + 1), String::from("__internal__minus"))), Box::from(expr)), i)
         }
         _ => {
@@ -670,6 +672,19 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     }
 
     #[test]
+    fn check_infix_minus_edge_case2() {
+        test_parser_result(parse_expr, "-n string", Expr::Application(
+            (0, 0),
+            Box::from(Expr::Application(
+                (0, 3),
+                Box::from(Expr::Ref((0, 1), "__internal__minus".s())),
+                Box::from(Expr::Ref((1, 2), "n".s())),
+            )),
+            Box::from(Expr::Ref((0, 0), "string".s())),
+        ));
+    }
+
+    #[test]
     fn check_multiline_expr2() {
         let code = "Browser.element \
         \n    { init = init\
@@ -695,7 +710,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     ("view".s(), Expr::Ref((0, 0), "view".s())),
                     ("update".s(), Expr::Ref((0, 0), "update".s())),
                     ("subscriptions".s(), Expr::Ref((0, 0), "subscriptions".s()))
-                ]
+                ],
             )),
         ));
     }
@@ -808,7 +823,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     "entities".s(),
                     Expr::List((0, 0), vec![])
                 )
-            ]
+            ],
             )),
         ));
     }

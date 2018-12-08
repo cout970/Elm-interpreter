@@ -35,6 +35,14 @@ pub struct ModuleInfo {
 
 pub type InterModuleInfo = HashMap<ModulePath, CheckedModule>;
 
+pub fn declaration_name(decl: &Declaration) -> &str {
+    match decl {
+        Declaration::Def(name, _) => name,
+        Declaration::Alias(name, _) => name,
+        Declaration::Adt(name, _) => name,
+    }
+}
+
 pub fn analyze_all_modules(modules: Vec<ModuleInfo>) -> Result<InterModuleInfo, ErrorWrapper> {
     let mut loaded: HashMap<ModulePath, CheckedModule> = HashMap::new();
 

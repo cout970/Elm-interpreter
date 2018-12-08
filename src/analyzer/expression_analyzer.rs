@@ -375,7 +375,7 @@ fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr, app: &Expr) -> Resul
 
             Ok(output)
         } else {
-            Err(ArgumentsDoNotMatch(span(app), format!("Expected argument: {}, found: {}", argument, input)))
+            Err(ArgumentsDoNotMatch(span(arg), format!("Expected argument: {}, found: {}", argument, input)))
         }
     } else {
         Err(NotAFunction(span(app), format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg)))

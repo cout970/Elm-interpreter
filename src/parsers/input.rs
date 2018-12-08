@@ -101,6 +101,11 @@ impl Input {
         let ptr = self.skip_indent();
         self.raw.tokens[ptr].span.0
     }
+
+    pub fn pos_end(&self) -> u32 {
+        let ptr = (self.ptr as i32 - 1).max(0) as usize;
+        self.raw.tokens[ptr].span.1
+    }
 }
 
 impl Display for Input {
