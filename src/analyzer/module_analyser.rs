@@ -106,7 +106,7 @@ fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<S
             }
         }
 
-        if import.exposing.is_none() && import.alias.is_none() {
+        if import.alias.is_none() {
             for decl in &module.exposing {
                 match decl {
                     Declaration::Def(name, ty) => {
@@ -336,7 +336,7 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
                         }
                     })
                     .map(|decl| decl.clone())
-                    .ok_or_else(|| RuntimeError::InternalError)?;
+                    .ok_or_else(|| RuntimeError::MissingExposing(name.clone(), all_decls.clone()))?;
 
                 exposed_decls.push(decl);
             }
@@ -352,12 +352,24 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
                         }
                     })
                     .map(|decl| decl.clone())
-                    .ok_or_else(|| RuntimeError::InternalError)?;
+                    .ok_or_else(|| RuntimeError::MissingExposing(name.clone(), all_decls.clone()))?;
 
                 exposed_decls.push(decl);
             }
-            Exposing::BinaryOperator(_) => {
-                // Ignore
+            Exposing::BinaryOperator(name) => {
+                let decl = all_decls.iter()
+                    .find(|decl| {
+                        if let Declaration::Def(def_name, _) = decl {
+                            def_name == name
+                        } else {
+                            false
+                        }
+                    })
+                    .map(|decl| decl.clone());
+
+                if let Some(decl) = decl {
+                    exposed_decls.push(decl);
+                }
             }
             Exposing::Definition(name) => {
                 let decl = all_decls.iter()
@@ -369,7 +381,7 @@ fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Resul
                         }
                     })
                     .map(|decl| decl.clone())
-                    .ok_or_else(|| RuntimeError::InternalError)?;
+                    .ok_or_else(|| RuntimeError::MissingExposing(name.clone(), all_decls.clone()))?;
 
                 exposed_decls.push(decl);
             }

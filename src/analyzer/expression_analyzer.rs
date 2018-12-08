@@ -53,7 +53,7 @@ pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &E
             analyze_expression(env, expected, &Expr::Ref((0, 0), full_name))
         }
         Expr::Application(_, fun, arg) => {
-            type_of_app(env, &**fun, &**arg)
+            type_of_app(env, &**fun, &**arg, expr)
         }
         Expr::Lambda(_, patterns, expr) => {
             let (tys, new_vars) = analyze_function_arguments(env, patterns, &None)?;
@@ -293,6 +293,7 @@ fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, 
     };
 
     while let Some((pattern, expression)) = iter.next() {
+//        println!("{}", pattern);
         // check patterns for variables
         let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
             .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
@@ -345,7 +346,7 @@ fn type_of_literal(lit: &Literal, expected: Option<&Type>) -> Type {
     }
 }
 
-fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr) -> Result<Type, TypeError> {
+fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr, app: &Expr) -> Result<Type, TypeError> {
     // example of variable type inference:
     // sum = (+) 1.5
 
@@ -374,10 +375,10 @@ fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr) -> Result<Type, Type
 
             Ok(output)
         } else {
-            Err(ArgumentsDoNotMatch(span(arg), format!("Expected argument: {}, found: {}", argument, input)))
+            Err(ArgumentsDoNotMatch(span(app), format!("Expected argument: {}, found: {}", argument, input)))
         }
     } else {
-        Err(NotAFunction(span(arg), format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg)))
+        Err(NotAFunction(span(app), format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg)))
     }
 }
 

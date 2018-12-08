@@ -12,11 +12,21 @@ pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> 
     let (mut patt, mut i) = parse_pattern(input)?;
 
     if let Token::BinaryOperator(_) = i.read() {
+        let mut chain: Vec<(Pattern, String)> = vec![];
+        let mut last_patt = patt;
+
+        // Read chain of a::(b::(c::(d)))
         while let Token::BinaryOperator(op) = i.read() {
             let (patt2, rest) = parse_pattern(i.next())?;
-            patt = Pattern::BinaryOp(op, Box::from(patt), Box::from(patt2));
+            chain.push((last_patt, op));
+            last_patt = patt2;
             i = rest;
         }
+
+        patt = chain.into_iter().rev().fold(last_patt, |accum, (p, op)| {
+            Pattern::BinaryOp(op, Box::from(p), Box::from(accum))
+        });
+
     } else if let Token::As = i.read() {
         let (alias, i) = expect_id(i.next())?;
         return Ok((Pattern::Alias(Box::from(patt), alias), i));
@@ -175,6 +185,23 @@ mod tests {
     fn check_record() {
         test_parser_result(parse_pattern, "{ a, b }", Pattern::Record(
             vec!["a".s(), "b".s()]
+        ));
+    }
+
+    #[test]
+    fn check_operator_associativity() {
+        test_parser_result(parse_pattern_expr, "a::b::c::d", Pattern::BinaryOp(
+            "::".s(),
+            Box::from(Pattern::Var("a".s())),
+            Box::from(Pattern::BinaryOp(
+                "::".s(),
+                Box::from(Pattern::Var("b".s())),
+                Box::from(Pattern::BinaryOp(
+                    "::".s(),
+                    Box::from(Pattern::Var("c".s())),
+                    Box::from(Pattern::Var("d".s())),
+                )),
+            )),
         ));
     }
 }

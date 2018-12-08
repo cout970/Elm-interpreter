@@ -105,6 +105,16 @@ pub fn format_type_error(code: &str, error: &TypeError) -> String {
             write!(&mut msg, "{:?}\n", pe).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
         }
+        TypeError::ArgumentsDoNotMatch(span, str) => {
+            write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+            write!(&mut msg, "{}\n", str).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+        }
+        TypeError::NotAFunction(span, str) => {
+            write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+            write!(&mut msg, "{}\n", str).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+        }
 //        TypeError::ListNotHomogeneous(_) => {},
 //        TypeError::IfWithNonBoolCondition(_) => {},
 //        TypeError::IfBranchesDoesntMatch(_) => {},

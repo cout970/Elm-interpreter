@@ -7,6 +7,7 @@ pub fn get_basics_types() -> Vec<(&'static str, Type)> {
         ("+",           type_fun(vec![type_number(), type_number(), type_number()])),
         ("add",         type_fun(vec![type_number(), type_number(), type_number()])),
         ("-",           type_fun(vec![type_number(), type_number(), type_number()])),
+        ("__internal__minus",           type_fun(vec![type_number(), type_number(), type_number()])),
         ("sub",         type_fun(vec![type_number(), type_number(), type_number()])),
         ("*",           type_fun(vec![type_number(), type_number(), type_number()])),
         ("mul",         type_fun(vec![type_number(), type_number(), type_number()])),
@@ -18,6 +19,7 @@ pub fn get_basics_types() -> Vec<(&'static str, Type)> {
         ("pow",         type_fun(vec![type_number(), type_number(), type_number()])),
         ("remainderBy", type_fun(vec![type_int(),    type_int(),    type_int()])),
         ("modBy",       type_fun(vec![type_int(),    type_int(),    type_int()])),
+        ("++",          type_fun(vec![type_string(), type_string(), type_string()])),
         ("pi",          type_float()),
         ("e",           type_float()),
         ("cos",         type_fun(vec![type_float(),  type_float()])),
@@ -42,6 +44,7 @@ pub fn get_basics_types() -> Vec<(&'static str, Type)> {
         ("or",          type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
         ("xor",         type_fun(vec![type_bool(),   type_bool(),    type_bool()])),
         ("not",         type_fun(vec![type_bool(),   type_bool()])),
+
     ]
     //@formatter:on
 }

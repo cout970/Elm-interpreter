@@ -1,3 +1,4 @@
+use analyzer::inter_mod_analyzer::Declaration;
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::TypeError;
 use ast::Pattern;
@@ -44,6 +45,7 @@ pub enum RuntimeError {
     ImpossibleConversion,
     MissingSourceFile,
     CyclicModuleDependency(Vec<ModulePath>),
+    MissingExposing(String, Vec<Declaration>),
     InternalError,
 }
 

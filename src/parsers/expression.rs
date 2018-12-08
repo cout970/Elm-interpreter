@@ -194,7 +194,7 @@ fn parse_expr_base(input: Input) -> Result<(Expr, Input), ParseError> {
         }
         Token::PrefixMinus => {
             let (expr, i) = parse_expr(input.next())?;
-            (Expr::Application((input.pos(), i.pos()), Box::from(Expr::Ref((input.pos(), input.pos() + 1), String::from("-"))), Box::from(expr)), i)
+            (Expr::Application((input.pos(), i.pos()), Box::from(Expr::Ref((input.pos(), input.pos() + 1), String::from("__internal__minus"))), Box::from(expr)), i)
         }
         _ => {
             let found = input.read();
@@ -614,7 +614,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
     fn check_prefix_minus() {
         test_parser_result(parse_expr, "-(1+2)", Expr::Application(
             (0, 0),
-            Box::from(Expr::Ref((0, 0), "-".s())),
+            Box::from(Expr::Ref((0, 0), "__internal__minus".s())),
             Box::from(Expr::OpChain(
                 (0, 0),
                 vec![Expr::Literal((0, 0), Literal::Int(1)), Expr::Literal((0, 0), Literal::Int(2))],
@@ -639,7 +639,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
             Box::new(Expr::Literal((0, 0), Literal::Int(1))),
             Box::new(Expr::Application(
                 (0, 0),
-                Box::new(Expr::Ref((0, 0), "-".s())),
+                Box::new(Expr::Ref((0, 0), "__internal__minus".s())),
                 Box::new(Expr::Literal((0, 0), Literal::Int(2))),
             )),
         ));
