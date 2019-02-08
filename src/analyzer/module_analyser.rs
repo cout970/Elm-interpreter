@@ -24,7 +24,7 @@ use util::visitors::type_visitor;
 pub struct CheckedModule {
     pub info: ModuleInfo,
     pub env: StaticEnv,
-    pub exposing: Vec<Declaration>,
+    pub declarations: Vec<(bool, Declaration)>,
 }
 
 pub fn analyze_module(info: &InterModuleInfo, module_info: ModuleInfo) -> Result<CheckedModule, ErrorWrapper> {
@@ -36,20 +36,24 @@ pub fn analyze_module(info: &InterModuleInfo, module_info: ModuleInfo) -> Result
     let all_decls = analyze_module_declarations(&mut env, &module_info.ast.statements)
         .map_err(|e| ErrorWrapper::TypeError(module_info.code.clone(), e))?;
 
-    let exposing = match header.exposing {
+    let declarations = match header.exposing {
         ModuleExposing::Just(exposed) => {
             get_exposed_decls(&all_decls, &exposed)
                 .map_err(|e| ErrorWrapper::RuntimeError(e))?
+                .into_iter().map(|d| (true, d))
+                .collect::<Vec<_>>()
         }
         ModuleExposing::All => {
-            all_decls
+            all_decls.into_iter()
+                .map(|d| (true, d))
+                .collect::<Vec<_>>()
         }
     };
 
     Ok(CheckedModule {
         info: module_info,
         env,
-        exposing,
+        declarations,
     })
 }
 
@@ -65,16 +69,18 @@ fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<S
             })?;
 
         if let Some(alias) = &import.alias {
-            for decl in &module.exposing {
-                match decl {
-                    Declaration::Def(name, ty) => {
-                        env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
-                    }
-                    Declaration::Alias(name, ty) => {
-                        env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
-                    }
-                    Declaration::Adt(name, adt) => {
-                        env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
+            for (public, decl) in &module.declarations {
+                if public {
+                    match decl {
+                        Declaration::Def(name, ty) => {
+                            env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
+                        }
+                        Declaration::Alias(name, ty) => {
+                            env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
+                        }
+                        Declaration::Adt(name, adt) => {
+                            env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
+                        }
                     }
                 }
             }

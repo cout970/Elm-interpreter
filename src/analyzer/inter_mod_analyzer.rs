@@ -182,7 +182,9 @@ mod test {
         }
 
         let checked = analyze_all_modules(mods).unwrap();
+
         for (path, module) in checked {
+            eval_mod(module);
             println!("Post: {:?}: {:?}", path, module);
         }
     }

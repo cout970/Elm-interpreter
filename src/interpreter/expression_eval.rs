@@ -78,7 +78,6 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 ),
             }
         }
-
         Expr::OpChain(_, exprs, ops) => {
             let tree = create_expr_tree(exprs, ops)
                 .map_err(|e| InvalidExpressionChain(e))?;
@@ -102,10 +101,9 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
         }
         Expr::QualifiedRef(_, path, name) => {
             let full_name = qualified_name(path, name);
-
-            let expr = Expr::Ref((0, 0), full_name);
-
-            eval_expr(env, &expr)?
+            env.find(&full_name)
+                .map(|(val, _)| val)
+                .ok_or(MissingDefinition(name.clone(), env.clone()))?
         }
         Expr::RecordField(_, record, field) => {
             let rec = eval_expr(env, record)?;
@@ -142,7 +140,6 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             return Err(CaseExpressionNonExhaustive(cond_val, branches.map(|(p, _)| p.clone())));
         }
         Expr::Let(..) => Value::Unit, // TODO
-
         Expr::Application(_, fun, input) => {
             let mut fun_value = eval_expr(env, fun)?;
             let input = eval_expr(env, input)?;

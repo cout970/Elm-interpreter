@@ -15,9 +15,9 @@ use util::StringConversion;
 
 pub mod static_env;
 pub mod inter_mod_analyzer;
+pub mod module_analyser;
 mod function_analyzer;
 mod expression_analyzer;
-mod module_analyser;
 mod dependency_sorter;
 mod pattern_analyzer;
 mod type_helper;

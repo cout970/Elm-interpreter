@@ -4,7 +4,6 @@
 // }
 
 extern crate nom;
-
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
@@ -77,7 +76,7 @@ impl Interpreter {
     /// Evaluates a module and it's dependencies in a project
     /// folder is the path to the project containing all the source files
     /// main_file is the name of the first file to load without the .elm extension
-    pub fn eval_files(&mut self, _folder: &str, _main_file: &str) -> Result<(), ErrorWrapper> {
+    pub fn eval_files(&mut self, folder: &str) -> Result<(), ErrorWrapper> {
         unimplemented!()
     }
 
@@ -111,8 +110,9 @@ impl Interpreter {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use ast::Int;
+
+    use super::*;
 
     #[test]
     fn test_eval_expr() {

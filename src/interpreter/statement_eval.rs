@@ -1,17 +1,18 @@
+use std::sync::Arc;
+
 use analyzer::type_check_function;
 use ast::*;
 use ast::Definition;
+use interpreter::builtins::builtin_adt_constructor;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use interpreter::RuntimeError;
-use std::sync::Arc;
 use types::Adt;
 use types::AdtVariant;
 use types::Function;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
-use interpreter::builtins::builtin_adt_constructor;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -64,7 +65,9 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
         Statement::Port(_name, _ty) => {
             // TODO
         }
-        Statement::Infix(_, _, _, _) => {}
+        Statement::Infix(_, _, _, _) => {
+            // TODO
+        }
         Statement::Def(def) => {
             let def_ty = type_check_function(&mut env.types, def)
                 .map_err(|e| RuntimeError::IncorrectDefType(e))?;
@@ -92,8 +95,9 @@ mod tests {
     use analyzer::type_of_value;
     use parsers::from_code;
     use parsers::from_code_stm;
-    use super::*;
     use util::StringConversion;
+
+    use super::*;
 
     fn formatted(env: &mut DynamicEnv, stm: &Statement) -> String {
         let result = eval_stm(env, stm);
