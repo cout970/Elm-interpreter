@@ -1,18 +1,22 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use analyzer::dependency_sorter::sort_statements;
 use analyzer::function_analyzer::analyze_function;
-use analyzer::inter_mod_analyzer::Declaration;
-use analyzer::inter_mod_analyzer::Declarations;
-use analyzer::inter_mod_analyzer::InterModuleInfo;
 use analyzer::inter_mod_analyzer::ModuleInfo;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use ast::*;
 use core::register_core;
+use errors::ElmError;
 use errors::ErrorWrapper;
+use errors::LoaderError;
 use interpreter::RuntimeError;
+use loader::Declaration;
+use loader::LoadedModule;
+use loader::ModuleLoader;
+use source::SourceCode;
 use types::*;
 use util::build_fun_type;
 use util::create_vec_inv;
@@ -20,130 +24,52 @@ use util::get_fun_return;
 use util::qualified_name;
 use util::visitors::type_visitor;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct CheckedModule {
-    pub info: ModuleInfo,
-    pub env: StaticEnv,
-    pub declarations: Vec<(bool, Declaration)>,
-}
+pub fn analyze_module_imports(modules: &HashMap<String, LoadedModule>, env: &mut StaticEnv, imports: &Vec<Import>) -> Result<(), ElmError> {
+    for import in imports {
+        let name = import.path.join(".");
+        let module = modules.get(&name)
+            .ok_or(ElmError::Loader { info: LoaderError::MissingImport { name } })?;
 
-pub fn analyze_module(info: &InterModuleInfo, module_info: ModuleInfo) -> Result<CheckedModule, ErrorWrapper> {
-    let header = module_info.ast.header.clone().unwrap_or_else(get_default_header);
+        match (&import.alias, &import.exposing) {
+            (None, Some(me)) => {
+                let decls = match me {
+                    ModuleExposing::Just(exp) => {
+                        get_exposed_decls(&module.declarations, exp)
+                            .map_err(|e| ElmError::Interpreter { info: e })?
+                    },
+                    ModuleExposing::All => {
+                        module.declarations.clone()
+                    },
+                };
 
-    let mut env = load_import_dependencies(info, &module_info.ast)
-        .map_err(|e| ErrorWrapper::RuntimeError(e))?;
-
-    let all_decls = analyze_module_declarations(&mut env, &module_info.ast.statements)
-        .map_err(|e| ErrorWrapper::TypeError(module_info.code.clone(), e))?;
-
-    let declarations = match header.exposing {
-        ModuleExposing::Just(exposed) => {
-            get_exposed_decls(&all_decls, &exposed)
-                .map_err(|e| ErrorWrapper::RuntimeError(e))?
-                .into_iter().map(|d| (true, d))
-                .collect::<Vec<_>>()
+                for decl in &decls {
+                    match decl {
+                        Declaration::Def(name, ty) => env.add_definition(name, ty.clone()),
+                        Declaration::Alias(name, ty) => env.add_alias(name, ty.clone()),
+                        Declaration::Adt(name, adt) => env.add_adt(name, adt.clone()),
+                    }
+                }
+            },
+            (Some(it), None) => {
+                // TODO
+                unimplemented!()
+            },
+            _ => {
+                panic!("Invalid combination of alias and exposing for import: {:?}", import)
+            }
         }
-        ModuleExposing::All => {
-            all_decls.into_iter()
-                .map(|d| (true, d))
-                .collect::<Vec<_>>()
-        }
-    };
-
-    Ok(CheckedModule {
-        info: module_info,
-        env,
-        declarations,
-    })
-}
-
-fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<StaticEnv, RuntimeError> {
-    let mut env = StaticEnv::new();
-    register_core(&mut env);
-
-
-//    for import in &module.imports {
-//        let module = info.get(&import.path)
-//            .ok_or_else(|| {
-//                println!("info: {:?}", info.keys());
-//                RuntimeError::MissingModule(import.path.clone())
-//            })?;
-//
-//        if let Some(alias) = &import.alias {
-//            for (public, decl) in &module.declarations {
-//                if *public {
-//                    match decl {
-//                        Declaration::Def(name, ty) => {
-//                            env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
-//                        }
-//                        Declaration::Alias(name, ty) => {
-//                            env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
-//                        }
-//                        Declaration::Adt(name, adt) => {
-//                            env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        if let Some(exposing) = &import.exposing {
-//            let exposed = match exposing {
-//                ModuleExposing::Just(exposed) => {
-//                    get_exposed_decls(&module.exposing, exposed)?
-//                }
-//                ModuleExposing::All => {
-//                    module.exposing.clone()
-//                }
-//            };
-//
-//            for decl in &exposed {
-//                match decl {
-//                    Declaration::Def(name, ty) => {
-//                        env.add_definition(name, ty.clone());
-//                    }
-//                    Declaration::Alias(name, ty) => {
-//                        env.add_alias(name, ty.clone());
-//                    }
-//                    Declaration::Adt(name, adt) => {
-//                        env.add_adt(name, adt.clone());
-//                    }
-//                }
-//            }
-//        }
-//
-//        if import.alias.is_none() {
-//            for decl in &module.exposing {
-//                match &decl {
-//                    Declaration::Def(name, ty) => {
-//                        env.add_definition(&qualified_name(&import.path, name), ty.clone());
-//                    }
-//                    Declaration::Alias(name, ty) => {
-//                        env.add_alias(&qualified_name(&import.path, name), ty.clone());
-//                    }
-//                    Declaration::Adt(name, adt) => {
-//                        env.add_adt(&qualified_name(&import.path, name), adt.clone());
-//                    }
-//                }
-//            }
-//        }
-//    }
-
-    Ok(env)
-}
-
-fn get_default_header() -> ModuleHeader {
-    ModuleHeader { name: "Main".to_owned(), exposing: ModuleExposing::All }
+    }
+    Ok(())
 }
 
 /* The environment must contain all the imports resolved */
-fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>) -> Result<Declarations, TypeError> {
+pub fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>) -> Result<Vec<Declaration>, TypeError> {
     let statements = sort_statements(statements)
         .map_err(|e| {
             TypeError::CyclicStatementDependency(e)
         })?;
 
-    let mut declarations = Declarations::new();
+    let mut declarations = vec![];
     let mut errors = vec![];
 
     for stm in statements {
@@ -179,7 +105,11 @@ fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>)
     }
 }
 
-fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Declarations, TypeError> {
+fn get_default_header() -> ModuleHeader {
+    ModuleHeader { name: "Main".to_owned(), exposing: ModuleExposing::All }
+}
+
+fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Vec<Declaration>, TypeError> {
     let decls = match stm {
         Statement::Alias(name, vars, ty) => {
             println!("analyze_type_alias: {}", name);
@@ -217,13 +147,13 @@ fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Declaration
     Ok(decls)
 }
 
-fn analyze_port(name: &str, ty: &Type) -> Result<Declarations, TypeError> {
+fn analyze_port(name: &str, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
     Ok(vec![
         Declaration::Def(name.to_owned(), ty.clone())
     ])
 }
 
-fn analyze_adt(name: &str, decl_vars: &Vec<String>, variants: &Vec<(String, Vec<Type>)>) -> Result<Declarations, TypeError> {
+fn analyze_adt(name: &str, decl_vars: &Vec<String>, variants: &Vec<(String, Vec<Type>)>) -> Result<Vec<Declaration>, TypeError> {
     let vars: Vec<Type> = decl_vars.iter()
         .map(|v| Type::Var(v.to_owned()))
         .collect();
@@ -255,7 +185,7 @@ fn analyze_adt(name: &str, decl_vars: &Vec<String>, variants: &Vec<(String, Vec<
     Ok(decls)
 }
 
-fn analyze_type_alias(name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<Declarations, TypeError> {
+fn analyze_type_alias(name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
     let mut used_vars: HashSet<String> = HashSet::new();
 
     type_visitor(&mut used_vars, ty, &|set, node| {
@@ -283,7 +213,7 @@ fn analyze_type_alias(name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<
     }
 
 
-    let mut decls: Declarations = vec![
+    let mut decls: Vec<Declaration> = vec![
         Declaration::Alias(name.to_owned(), ty.clone())
     ];
 
@@ -301,8 +231,8 @@ fn analyze_type_alias(name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<
     Ok(decls)
 }
 
-fn get_exposed_decls(all_decls: &Declarations, exposed: &Vec<Exposing>) -> Result<Declarations, RuntimeError> {
-    let mut exposed_decls = Declarations::new();
+fn get_exposed_decls(all_decls: &Vec<Declaration>, exposed: &Vec<Exposing>) -> Result<Vec<Declaration>, RuntimeError> {
+    let mut exposed_decls = Vec::new();
 
     for exp in exposed.iter() {
         match exp {

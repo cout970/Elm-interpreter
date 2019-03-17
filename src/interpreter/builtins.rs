@@ -86,6 +86,10 @@ pub fn builtin_int_div(args: &Vec<Value>) -> Result<Value, RuntimeError> {
     Ok(Value::Int(int_of(&args[0])? / int_of(&args[1])?))
 }
 
+pub fn builtin_string_append(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    Ok(Value::String(format!("{}{}", string_of(&args[0])?, string_of(&args[1])?)))
+}
+
 // Combinators
 
 pub fn builtin_id(args: &Vec<Value>) -> Result<Value, RuntimeError> {
@@ -149,6 +153,15 @@ fn int_of(value: &Value) -> Result<i32, RuntimeError> {
         Value::Int(a) => Ok(*a),
         _ => {
             Err(ExpectedInt(value.clone()))
+        }
+    }
+}
+
+fn string_of(value: &Value) -> Result<String, RuntimeError> {
+    match value {
+        Value::String(string) => Ok(string.clone()),
+        _ => {
+            Err(ExpectedString(value.clone()))
         }
     }
 }

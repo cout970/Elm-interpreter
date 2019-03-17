@@ -1,14 +1,15 @@
-use analyzer::static_env::StaticEnv;
 use std::collections::HashMap;
+
+use analyzer::static_env::StaticEnv;
+use ast::Type;
+use interpreter::builtins::*;
 use types::FunCall;
 use types::FunId;
-use ast::Type;
 use types::Value;
 use util::build_fun_type;
 use util::builtin_fun_of;
 use util::OptionExt;
 use util::StringConversion;
-use interpreter::builtins::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicEnv {
@@ -79,6 +80,9 @@ impl DynamicEnv {
         let float_ty = build_fun_type(&vec![
             Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![])
         ]);
+        let string_ty = build_fun_type(&vec![
+            Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![])
+        ]);
 
         let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_add), num_ty.clone());
         env.add("+", fun, num_ty.clone());
@@ -90,6 +94,8 @@ impl DynamicEnv {
         env.add("/", fun, float_ty.clone());
         let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_int_div), int_ty.clone());
         env.add("//", fun, int_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_string_append), string_ty.clone());
+        env.add("++", fun, string_ty.clone());
 
         env
     }

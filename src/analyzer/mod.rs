@@ -56,6 +56,7 @@ pub fn type_check_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type
     analyze_function(env, fun)
 }
 
+
 pub fn type_of_value(value: &Value) -> Type {
     match value {
         Value::Unit => {
@@ -118,16 +119,14 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 
 #[cfg(test)]
 mod tests {
-    use analyzer::inter_mod_analyzer::InterModuleInfo;
     use analyzer::inter_mod_analyzer::ModuleInfo;
-    use analyzer::module_analyser::analyze_module;
     use parsers::from_code_mod;
 
     #[test]
     #[ignore]
     fn type_check1() {
         let ast = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
-        let info = InterModuleInfo::new();
+//        let info = InterModuleInfo::new();
 
         let module_info = ModuleInfo {
             path: vec![],
@@ -136,8 +135,8 @@ mod tests {
         };
 
 
-        let checked = analyze_module(&info, module_info).expect("Type error");
-        println!("{:?}", checked);
-        panic!();
+//        let checked = analyze_module(&info, module_info).expect("Type error");
+//        println!("{:?}", checked);
+//        panic!();
     }
 }

@@ -1,7 +1,8 @@
-use ast::Float;
-use ast::Int;
 use std::any::Any;
 use std::collections::HashMap;
+
+use ast::Float;
+use ast::Int;
 use types::Value;
 
 pub fn convert_to_rust(value: &Value) -> Option<Box<Any>> {

@@ -3,15 +3,34 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::fmt::Write;
+use std::sync::Arc;
 
-use analyzer::inter_mod_analyzer::declaration_name;
 use analyzer::TypeError;
 use ast::Span;
 use interpreter::RuntimeError;
+use loader::declaration_name;
 use parsers::ParseError;
 use rust_interop::InteropError;
+use source::SourceCode;
 use tokenizer::LexicalError;
 use util::format::print_vec;
+
+#[derive(Clone, Debug)]
+pub enum ElmError {
+    Tokenizer { code: SourceCode, info: LexicalError },
+    Parser { code: SourceCode, info: ParseError },
+    Analyser { info: TypeError },
+    Interpreter { info: RuntimeError },
+    Loader { info: LoaderError },
+}
+
+#[derive(Clone, Debug)]
+pub enum LoaderError {
+    IO { error: Arc<std::io::Error> },
+    MissingDependencies { dependencies: Vec<String> },
+    CyclicDependency { cycle: Vec<String> },
+    MissingImport { name: String },
+}
 
 #[derive(PartialEq, Clone)]
 pub enum ErrorWrapper {

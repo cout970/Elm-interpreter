@@ -9,6 +9,7 @@ pub mod name_sequence;
 pub mod format;
 pub mod expression_fold;
 pub mod visitors;
+pub mod sort;
 
 #[cfg(test)]
 macro_rules! assert_ok {

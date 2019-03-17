@@ -24,4 +24,12 @@ impl SourceCode {
     pub fn chars(&self) -> Chars {
         self.code.chars()
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.code.as_bytes()
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.code.as_str()
+    }
 }

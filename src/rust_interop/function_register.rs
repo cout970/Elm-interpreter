@@ -3,8 +3,9 @@
  * which has MIT/Apache-2.0 license
  */
 
-use std::any::TypeId;
 use std::any::Any;
+use std::any::TypeId;
+
 use rust_interop::FnAny;
 use rust_interop::InteropError;
 

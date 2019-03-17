@@ -1,6 +1,7 @@
-use rust_interop::InteropError;
 use std::any::Any;
 use std::any::TypeId;
+
+use rust_interop::InteropError;
 
 pub trait FunctionCall {
     fn call_fn_raw(&mut self, name: &str, args: Vec<&mut Any>, arg_types: Vec<TypeId>) -> Result<Box<Any>, InteropError>;

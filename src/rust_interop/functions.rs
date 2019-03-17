@@ -3,11 +3,11 @@
  * which has MIT/Apache-2.0 license
  */
 
+use rust_interop::FnAny;
+use rust_interop::InteropError;
 use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;
-use rust_interop::InteropError;
-use rust_interop::FnAny;
 
 //#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 //pub struct FnSpec {

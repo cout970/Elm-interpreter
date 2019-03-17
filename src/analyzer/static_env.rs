@@ -1,12 +1,13 @@
-use ast::Type;
 use std::collections::HashMap;
-use types::Adt;
-use util::name_sequence::NameSequence;
-use std::sync::Arc;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
+use std::sync::Arc;
+
+use ast::Type;
+use types::Adt;
 use types::AdtVariant;
+use util::name_sequence::NameSequence;
 
 #[derive(Clone, PartialEq)]
 pub struct StaticEnv {

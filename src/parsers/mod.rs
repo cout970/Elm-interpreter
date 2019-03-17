@@ -3,7 +3,9 @@ use ast::Span;
 use errors::ErrorWrapper;
 use parsers::input::Input;
 use parsers::util::complete;
+use source::SourceCode;
 use tokenizer::Token;
+use tokenizer::TokenInfo;
 use tokenizer::tokenize;
 
 mod input;
@@ -27,6 +29,12 @@ pub enum ParseError {
     ExpectedIndentation         { span: Span, found: Token },
     UnmatchedToken              { span: Span, found: Token, options: Vec<Token> },
     //@formatter:on
+}
+
+pub fn parse_mod(code: &SourceCode, tk: Vec<TokenInfo>) -> Result<Module, ParseError> {
+    let input = Input::new(code.as_str().to_string(), tk);
+
+    complete(&module::parse_module, input)
 }
 
 /// Generates an abstract syntax tree from an elm expression

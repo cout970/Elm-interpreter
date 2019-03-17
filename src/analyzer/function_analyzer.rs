@@ -97,7 +97,7 @@ pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, T
                 Ok(build_fun_type(&final_arg_types))
             }
             Err(e) => {
-                println!("Error in function: '{}'", name);
+                println!("Error in function: '{}', error: {:?}", name, e);
                 Err(e)
             }
         }

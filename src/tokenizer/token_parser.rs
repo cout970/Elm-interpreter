@@ -147,9 +147,12 @@ named!(pub read_token_forced<Token>, alt!(
 
 fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
     let (output, binop): (&[u8], String) = basic_binop_string(input)?;
+
+    // There is a special case with the prefix minus operator
     if binop == "-" && !is_space(output[0]) {
         return Ok((output, PrefixMinus));
     }
+
     let op = from_binop(binop);
     Ok((output, op))
 }

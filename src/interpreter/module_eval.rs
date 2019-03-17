@@ -1,7 +1,14 @@
-use analyzer::module_analyser::CheckedModule;
 use interpreter::dynamic_env::DynamicEnv;
+use interpreter::eval_statement;
 use interpreter::RuntimeError;
+use interpreter::statement_eval::eval_stm;
+use loader::LoadedModule;
 
-fn eval_mod(env: &mut DynamicEnv, module: &CheckedModule) -> Result<(), RuntimeError> {
-    unimplemented!()
+pub fn eval_mod(env: &mut DynamicEnv, module: &LoadedModule) -> Result<(), RuntimeError> {
+
+    // TODO evaluate dependencies
+    for stm in &module.ast.statements {
+        eval_stm(env, stm)?;
+    }
+    Ok(())
 }

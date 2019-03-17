@@ -1,15 +1,16 @@
+use std::cell::RefCell;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem::transmute;
 use std::ops::Deref;
 use std::sync::Arc;
-use ast::Type;
-use ast::Pattern;
+
 use ast::Expr;
-use ast::Int;
 use ast::Float;
+use ast::Int;
+use ast::Pattern;
+use ast::Type;
 use errors::ErrorWrapper;
-use std::cell::RefCell;
 
 // Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]

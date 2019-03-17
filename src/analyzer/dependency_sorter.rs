@@ -15,6 +15,7 @@ use ast::Pattern;
 use ast::Statement;
 use ast::Type;
 use util::qualified_name;
+use util::sort::get_acyclic_dependency_graph;
 use util::visitors::expr_visitor_block;
 use util::visitors::pattern_visitor;
 use util::visitors::type_visitor;
@@ -261,52 +262,6 @@ fn get_provided_names(stm: &Statement) -> Vec<String> {
         Statement::Def(def) => { vec![def.name.to_owned()] }
         Statement::Infix(_, _, op, _) => { vec![op.to_owned()] }
     }
-}
-
-fn get_acyclic_dependency_graph<'a, T: Clone + Eq + Hash + Debug>(graph: HashMap<&'a T, Vec<&'a T>>) -> Result<Vec<&'a T>, Vec<&'a T>> {
-    let mut res: Vec<&T> = Vec::new();
-    let mut graph = graph;
-
-    while !graph.is_empty() {
-        let leaf = graph.keys().find(|key| graph[**key].is_empty()).map(|i| *i);
-
-        match leaf {
-            Some(leaf) => {
-                graph.iter_mut().for_each(|(_, deps)| {
-                    while let Some(pos) = deps.iter().position(|x| *x == leaf) {
-                        deps.remove(pos);
-                    }
-                });
-
-                graph.
-                    remove(leaf);
-                res.
-                    push(leaf);
-            }
-            None => {
-                // Cycle detected
-                let mut cycle: Vec<&T> = vec![];
-
-                let mut current: &T = *graph.keys().next().unwrap();
-                cycle.push(current);
-
-                loop {
-                    let next = graph[current].first().unwrap();
-                    if cycle.contains(next) {
-                        cycle.push(next);
-                        break;
-                    } else {
-                        cycle.push(next);
-                        current = next;
-                    }
-                }
-
-                return Err(cycle);
-            }
-        }
-    }
-
-    Ok(res)
 }
 
 #[cfg(test)]

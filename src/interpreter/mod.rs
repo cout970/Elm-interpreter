@@ -1,11 +1,13 @@
-use analyzer::inter_mod_analyzer::Declaration;
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::TypeError;
 use ast::Pattern;
 use errors::ErrorWrapper;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
+use interpreter::module_eval::eval_mod;
 use interpreter::statement_eval::eval_stm;
+use loader::Declaration;
+use loader::ModuleLoader;
 use parsers::parse_expression;
 use parsers::parse_statement;
 use types::Value;
@@ -35,6 +37,7 @@ pub enum RuntimeError {
     ExpectedList(Value),
     ExpectedFloat(Value),
     ExpectedInt(Value),
+    ExpectedString(Value),
     ExpectedNumber(Value),
     ExpectedNonEmptyList(Value),
     UnknownOperatorPattern(String),
@@ -60,5 +63,13 @@ pub fn eval_expression(env: &mut DynamicEnv, code: &str) -> Result<Value, ErrorW
     let expr = parse_expression(code)?;
 
     eval_expr(env, &expr)
+        .map_err(|e| ErrorWrapper::RuntimeError(e))
+}
+
+pub fn eval_module(env: &mut DynamicEnv, loader: &ModuleLoader, name: &str) -> Result<(), ErrorWrapper> {
+    let module = loader.get_module(name)
+        .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::MissingModule(vec![name.to_string()])))?;
+
+    eval_mod(env, module)
         .map_err(|e| ErrorWrapper::RuntimeError(e))
 }
