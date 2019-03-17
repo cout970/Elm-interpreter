@@ -61,72 +61,73 @@ fn load_import_dependencies(info: &InterModuleInfo, module: &Module) -> Result<S
     let mut env = StaticEnv::new();
     register_core(&mut env);
 
-    for import in &module.imports {
-        let module = info.get(&import.path)
-            .ok_or_else(|| {
-                println!("info: {:?}", info.keys());
-                RuntimeError::MissingModule(import.path.clone())
-            })?;
 
-        if let Some(alias) = &import.alias {
-            for (public, decl) in &module.declarations {
-                if public {
-                    match decl {
-                        Declaration::Def(name, ty) => {
-                            env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
-                        }
-                        Declaration::Alias(name, ty) => {
-                            env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
-                        }
-                        Declaration::Adt(name, adt) => {
-                            env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        if let Some(exposing) = &import.exposing {
-            let exposed = match exposing {
-                ModuleExposing::Just(exposed) => {
-                    get_exposed_decls(&module.exposing, exposed)?
-                }
-                ModuleExposing::All => {
-                    module.exposing.clone()
-                }
-            };
-
-            for decl in &exposed {
-                match decl {
-                    Declaration::Def(name, ty) => {
-                        env.add_definition(name, ty.clone());
-                    }
-                    Declaration::Alias(name, ty) => {
-                        env.add_alias(name, ty.clone());
-                    }
-                    Declaration::Adt(name, adt) => {
-                        env.add_adt(name, adt.clone());
-                    }
-                }
-            }
-        }
-
-        if import.alias.is_none() {
-            for decl in &module.exposing {
-                match decl {
-                    Declaration::Def(name, ty) => {
-                        env.add_definition(&qualified_name(&import.path, name), ty.clone());
-                    }
-                    Declaration::Alias(name, ty) => {
-                        env.add_alias(&qualified_name(&import.path, name), ty.clone());
-                    }
-                    Declaration::Adt(name, adt) => {
-                        env.add_adt(&qualified_name(&import.path, name), adt.clone());
-                    }
-                }
-            }
-        }
-    }
+//    for import in &module.imports {
+//        let module = info.get(&import.path)
+//            .ok_or_else(|| {
+//                println!("info: {:?}", info.keys());
+//                RuntimeError::MissingModule(import.path.clone())
+//            })?;
+//
+//        if let Some(alias) = &import.alias {
+//            for (public, decl) in &module.declarations {
+//                if *public {
+//                    match decl {
+//                        Declaration::Def(name, ty) => {
+//                            env.add_definition(&qualified_name(&[alias.clone()], name), ty.clone());
+//                        }
+//                        Declaration::Alias(name, ty) => {
+//                            env.add_alias(&qualified_name(&[alias.clone()], name), ty.clone());
+//                        }
+//                        Declaration::Adt(name, adt) => {
+//                            env.add_adt(&qualified_name(&[alias.clone()], name), adt.clone());
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//
+//        if let Some(exposing) = &import.exposing {
+//            let exposed = match exposing {
+//                ModuleExposing::Just(exposed) => {
+//                    get_exposed_decls(&module.exposing, exposed)?
+//                }
+//                ModuleExposing::All => {
+//                    module.exposing.clone()
+//                }
+//            };
+//
+//            for decl in &exposed {
+//                match decl {
+//                    Declaration::Def(name, ty) => {
+//                        env.add_definition(name, ty.clone());
+//                    }
+//                    Declaration::Alias(name, ty) => {
+//                        env.add_alias(name, ty.clone());
+//                    }
+//                    Declaration::Adt(name, adt) => {
+//                        env.add_adt(name, adt.clone());
+//                    }
+//                }
+//            }
+//        }
+//
+//        if import.alias.is_none() {
+//            for decl in &module.exposing {
+//                match &decl {
+//                    Declaration::Def(name, ty) => {
+//                        env.add_definition(&qualified_name(&import.path, name), ty.clone());
+//                    }
+//                    Declaration::Alias(name, ty) => {
+//                        env.add_alias(&qualified_name(&import.path, name), ty.clone());
+//                    }
+//                    Declaration::Adt(name, adt) => {
+//                        env.add_adt(&qualified_name(&import.path, name), adt.clone());
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     Ok(env)
 }

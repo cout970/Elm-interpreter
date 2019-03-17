@@ -242,7 +242,13 @@ pub fn expect_upper_chain(input: Input) -> Result<(String, Input), ParseError> {
 
 pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
-    let (t, i) = func(input)?;
+    let (t, mut i): (T, Input) = func(input)?;
+
+    // Skip empty lines at the end
+    while let Token::Indent(_) = i.read() {
+        i = i.next();
+    }
+
     expect(Token::Eof, i)?;
     Ok(t)
 }

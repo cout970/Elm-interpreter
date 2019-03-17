@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
@@ -56,6 +57,34 @@ pub fn analyze_all_modules(modules: Vec<ModuleInfo>) -> Result<InterModuleInfo, 
 
     Ok(loaded)
 }
+
+//pub fn load_all_files(base: ModulePath, path: String) -> Result<Vec<ModuleInfo>, ErrorWrapper> {
+//    let mut visited = HashSet::new();
+//    let mut to_visit = vec![(base, path)];
+//    let mut infos = vec![];
+//
+//    while let Some((base, path)) = to_visit.pop() {
+//        let entries = fs::read_dir(path).unwrap();
+//        for entry in entries {
+//            let entry = entry.unwrap();
+//
+//            if entry.file_type().unwrap().is_file() {
+//                let file = File::open(entry.path()).expect("Cannot open file");
+//                let mut module_code = String::new();
+//                BufReader::new(file).read_to_string(&mut module_code).unwrap();
+//
+//                let module = parse_module(&module_code)?;
+//                infos.push(ModuleInfo { path: base, ast: module, code: module_code });
+//            } else if entry.file_type().unwrap().is_dir() {
+//                let mut new_base = base.clone();
+//                new_base.push(String::from(entry.file_name().to_string_lossy()));
+//                to_visit.push((new_base, String::from(entry.path().to_string_lossy())));
+//            }
+//        }
+//    }
+//
+//    Ok(vec![])
+//}
 
 pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<ModuleInfo>, ErrorWrapper>
     where F: Fn(&ModulePath) -> Result<String, ErrorWrapper> {

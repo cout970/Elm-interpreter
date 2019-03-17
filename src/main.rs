@@ -38,6 +38,7 @@ fn repl() {
                 }
             }
             Err(_) => {
+                // Invalid statement, try expression
                 let result = engine.eval_expr(&line);
 
                 match result {
@@ -72,6 +73,7 @@ fn read_terminal_line() -> Result<String, ()> {
             break;
         }
 
+        // Read multiline code
         line.pop().unwrap();
         line.pop().unwrap();
         line.push('\n');
