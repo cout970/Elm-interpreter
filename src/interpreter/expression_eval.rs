@@ -11,6 +11,7 @@ use interpreter::RuntimeError::*;
 use rust_interop::call_function;
 use types::FunCall;
 use types::Function;
+use types::next_fun_id;
 use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
@@ -76,7 +77,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                 args: vec![],
                 arg_count: patt.len() as u32,
                 fun: Arc::new(
-                    Function::Expr(env.next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
+                    Function::Expr(next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
                 ),
             }
         }
@@ -127,7 +128,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![Value::String(field.to_owned())],
-                fun: Arc::new(Function::External(env.next_fun_id(), builtin_record_access(), ty)),
+                fun: Arc::new(Function::External(next_fun_id(), builtin_record_access(), ty)),
                 arg_count: 1,
             }
         }
@@ -422,9 +423,9 @@ mod tests {
                 arg_count: 1,
                 args: vec![],
                 fun: Arc::new(Function::Expr(
-                    0,
+                    1,
                     vec![Pattern::Var("x".s())],
-                    Expr::Literal((0, 0), Literal::Int(1)),
+                    Expr::Literal((6, 7), Literal::Int(1)),
                     Type::Fun(
                         Box::new(Type::Var("a".s())),
                         Box::new(Type::Var("number".s())),
@@ -452,7 +453,7 @@ mod tests {
             Box::new(Type::Unit),
         );
 
-        let fun = builtin_fun_of(env.next_fun_id(), builtin_unit_fun(), ty.clone());
+        let fun = builtin_fun_of(builtin_unit_fun(), ty.clone());
         env.add("fun", fun, ty);
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Unit));

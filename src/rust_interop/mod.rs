@@ -14,6 +14,7 @@ use rust_interop::conversions::convert_to_rust;
 use rust_interop::function_register::FunctionRegister;
 use types::ExternalFunc;
 use types::Function;
+use types::next_fun_id;
 use types::Value;
 use types::WrapperFunc;
 use util::build_fun_type;
@@ -72,7 +73,7 @@ impl FunctionRegister for Interpreter {
             .map_err(|e| ErrorWrapper::InteropError(e))?;
 
         let function = Arc::new(Function::Wrapper(
-            self.env.next_fun_id(),
+            next_fun_id(),
             WrapperFunc { name: name.to_string(), fun: boxed },
             ty.clone(),
         ));

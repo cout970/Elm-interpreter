@@ -82,11 +82,11 @@ impl<A: Clone> VecExt<A> for Vec<A> {
     }
 }
 
-pub fn builtin_fun_of(fun_id: FunId, func: ExternalFunc, ty: Type) -> Value {
+pub fn builtin_fun_of(func: ExternalFunc, ty: Type) -> Value {
     Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
-        fun: Arc::new(Function::External(fun_id, func, ty)),
+        fun: Arc::new(Function::External(next_fun_id(), func, ty)),
     }
 }
 

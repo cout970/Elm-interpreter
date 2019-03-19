@@ -16,7 +16,6 @@ use util::StringConversion;
 pub struct DynamicEnv {
     pub types: StaticEnv,
     values: Vec<HashMap<String, Value>>,
-    next_fun_id: FunId,
     cache: HashMap<FunCall, Value>,
 }
 
@@ -25,15 +24,8 @@ impl DynamicEnv {
         DynamicEnv {
             types: StaticEnv::new(),
             values: vec![HashMap::new()],
-            next_fun_id: 0,
             cache: HashMap::new(),
         }
-    }
-
-    pub fn next_fun_id(&mut self) -> FunId {
-        let old = self.next_fun_id;
-        self.next_fun_id += 1;
-        old
     }
 
     pub fn add(&mut self, name: &str, val: Value, ty: Type) {
@@ -85,37 +77,37 @@ impl DynamicEnv {
             Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![])
         ]);
 
-        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+        let fun = builtin_fun_of(ExternalFunc {
             name: "builtin_add".to_string(),
             fun: builtin_add,
         }, num_ty.clone());
         env.add("+", fun, num_ty.clone());
 
-        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+        let fun = builtin_fun_of(ExternalFunc {
             name: "builtin_sub".to_string(),
             fun: builtin_sub,
         }, num_ty.clone());
         env.add("-", fun, num_ty.clone());
 
-        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+        let fun = builtin_fun_of(ExternalFunc {
             name: "builtin_times".to_string(),
             fun: builtin_times,
         }, num_ty.clone());
         env.add("*", fun, num_ty.clone());
 
-        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+        let fun = builtin_fun_of(ExternalFunc {
             name: "builtin_float_div".to_string(),
             fun: builtin_float_div,
         }, float_ty.clone());
         env.add("/", fun, float_ty.clone());
 
-        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+        let fun = builtin_fun_of(ExternalFunc {
             name: "builtin_int_div".to_string(),
             fun: builtin_int_div,
         }, int_ty.clone());
         env.add("//", fun, int_ty.clone());
 
-        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+        let fun = builtin_fun_of(ExternalFunc {
             name: "builtin_string_append".to_string(),
             fun: builtin_string_append,
         }, string_ty.clone());

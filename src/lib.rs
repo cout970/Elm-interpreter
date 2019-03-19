@@ -18,6 +18,7 @@ use interpreter::eval_expression;
 use interpreter::eval_statement;
 use types::ExternalFunc;
 use types::Function;
+use types::next_fun_id;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
@@ -96,7 +97,7 @@ impl Interpreter {
         let function_type = build_fun_type(&create_vec_inv(args, ret));
 
         let function = Arc::new(Function::External(
-            self.env.next_fun_id(),
+            next_fun_id(),
             func_ref,
             function_type.clone(),
         ));

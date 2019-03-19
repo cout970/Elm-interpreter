@@ -4,6 +4,8 @@ use std::hash::Hasher;
 use std::mem::transmute;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use ast::Expr;
 use ast::Float;
@@ -56,7 +58,15 @@ pub struct FunCall {
 }
 
 /// Unique id for fast comparison between functions
-pub type FunId = u32;
+pub type FunId = usize;
+
+/// Global atomic incremented next free function id
+static FUN_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+/// Retrieves and increments the next free function id
+pub fn next_fun_id() -> FunId {
+    FUN_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 pub struct ExternalFunc {
     pub name: String,
@@ -138,9 +148,9 @@ impl Hash for Value {
                 args.hash(state);
 
                 match fun.deref() {
-                    Function::External(id, _, _) => { state.write_u32(*id) }
-                    Function::Wrapper(id, _, _) => { state.write_u32(*id) }
-                    Function::Expr(id, _, _, _) => { state.write_u32(*id) }
+                    Function::External(id, _, _) => { state.write_usize(*id) }
+                    Function::Wrapper(id, _, _) => { state.write_usize(*id) }
+                    Function::Expr(id, _, _, _) => { state.write_usize(*id) }
                 }
             }
         }
