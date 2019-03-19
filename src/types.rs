@@ -11,6 +11,9 @@ use ast::Int;
 use ast::Pattern;
 use ast::Type;
 use errors::ErrorWrapper;
+use Interpreter;
+use interpreter::RuntimeError;
+use rust_interop::FnAny;
 
 // Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]
@@ -55,18 +58,21 @@ pub struct FunCall {
 /// Unique id for fast comparison between functions
 pub type FunId = u32;
 
-/// Interface for functions not implemented in elm
-pub trait BuiltinFunction {
-    fn call_function(&mut self, args: &Vec<Value>) -> Result<Value, ErrorWrapper>;
+pub struct ExternalFunc {
+    pub name: String,
+    pub fun: fn(&mut Interpreter, &Vec<Value>) -> Result<Value, RuntimeError>,
 }
 
-// Reference to function or closure implemented in Rust that can be called from elm
-pub type BuiltinFunctionRef = RefCell<Box<dyn BuiltinFunction>>;
+pub struct WrapperFunc {
+    pub name: String,
+    pub fun: Box<FnAny>,
+}
 
 /// Represents a function that can be a definition or builtin
 #[derive(Debug)]
 pub enum Function {
-    Builtin(FunId, BuiltinFunctionRef, Type),
+    External(FunId, ExternalFunc, Type),
+    Wrapper(FunId, WrapperFunc, Type),
     Expr(FunId, Vec<Pattern>, Expr, Type),
 }
 
@@ -91,12 +97,14 @@ impl Eq for Function {}
 impl PartialEq for Function {
     fn eq(&self, other: &Function) -> bool {
         let self_id = match self {
-            Function::Builtin(id, _, _) => { *id }
+            Function::External(id, _, _) => { *id }
+            Function::Wrapper(id, _, _) => { *id }
             Function::Expr(id, _, _, _) => { *id }
         };
 
         let other_id = match other {
-            Function::Builtin(id, _, _) => { *id }
+            Function::External(id, _, _) => { *id }
+            Function::Wrapper(id, _, _) => { *id }
             Function::Expr(id, _, _, _) => { *id }
         };
 
@@ -130,7 +138,8 @@ impl Hash for Value {
                 args.hash(state);
 
                 match fun.deref() {
-                    Function::Builtin(id, _, _) => { state.write_u32(*id) }
+                    Function::External(id, _, _) => { state.write_u32(*id) }
+                    Function::Wrapper(id, _, _) => { state.write_u32(*id) }
                     Function::Expr(id, _, _, _) => { state.write_u32(*id) }
                 }
             }

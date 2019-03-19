@@ -3,10 +3,12 @@ use std::sync::Arc;
 use analyzer::type_check_expression;
 use analyzer::type_of_value;
 use ast::*;
+use Interpreter;
 use interpreter::builtins::builtin_record_access;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
+use rust_interop::call_function;
 use types::FunCall;
 use types::Function;
 use types::Value;
@@ -125,7 +127,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
             Value::Fun {
                 args: vec![Value::String(field.to_owned())],
-                fun: Arc::new(Function::Builtin(env.next_fun_id(), builtin_record_access(), ty)),
+                fun: Arc::new(Function::External(env.next_fun_id(), builtin_record_access(), ty)),
                 arg_count: 1,
             }
         }
@@ -181,9 +183,11 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 
 fn exec_fun(env: &mut DynamicEnv, fun: &Function, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     match fun {
-        Function::Builtin(_, func, _) => {
-            let mut b = func.borrow_mut();
-            b.call_function(args).map_err(|_| RuntimeError::BuiltinFunctionError)
+        Function::External(_, func, _) => {
+            (func.fun)(&mut Interpreter::wrap(env), args).map_err(|_| RuntimeError::BuiltinFunctionError)
+        }
+        Function::Wrapper(_, func, _) => {
+            call_function(func, &mut Interpreter::wrap(env), args).map_err(|_| RuntimeError::BuiltinFunctionError)
         }
         Function::Expr(_, ref patterns, ref expr, _) => {
             env.enter_block();

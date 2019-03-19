@@ -12,10 +12,10 @@ use interpreter::RuntimeError;
 use rust_interop::conversions::convert_from_rust;
 use rust_interop::conversions::convert_to_rust;
 use rust_interop::function_register::FunctionRegister;
-use types::BuiltinFunction;
-use types::BuiltinFunctionRef;
+use types::ExternalFunc;
 use types::Function;
 use types::Value;
+use types::WrapperFunc;
 use util::build_fun_type;
 
 pub mod conversions;
@@ -31,51 +31,49 @@ pub enum InteropError {
     FunRegistrationUnknownTypeRet,
 }
 
-type FnAny = FnMut(Vec<&mut Any>) -> Result<Box<Any>, InteropError>;
+pub type FnAny = Fn(&mut Interpreter, Vec<&mut Any>) -> Result<Box<Any>, ErrorWrapper> + Sync + Send;
 
-struct FnWrapper{
+struct FnWrapper {
     fun: Box<FnAny>
 }
 
-impl BuiltinFunction for FnWrapper {
-    fn call_function(&mut self, args: &Vec<Value>) -> Result<Value, ErrorWrapper> {
-        let mut rust_values = vec![];
+pub fn call_function(this: &WrapperFunc, i: &mut Interpreter, args: &Vec<Value>) -> Result<Value, ErrorWrapper> {
+    let mut rust_values = vec![];
 
-        for arg in args {
-            let value = convert_to_rust(arg)
-                .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::ImpossibleConversion))?;
+    for arg in args {
+        let value = convert_to_rust(arg)
+            .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::ImpossibleConversion))?;
 
-            rust_values.push(value);
+        rust_values.push(value);
+    }
+
+    let mut arguments: Vec<&mut Any> = vec![];
+
+    for val in rust_values.iter_mut() {
+        arguments.push(val);
+    }
+
+    let result: Result<Box<Any>, ErrorWrapper> = (this.fun)(i, arguments);
+    match result {
+        Ok(boxed) => {
+            convert_from_rust(&*boxed)
+                .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::ImpossibleConversion))
         }
-
-        let mut arguments: Vec<&mut Any> = vec![];
-
-        for val in rust_values.iter_mut() {
-            arguments.push(val);
-        }
-
-        let result: Result<Box<Any>, InteropError> = (self.fun)(arguments);
-        match result {
-            Ok(boxed) => {
-                convert_from_rust(&*boxed)
-                    .ok_or_else(|| ErrorWrapper::RuntimeError(RuntimeError::ImpossibleConversion))
-            }
-            Err(e) => {
-                Err(ErrorWrapper::InteropError(e))
-            }
+        Err(e) => {
+            Err(e)
         }
     }
 }
 
 impl FunctionRegister for Interpreter {
-    fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), InteropError> {
+    fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), ErrorWrapper> {
         let len = args.len() as u32;
-        let ty = type_from_ids(args, ret)?;
-        let func_ref: BuiltinFunctionRef = RefCell::new(Box::new(FnWrapper { fun: boxed} ));
+        let ty = type_from_ids(args, ret)
+            .map_err(|e| ErrorWrapper::InteropError(e))?;
 
-        let function = Arc::new(Function::Builtin(
+        let function = Arc::new(Function::Wrapper(
             self.env.next_fun_id(),
-            func_ref,
+            WrapperFunc { name: name.to_string(), fun: boxed },
             ty.clone(),
         ));
 
@@ -102,7 +100,6 @@ fn type_from_ids(args: Vec<TypeId>, ret: TypeId) -> Result<Type, InteropError> {
                 return Err(InteropError::FunRegistrationUnknownTypeArg(arg_index));
             }
         }
-
     }
 
     match type_from_id(ret) {
@@ -118,7 +115,6 @@ fn type_from_ids(args: Vec<TypeId>, ret: TypeId) -> Result<Type, InteropError> {
 }
 
 fn type_from_id(id: TypeId) -> Option<Type> {
-
     if id == TypeId::of::<()>() {
         return Some(Type::Unit);
     }
@@ -162,7 +158,7 @@ mod tests {
     fn test_register_invalid_function() {
         let mut i = Interpreter::new();
         let result = i.register_fn("test_function2", test_function2);
-        assert_eq!(result, Err(InteropError::FunRegistrationUnknownTypeArg(0)));
+        assert_eq!(result, Err(ErrorWrapper::InteropError(InteropError::FunRegistrationUnknownTypeArg(0))));
     }
 
     fn test_function(a: i32) -> i32 { a }

@@ -94,13 +94,18 @@ pub fn type_of_value(value: &Value) -> Type {
             get_adt_type(var_name, items, adt.clone())
         }
         Value::Fun { fun, args, .. } => {
-            let fun_ty = match fun.deref() {
-                Function::Builtin(_, _, ty) => ty,
-                Function::Expr(_, _, _, ty) => ty,
-            };
+            let fun_ty = type_of_function(fun.deref());
 
             strip_fun_args(args.len(), &fun_ty).clone()
         }
+    }
+}
+
+fn type_of_function(fun: &Function) -> &Type {
+    match fun {
+        Function::External(_, _, ty) => ty,
+        Function::Wrapper(_, _, ty) => ty,
+        Function::Expr(_, _, _, ty) => ty,
     }
 }
 

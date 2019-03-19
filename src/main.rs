@@ -13,6 +13,10 @@ fib num = case num of \
  0 -> 0 \
  1 -> 1 \
  _ -> fib (num - 1) + fib (num - 2)
+
+map list fun = case list of \
+ [] -> [] \
+ x::xs -> (fun x) :: (map xs fun)
 */
 
 fn main() {
@@ -28,22 +32,22 @@ fn repl() {
         if line.is_empty() { continue; }
 
         // Eval
-        let result = engine.eval_statement(&line);
+        let result = engine.eval_expr(&line);
 
         // Print
         match result {
-            Ok(opt) => {
-                if let Some(value) = opt {
-                    println!("{} : {}", value, type_of_value(&value));
-                }
+            Ok(value) => {
+                println!("{} : {}", value, type_of_value(&value));
             }
             Err(_) => {
                 // Invalid statement, try expression
-                let result = engine.eval_expr(&line);
+                let result = engine.eval_statement(&line);
 
                 match result {
-                    Ok(value) => {
-                        println!("{} : {}", value, type_of_value(&value));
+                    Ok(opt) => {
+                        if let Some(value) = opt {
+                            println!("{} : {}", value, type_of_value(&value));
+                        }
                     }
                     Err(error) => {
                         println!("{}", error);

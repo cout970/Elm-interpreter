@@ -55,7 +55,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                     Value::Fun {
                         args: vec![Value::Adt(var_name.clone(), vec![], adt.clone())],
                         arg_count: (params.len() + 1) as u32,
-                        fun: Arc::new(Function::Builtin(env.next_fun_id(), builtin_adt_constructor(), fun_ty)),
+                        fun: Arc::new(Function::External(env.next_fun_id(), builtin_adt_constructor(), fun_ty)),
                     }
                 };
 

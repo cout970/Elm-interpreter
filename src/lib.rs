@@ -16,7 +16,7 @@ use errors::ErrorWrapper;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::eval_expression;
 use interpreter::eval_statement;
-use types::BuiltinFunctionRef;
+use types::ExternalFunc;
 use types::Function;
 use types::Value;
 use util::build_fun_type;
@@ -46,6 +46,12 @@ impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
             env: DynamicEnv::default_lang_env(),
+        }
+    }
+
+    fn wrap(env: &DynamicEnv) -> Interpreter {
+        Interpreter {
+            env: env.clone(),
         }
     }
 
@@ -85,11 +91,11 @@ impl Interpreter {
 
     /// Registers a function that can be called in elm,
     /// the return value is not checked so make sure it matches the return type
-    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: BuiltinFunctionRef) -> Result<(), ErrorWrapper> {
+    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: ExternalFunc) -> Result<(), ErrorWrapper> {
         let arg_count = args.len() as u32;
         let function_type = build_fun_type(&create_vec_inv(args, ret));
 
-        let function = Arc::new(Function::Builtin(
+        let function = Arc::new(Function::External(
             self.env.next_fun_id(),
             func_ref,
             function_type.clone(),

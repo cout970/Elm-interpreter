@@ -6,9 +6,22 @@ use std::fmt::Write;
 
 use ast::*;
 use tokenizer::Token;
-use types::BuiltinFunction;
+use types::ExternalFunc;
 use types::Value;
+use types::WrapperFunc;
 use util::expression_fold::create_expr_tree;
+
+impl Debug for ExternalFunc {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "<external fun '{}'>", self.name)
+    }
+}
+
+impl Debug for WrapperFunc {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "<wrapper fun '{}'>", self.name)
+    }
+}
 
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -282,10 +295,4 @@ fn print_pairs<A: Display, B: Display>(f: &mut Formatter, v: &Vec<(A, B)>) -> Re
         }
     }
     Ok(())
-}
-
-impl Debug for Box<BuiltinFunction> {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "BuiltinFunction")
-    }
 }

@@ -82,11 +82,11 @@ impl<A: Clone> VecExt<A> for Vec<A> {
     }
 }
 
-pub fn builtin_fun_of(fun_id: FunId, func: BuiltinFunctionRef, ty: Type) -> Value {
+pub fn builtin_fun_of(fun_id: FunId, func: ExternalFunc, ty: Type) -> Value {
     Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
-        fun: Arc::new(Function::Builtin(fun_id, func, ty)),
+        fun: Arc::new(Function::External(fun_id, func, ty)),
     }
 }
 
@@ -98,7 +98,6 @@ fn arg_count(ty: &Type) -> u32 {
         _ => 0
     }
 }
-
 
 pub fn to_string(v: &[u8]) -> String {
     v.into_iter().map(|c| *c as char).collect::<String>()

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use analyzer::static_env::StaticEnv;
 use ast::Type;
 use interpreter::builtins::*;
+use types::ExternalFunc;
 use types::FunCall;
 use types::FunId;
 use types::Value;
@@ -84,17 +85,40 @@ impl DynamicEnv {
             Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![])
         ]);
 
-        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_add), num_ty.clone());
+        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+            name: "builtin_add".to_string(),
+            fun: builtin_add,
+        }, num_ty.clone());
         env.add("+", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_sub), num_ty.clone());
+
+        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+            name: "builtin_sub".to_string(),
+            fun: builtin_sub,
+        }, num_ty.clone());
         env.add("-", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_times), num_ty.clone());
+
+        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+            name: "builtin_times".to_string(),
+            fun: builtin_times,
+        }, num_ty.clone());
         env.add("*", fun, num_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_float_div), float_ty.clone());
+
+        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+            name: "builtin_float_div".to_string(),
+            fun: builtin_float_div,
+        }, float_ty.clone());
         env.add("/", fun, float_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_int_div), int_ty.clone());
+
+        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+            name: "builtin_int_div".to_string(),
+            fun: builtin_int_div,
+        }, int_ty.clone());
         env.add("//", fun, int_ty.clone());
-        let fun = builtin_fun_of(env.next_fun_id(), of_closure(builtin_string_append), string_ty.clone());
+
+        let fun = builtin_fun_of(env.next_fun_id(), ExternalFunc {
+            name: "builtin_string_append".to_string(),
+            fun: builtin_string_append,
+        }, string_ty.clone());
         env.add("++", fun, string_ty.clone());
 
         env
