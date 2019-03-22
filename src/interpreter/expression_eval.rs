@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use analyzer::type_check_expression;
@@ -8,6 +9,7 @@ use interpreter::builtins::builtin_record_access;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
+use interpreter::statement_eval::extract_captures;
 use rust_interop::call_function;
 use types::FunCall;
 use types::Function;
@@ -76,6 +78,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             Value::Fun {
                 args: vec![],
                 arg_count: patt.len() as u32,
+                captures: extract_captures(env, (&**_expr)),
                 fun: Arc::new(
                     Function::Expr(next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
                 ),
@@ -127,9 +130,10 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             );
 
             Value::Fun {
-                args: vec![Value::String(field.to_owned())],
-                fun: Arc::new(Function::External(next_fun_id(), builtin_record_access(), ty)),
                 arg_count: 1,
+                args: vec![Value::String(field.to_owned())],
+                captures: HashMap::new(),
+                fun: Arc::new(Function::External(next_fun_id(), builtin_record_access(), ty)),
             }
         }
         Expr::Case(_, cond, branches) => {
@@ -153,7 +157,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             }
 
             match fun_value {
-                Value::Fun { ref arg_count, ref args, ref fun } => {
+                Value::Fun { ref arg_count, ref args, ref captures, ref fun } => {
                     let argc = args.len() as u32 + 1;
 
                     if *arg_count < argc {
@@ -164,9 +168,9 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
                     arg_vec.push(input);
 
                     let value = if *arg_count == argc {
-                        exec_fun(env, fun, &arg_vec)?
+                        exec_fun(env, fun, captures, &arg_vec)?
                     } else {
-                        Value::Fun { args: arg_vec, fun: fun.clone(), arg_count: *arg_count }
+                        Value::Fun { args: arg_vec, fun: fun.clone(), captures: captures.clone(), arg_count: *arg_count }
                     };
 
                     env.add_to_cache(fun_call, value.clone());
@@ -182,27 +186,32 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
     Ok(res)
 }
 
-fn exec_fun(env: &mut DynamicEnv, fun: &Function, args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    match fun {
+fn exec_fun(env: &mut DynamicEnv, fun: &Function, captures: &HashMap<String, Value>, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    env.enter_block();
+    for (name, val) in captures {
+        env.add(name, val.clone(), type_of_value(val))
+    }
+    let res = match fun {
         Function::External(_, func, _) => {
-            (func.fun)(&mut Interpreter::wrap(env), args).map_err(|_| RuntimeError::BuiltinFunctionError)
+            (func.fun)(&mut Interpreter::wrap(env), args)
+                .map_err(|_| RuntimeError::BuiltinFunctionError)
         }
         Function::Wrapper(_, func, _) => {
-            call_function(func, &mut Interpreter::wrap(env), args).map_err(|_| RuntimeError::BuiltinFunctionError)
+            call_function(func, &mut Interpreter::wrap(env), args)
+                .map_err(|_| RuntimeError::BuiltinFunctionError)
         }
         Function::Expr(_, ref patterns, ref expr, _) => {
-            env.enter_block();
             assert_eq!(patterns.len(), args.len());
 
             for (patt, val) in patterns.iter().zip(args) {
                 add_pattern_values(env, patt, val).unwrap();
             }
 
-            let res = eval_expr(env, expr);
-            env.exit_block();
-            Ok(res?)
+            eval_expr(env, expr)
         }
-    }
+    };
+    env.exit_block();
+    Ok(res?)
 }
 
 fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
@@ -362,7 +371,6 @@ fn tree_as_expr(env: &mut DynamicEnv, expr: &ExprTree) -> Expr {
     match expr {
         ExprTree::Leaf(e) => e.clone(),
         ExprTree::Branch(op, a, b) => {
-
             let a_branch = tree_as_expr(env, &**a);
             let b_branch = tree_as_expr(env, &**b);
             let span = (span(&a_branch).0, span(&b_branch).1);
@@ -422,6 +430,7 @@ mod tests {
             Value::Fun {
                 arg_count: 1,
                 args: vec![],
+                captures: HashMap::new(),
                 fun: Arc::new(Function::Expr(
                     1,
                     vec![Pattern::Var("x".s())],

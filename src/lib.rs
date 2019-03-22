@@ -9,6 +9,7 @@ extern crate nom;
 #[macro_use]
 extern crate pretty_assertions;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::Type;
@@ -105,6 +106,7 @@ impl Interpreter {
         let function_value = Value::Fun {
             arg_count,
             args: vec![],
+            captures: HashMap::new(),
             fun: function,
         };
 
@@ -163,5 +165,15 @@ mod test {
         i.register_fn("sum", sum).expect("Expect sum to be defined");
 
         i.eval_expr("sum 1 3").expect("Expect expression to execute correctly");
+    }
+
+    #[test]
+    fn test_closure() {
+        let mut i = Interpreter::new();
+        i.eval_statement("genClosure x = \\y -> x + y").expect("1\n");
+        i.eval_statement("addFive = genClosure 5").expect("2\n");
+        i.eval_statement("result = addFive 3").expect("3\n");
+        let result = i.eval_expr("result").expect("Expect expression to execute correctly");
+        assert_eq!(Value::Number(8), result);
     }
 }

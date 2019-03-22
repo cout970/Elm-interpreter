@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::any::TypeId;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::Float;
@@ -81,6 +82,7 @@ impl FunctionRegister for Interpreter {
         let value = Value::Fun {
             arg_count: len,
             args: vec![],
+            captures: HashMap::new(),
             fun: function,
         };
 

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,6 +87,7 @@ pub fn builtin_fun_of(func: ExternalFunc, ty: Type) -> Value {
     Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
+        captures: HashMap::new(),
         fun: Arc::new(Function::External(next_fun_id(), func, ty)),
     }
 }

@@ -1,4 +1,8 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::fmt::Error;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
 use analyzer::static_env::StaticEnv;
 use ast::Type;
@@ -12,7 +16,7 @@ use util::builtin_fun_of;
 use util::OptionExt;
 use util::StringConversion;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct DynamicEnv {
     pub types: StaticEnv,
     values: Vec<HashMap<String, Value>>,
@@ -114,5 +118,11 @@ impl DynamicEnv {
         env.add("++", fun, string_ty.clone());
 
         env
+    }
+}
+
+impl Debug for DynamicEnv {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "DynamicEnv{{\ntypes: {:?},\nvalues:{:#?},\ncache: {:?}\n}}", self.types, self.values, self.cache)
     }
 }

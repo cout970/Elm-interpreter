@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use analyzer::type_check_function;
@@ -14,6 +16,7 @@ use types::next_fun_id;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
+use util::qualified_name;
 
 pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, RuntimeError> {
     match stm {
@@ -26,7 +29,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                 .collect();
 
             let variant_data = variants.iter().map(|(name, types)| {
-                AdtVariant{
+                AdtVariant {
                     name: name.clone(),
                     types: types.clone(),
                 }
@@ -50,12 +53,14 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
                 } else {
                     let fun_ty = Type::Fun(
                         Box::from(Type::Tag(var_name.clone(), vec![])),
-                        Box::from(var_ty.clone())
+                        Box::from(var_ty.clone()),
                     );
 
                     Value::Fun {
                         args: vec![Value::Adt(var_name.clone(), vec![], adt.clone())],
                         arg_count: (params.len() + 1) as u32,
+                        // TODO add captures?
+                        captures: HashMap::new(),
                         fun: Arc::new(Function::External(next_fun_id(), builtin_adt_constructor(), fun_ty)),
                     }
                 };
@@ -78,6 +83,7 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
             let value = Value::Fun {
                 args: vec![],
                 arg_count: patterns.len() as u32,
+                captures: extract_captures(env, expr),
                 fun: Arc::new(Function::Expr(next_fun_id(), patterns.clone(), expr.clone(), def_ty.clone())),
             };
 
@@ -89,6 +95,79 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
         }
     }
     Ok(None)
+}
+
+pub fn extract_captures(env: &mut DynamicEnv, expr: &Expr) -> HashMap<String, Value> {
+    let mut map = HashMap::new();
+    traverse_expr(&mut map, env, expr);
+    dbg!(map)
+}
+
+fn traverse_expr(result: &mut HashMap<String, Value>, env: &mut DynamicEnv, expr: &Expr) {
+    match expr {
+        Expr::QualifiedRef(_, path, name) => {
+            let full_name = qualified_name(path, name);
+
+            if let Some(value) = env.find(name).map(|(val, _)| val) {
+                result.insert(full_name, value);
+            }
+        }
+        Expr::Ref(_, name) => {
+            if let Some(value) = env.find(name).map(|(val, _)| val) {
+                result.insert(name.to_string(), value);
+            }
+        }
+        Expr::OpChain(_, list, _)
+        | Expr::Tuple(_, list)
+        | Expr::List(_, list) => {
+            for expr in list {
+                traverse_expr(result, env, expr);
+            }
+        }
+        Expr::Record(_, records)
+        | Expr::RecordUpdate(_, _, records) => {
+            for (_, expr) in records {
+                traverse_expr(result, env, expr);
+            }
+        }
+        Expr::RecordField(_, box_expr, _) => {
+            traverse_expr(result, env, box_expr.as_ref());
+        }
+        Expr::If(_, a, b, c) => {
+            traverse_expr(result, env, a.as_ref());
+            traverse_expr(result, env, b.as_ref());
+            traverse_expr(result, env, c.as_ref());
+        }
+        Expr::Case(_, a, entries) => {
+            traverse_expr(result, env, a.as_ref());
+            for (_, expr) in entries {
+                traverse_expr(result, env, expr);
+            }
+        }
+        Expr::Lambda(_, _, box_expr) => {
+            traverse_expr(result, env, box_expr.as_ref());
+        }
+        Expr::Application(_, a, b) => {
+            traverse_expr(result, env, a.as_ref());
+            traverse_expr(result, env, b.as_ref());
+        }
+        Expr::Let(_, decls, box_expr) => {
+            traverse_expr(result, env, box_expr.as_ref());
+            for decl in decls {
+                match decl {
+                    LetDeclaration::Def(_) => {
+                        // TODO
+                    }
+                    LetDeclaration::Pattern(_, expr) => {
+                        traverse_expr(result, env, expr);
+                    }
+                }
+            }
+        }
+        _ => {
+            // ignored
+        }
+    }
 }
 
 #[cfg(test)]

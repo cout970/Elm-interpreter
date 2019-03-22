@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem::transmute;
@@ -44,6 +45,7 @@ pub enum Value {
     Fun {
         arg_count: u32,
         args: Vec<Value>,
+        captures: HashMap<String, Value>,
         fun: Arc<Function>,
     },
 }
@@ -143,7 +145,7 @@ impl Hash for Value {
                 b.hash(state);
                 c.hash(state);
             }
-            Value::Fun { arg_count, args, fun } => {
+            Value::Fun { arg_count, args, captures, fun } => {
                 state.write_u32(*arg_count);
                 args.hash(state);
 
