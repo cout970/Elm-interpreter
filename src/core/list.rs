@@ -1,5 +1,11 @@
 use ast::Type;
 use constructors::type_of;
+use errors::ErrorWrapper;
+use Interpreter;
+use interpreter::RuntimeError;
+use rust_interop::InteropError;
+use types::ExternalFunc;
+use types::Value;
 
 pub fn get_list_types() -> Vec<(&'static str, Type)> {
     get_list_type_aux().into_iter()
@@ -22,4 +28,32 @@ fn get_list_type_aux() -> Vec<(&'static str, &'static str)> {
         ("sortWith",  "(a -> a -> Order) ->  List a -> List a"),
     ]
     //@formatter:on
+}
+
+macro_rules! cast {
+    ($value: expr, $ty: ident :: $name: ident) => {
+        match $value {
+            $ty::$name(x) => Some(x),
+            _ => None
+        }
+    };
+}
+
+fn test(val: &Value) -> Result<(), ErrorWrapper> {
+    let y = cast!(val, Value::Number);
+
+    ExternalFunc {
+        name: "cons".to_string(),
+        fun: cons,
+    };
+    Ok(())
+}
+
+fn cons(i: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+    let list: &Vec<Value> = cast!(&args[0], Value::List).ok_or(RuntimeError::InternalError)?;
+    let mut result = vec![args[0].clone()];
+    for val in list {
+        result.push(val.clone());
+    }
+    Ok(Value::List(result))
 }
