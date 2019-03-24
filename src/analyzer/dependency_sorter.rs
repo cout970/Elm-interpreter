@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use analyzer::function_analyzer::analyze_function_arguments;
-use analyzer::inter_mod_analyzer::ModuleInfo;
-use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use ast::*;
 use util::qualified_name;
@@ -11,18 +9,6 @@ use util::sort::get_acyclic_dependency_graph;
 use util::visitors::expr_visitor_block;
 use util::visitors::pattern_visitor;
 use util::visitors::type_visitor;
-
-pub fn sort_modules(modules: &Vec<ModuleInfo>) -> Result<Vec<&ModulePath>, Vec<&ModulePath>> {
-    let mut graph: HashMap<&ModulePath, Vec<&ModulePath>> = HashMap::new();
-
-    for info in modules {
-        let deps = info.ast.imports.iter().map(|i| &i.path).collect::<Vec<&ModulePath>>();
-
-        graph.insert(&info.path, deps);
-    }
-
-    get_acyclic_dependency_graph(graph)
-}
 
 pub fn sort_statements(stms: &Vec<Statement>) -> Result<Vec<&Statement>, Vec<String>> {
     // stm name, provided names, dependencies

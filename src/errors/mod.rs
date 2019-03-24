@@ -5,7 +5,6 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::PatternMatchingError;
 use ast::Pattern;
 use ast::Span;
@@ -79,7 +78,7 @@ pub enum ParseError {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
-    MissingModule(ModulePath),
+    MissingModule(Vec<String>),
     MissingDefinition(String, DynamicEnv),
     IncorrectDefType(TypeError),
     RecordUpdateOnNonRecord(String, Value),
@@ -105,7 +104,7 @@ pub enum RuntimeError {
     BuiltinFunctionError,
     ImpossibleConversion,
     MissingSourceFile,
-    CyclicModuleDependency(Vec<ModulePath>),
+    CyclicModuleDependency(Vec<Vec<String>>),
     MissingExposing(String, Vec<Declaration>),
     InternalError,
 }

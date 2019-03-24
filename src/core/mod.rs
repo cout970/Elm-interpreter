@@ -1,4 +1,3 @@
-use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
 use ast::Module;
 use ast::ModuleExposing;
@@ -35,7 +34,7 @@ pub fn register_core(env: &mut StaticEnv) {
     }
 }
 
-pub fn get_core_module_by_path(path: &ModulePath) -> Option<Module> {
+pub fn get_core_module_by_path(path: &Vec<String>) -> Option<Module> {
     let slices: Vec<_> = path.iter().map(|x| x.as_str()).collect();
 
     match slices[..] {
