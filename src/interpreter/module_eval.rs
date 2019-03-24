@@ -1,6 +1,5 @@
 use errors::*;
 use interpreter::dynamic_env::DynamicEnv;
-use interpreter::eval_statement;
 use interpreter::statement_eval::eval_stm;
 use loader::LoadedModule;
 

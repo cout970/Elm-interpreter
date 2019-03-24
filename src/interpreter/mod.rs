@@ -1,16 +1,12 @@
-use analyzer::inter_mod_analyzer::ModulePath;
-use ast::Pattern;
 use errors::*;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use interpreter::module_eval::eval_mod;
 use interpreter::statement_eval::eval_stm;
-use loader::Declaration;
 use loader::ModuleLoader;
 use parsers::parse_expression;
 use parsers::parse_statement;
 use types::Value;
-use util::expression_fold::ExprTreeError;
 
 pub mod dynamic_env;
 mod builtins;

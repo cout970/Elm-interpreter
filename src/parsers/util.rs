@@ -6,7 +6,6 @@ use errors::ParseError;
 use parsers::input::Input;
 use source::SourceCode;
 use tokenizer::Token;
-use tokenizer::TokenInfo;
 use tokenizer::tokenize;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>

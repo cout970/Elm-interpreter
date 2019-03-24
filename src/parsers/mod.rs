@@ -1,11 +1,8 @@
 use ast::{Expr, Module, Pattern, Statement, Type};
-use ast::Span;
 use errors::*;
-use errors::ElmError;
 use parsers::input::Input;
 use parsers::util::complete;
 use source::SourceCode;
-use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
 

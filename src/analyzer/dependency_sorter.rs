@@ -1,19 +1,11 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt::Debug;
-use std::hash::Hash;
 
 use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::inter_mod_analyzer::ModuleInfo;
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::static_env::StaticEnv;
-use ast::Definition;
-use ast::Expr;
-use ast::LetDeclaration;
-use ast::Module;
-use ast::Pattern;
-use ast::Statement;
-use ast::Type;
+use ast::*;
 use util::qualified_name;
 use util::sort::get_acyclic_dependency_graph;
 use util::visitors::expr_visitor_block;

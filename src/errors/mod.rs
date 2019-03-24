@@ -5,9 +5,6 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use nom::ErrorKind;
-use nom::Needed;
-
 use analyzer::inter_mod_analyzer::ModulePath;
 use analyzer::PatternMatchingError;
 use ast::Pattern;
@@ -15,7 +12,6 @@ use ast::Span;
 use interpreter::dynamic_env::DynamicEnv;
 use loader::Declaration;
 use loader::declaration_name;
-use source::Location;
 use source::SourceCode;
 use tokenizer::Token;
 use types::Value;
@@ -36,9 +32,7 @@ pub enum ElmError {
 pub enum LexicalError {
     ReachedEnd { pos: u32 },
     UnableToTokenize { span: Span },
-    Incomplete(Needed),
-    Error(Location, ErrorKind),
-    Failure(Location, ErrorKind),
+    List(Vec<LexicalError>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -159,23 +153,41 @@ pub fn loader_err<T>(info: LoaderError) -> Result<T, ElmError> {
 
 pub fn format_error(error: &ElmError) -> String {
     match error {
-        ElmError::Tokenizer { code, info } => { format_lexical_error(info) }
+        ElmError::Tokenizer { code, info } => { format_lexical_error(code, info) }
         ElmError::Parser { code, info } => { format_parse_error(code.as_str(), info) }
         ElmError::Analyser { code, info } => { format_type_error(code.as_str(), info) }
         ElmError::Interpreter { info } => { format_runtime_error(info) }
         ElmError::Interop { info } => { format_interop_error(info) }
-        ElmError::Loader { info } => {
+        ElmError::Loader { .. } => {
             // TODO
             String::from("TODO")
         }
     }
 }
 
-pub fn format_lexical_error(error: &LexicalError) -> String {
+pub fn format_lexical_error(code: &SourceCode, error: &LexicalError) -> String {
     let mut msg = String::new();
-    msg.push_str("-- PARSE ERROR ------------------------------------------------------------- elm\n");
+    msg.push_str("-- TOKENIZER ERROR ------------------------------------------------------------- elm\n");
 
-    write!(&mut msg, "{:?}", error).unwrap();
+    let errors = match error {
+        LexicalError::List(list) => list.clone(),
+        _ => vec![error.clone()]
+    };
+
+    for error in errors {
+        match error {
+            LexicalError::ReachedEnd { pos } => {
+                let loc = print_code_location(code.as_str(), &(pos - 1, pos));
+                write!(&mut msg, "Unable to read complete token: {}\n", loc).unwrap();
+            },
+            LexicalError::UnableToTokenize { span } => {
+                let loc = print_code_location(code.as_str(), &span);
+                write!(&mut msg, "Unknown character sequence: {}\n", loc).unwrap();
+            },
+            LexicalError::List(_) => unreachable!()
+        }
+    }
+
     msg
 }
 
@@ -288,7 +300,7 @@ pub fn format_runtime_error(error: &RuntimeError) -> String {
             write!(&mut msg, "I cannot find a `{}` variable:\n", name).unwrap();
             write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
         }
-        RuntimeError::IncorrectDefType(e) => {
+        RuntimeError::IncorrectDefType(_) => {
             // TODO
 //            return format_type_error(e);
         }
@@ -460,12 +472,6 @@ impl Debug for ElmError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self))
     }
-}
-
-macro_rules! iff {
-    (let $p:pat = $e:expr) => {{
-        if let $p = $e { true } else { false }
-    }};
 }
 
 impl PartialEq for LoaderError {

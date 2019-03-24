@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
-use std::path::PathBuf;
+use std::intrinsics::transmute;
 use std::sync::Arc;
 
 use ast::*;
@@ -192,8 +191,12 @@ pub fn qualified_name(path: &[String], name: &str) -> String {
 
 #[cfg(test)]
 pub fn test_resource(path: &str) -> String {
-    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut d = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     d.push("resources/test/");
     d.push(path);
     d.to_string_lossy().to_string()
+}
+
+pub fn transmute_float_to_int(x: f32) -> i32 {
+    unsafe { transmute::<f32, i32>(x) }
 }

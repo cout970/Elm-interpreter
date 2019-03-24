@@ -1,19 +1,4 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fs;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::Read;
-use std::sync::Arc;
-
-use analyzer::dependency_sorter::sort_modules;
-use ast::*;
-use core::get_core_module_by_path;
-use errors::*;
-use errors::ElmError;
-use loader::Declaration;
-use parsers::parse_module;
-use types::Adt;
+// TODO remove this file
 
 //#[derive(Debug, PartialEq, Clone)]
 //pub enum Declaration {
@@ -23,6 +8,8 @@ use types::Adt;
 //}
 
 //pub type Declarations = Vec<Declaration>;
+
+use ast::Module;
 
 pub type ModulePath = Vec<String>;
 

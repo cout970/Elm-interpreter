@@ -2,14 +2,12 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
-use std::sync::Arc;
 
 use analyzer::static_env::StaticEnv;
 use ast::Type;
 use interpreter::builtins::*;
 use types::ExternalFunc;
 use types::FunCall;
-use types::FunId;
 use types::Value;
 use util::build_fun_type;
 use util::builtin_fun_of;

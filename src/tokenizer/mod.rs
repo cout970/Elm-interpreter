@@ -1,5 +1,4 @@
 use nom::Err as NomErr;
-use nom::ErrorKind;
 use nom::verbose_errors::Context;
 
 use ast::{Float, Int};
@@ -66,7 +65,23 @@ pub struct TokenInfo {
 pub fn tokenize<'a>(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
     let code = SourceCode::from_string(String::from_utf8_lossy(stream).to_string());
     let (tokens, errors) = Tokenizer::new(&code).read_all();
-    Ok(tokens)
+
+    if !errors.is_empty() {
+        let list = errors.into_iter()
+            .map(|e| match e {
+                ElmError::Tokenizer { info, .. } => info,
+                _ => unreachable!()
+            })
+            .collect::<Vec<_>>();
+
+        if list.len() == 1 {
+            Err(list.into_iter().next().unwrap())
+        } else {
+            Err(LexicalError::List(list))
+        }
+    } else {
+        Ok(tokens)
+    }
 }
 
 pub struct Tokenizer {
@@ -131,10 +146,10 @@ impl Tokenizer {
                     NomErr::Error(ctx) | NomErr::Failure(ctx) => {
                         // Some invalid character or unknown sequence of characters that we are
                         // unable to convert to tokens
-                        let (input, kind): (&[u8], ErrorKind) = match ctx {
-                            Context::Code(input, kind) => (input, kind),
+                        let input: &[u8] = match ctx {
+                            Context::Code(input, _) => input,
                             // TODO remove nom verbose errors, we already handle errors in a custom way
-                            Context::List(vec) => vec[0].clone()
+                            Context::List(vec) => vec[0].0.clone()
                         };
                         let new_pos = self.code.len() - input.len();
 

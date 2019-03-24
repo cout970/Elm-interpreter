@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::fs;
 use std::io::Error;
 use std::path::Path;
@@ -17,7 +16,6 @@ use parsers::parse_mod;
 use source::SourceCode;
 use tokenizer::tokenize;
 use types::Adt;
-use util::sort::get_acyclic_dependency_graph;
 use util::sort::sort_dependencies;
 
 #[derive(Clone, Debug)]

@@ -1,22 +1,16 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::mem::transmute;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-use ast::Expr;
-use ast::Float;
-use ast::Int;
-use ast::Pattern;
-use ast::Type;
+use ast::*;
 use errors::*;
-use errors::ElmError;
 use Interpreter;
 use rust_interop::FnAny;
+use util::transmute_float_to_int;
 
 // Represents the final value after the evaluation of an expression tree
 #[derive(Debug, PartialEq, Clone)]
@@ -134,7 +128,7 @@ impl Hash for Value {
             Value::Unit => { state.write_i32(0) }
             Value::Number(i) => { state.write_i32(*i) }
             Value::Int(i) => { state.write_i32(*i) }
-            Value::Float(i) => { state.write_i32(unsafe { transmute::<f32, i32>(*i) }) }
+            Value::Float(i) => { state.write_i32(transmute_float_to_int(*i)) }
             Value::String(i) => { i.hash(state) }
             Value::Char(i) => { state.write_u32(*i as u32) }
             Value::List(i) => { i.hash(state) }
@@ -145,7 +139,7 @@ impl Hash for Value {
                 b.hash(state);
                 c.hash(state);
             }
-            Value::Fun { arg_count, args, captures, fun } => {
+            Value::Fun { arg_count, args, fun, .. } => {
                 state.write_u32(*arg_count);
                 args.hash(state);
 

@@ -5,10 +5,10 @@ use analyzer::type_check_expression;
 use analyzer::type_of_value;
 use ast::*;
 use errors::*;
+use errors::RuntimeError::*;
 use Interpreter;
 use interpreter::builtins::builtin_record_access;
 use interpreter::dynamic_env::DynamicEnv;
-use interpreter::RuntimeError::*;
 use interpreter::statement_eval::extract_captures;
 use rust_interop::call_function;
 use types::FunCall;
@@ -78,7 +78,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             Value::Fun {
                 args: vec![],
                 arg_count: patt.len() as u32,
-                captures: extract_captures(env, (&**_expr)),
+                captures: extract_captures(env, &**_expr),
                 fun: Arc::new(
                     Function::Expr(next_fun_id(), patt.clone(), (&**_expr).clone(), ty)
                 ),

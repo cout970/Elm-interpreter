@@ -4,23 +4,18 @@ use std::sync::Arc;
 
 use analyzer::dependency_sorter::sort_statements;
 use analyzer::function_analyzer::analyze_function;
-use analyzer::inter_mod_analyzer::ModuleInfo;
 use analyzer::static_env::StaticEnv;
 use analyzer::TypeError;
 use ast::*;
-use core::register_core;
 use errors::*;
 use errors::ElmError;
 use errors::LoaderError;
 use loader::Declaration;
 use loader::LoadedModule;
-use loader::ModuleLoader;
-use source::SourceCode;
 use types::*;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::get_fun_return;
-use util::qualified_name;
 use util::visitors::type_visitor;
 
 pub fn analyze_module_imports(modules: &HashMap<String, LoadedModule>, env: &mut StaticEnv, imports: &Vec<Import>) -> Result<(), ElmError> {
@@ -49,7 +44,7 @@ pub fn analyze_module_imports(modules: &HashMap<String, LoadedModule>, env: &mut
                     }
                 }
             },
-            (Some(it), None) => {
+            (Some(_), None) => {
                 // TODO
                 unimplemented!()
             },

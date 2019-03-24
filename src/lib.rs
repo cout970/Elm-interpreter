@@ -87,7 +87,7 @@ impl Interpreter {
     /// Evaluates a module and it's dependencies in a project
     /// folder is the path to the project containing all the source files
     /// main_file is the name of the first file to load without the .elm extension
-    pub fn eval_files(&mut self, folder: &str) -> Result<(), ElmError> {
+    pub fn eval_files(&mut self, _folder: &str) -> Result<(), ElmError> {
         unimplemented!()
     }
 

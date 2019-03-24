@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::any::TypeId;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -13,7 +12,6 @@ use Interpreter;
 use rust_interop::conversions::convert_from_rust;
 use rust_interop::conversions::convert_to_rust;
 use rust_interop::function_register::FunctionRegister;
-use types::ExternalFunc;
 use types::Function;
 use types::next_fun_id;
 use types::Value;

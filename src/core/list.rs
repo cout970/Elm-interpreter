@@ -1,9 +1,7 @@
 use ast::Type;
 use constructors::type_of;
 use errors::*;
-use errors::ElmError;
 use Interpreter;
-use types::ExternalFunc;
 use types::Value;
 
 pub fn get_list_types() -> Vec<(&'static str, Type)> {
@@ -38,17 +36,17 @@ macro_rules! cast {
     };
 }
 
-fn test(val: &Value) -> Result<(), ElmError> {
-    let y = cast!(val, Value::Number);
+//fn test(val: &Value) -> Result<(), ElmError> {
+//    let y = cast!(val, Value::Number);
+//
+//    ExternalFunc {
+//        name: "cons".to_string(),
+//        fun: cons,
+//    };
+//    Ok(())
+//}
 
-    ExternalFunc {
-        name: "cons".to_string(),
-        fun: cons,
-    };
-    Ok(())
-}
-
-fn cons(i: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+fn cons(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     let list: &Vec<Value> = cast!(&args[0], Value::List).ok_or(RuntimeError::InternalError)?;
     let mut result = vec![args[0].clone()];
     for val in list {

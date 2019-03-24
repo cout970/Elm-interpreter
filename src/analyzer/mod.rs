@@ -7,7 +7,6 @@ use analyzer::static_env::StaticEnv;
 use ast::Definition;
 use ast::Expr;
 use ast::Pattern;
-use ast::Span;
 use ast::Type;
 use errors::*;
 use types::Function;
@@ -116,20 +115,19 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 
 #[cfg(test)]
 mod tests {
-    use analyzer::inter_mod_analyzer::ModuleInfo;
-    use parsers::from_code_mod;
 
     #[test]
     #[ignore]
     fn type_check1() {
-        let ast = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
+        // TODO
+//        let ast = from_code_mod(include_bytes!("../../benches/data/type_check.elm"));
 //        let info = InterModuleInfo::new();
 
-        let module_info = ModuleInfo {
-            path: vec![],
-            ast,
-            code: String::from(include_str!("../../benches/data/type_check.elm")),
-        };
+//        let module_info = ModuleInfo {
+//            path: vec![],
+//            ast,
+//            code: String::from(include_str!("../../benches/data/type_check.elm")),
+//        };
 
 
 //        let checked = analyze_module(&info, module_info).expect("Type error");

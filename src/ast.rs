@@ -1,6 +1,7 @@
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::mem::transmute;
+
+use util::transmute_float_to_int;
 
 // TODO add a crate feature to use 32 or 64 bits
 
@@ -259,7 +260,7 @@ impl Hash for Literal {
             Literal::Int(i) => { state.write_i32(*i) }
             Literal::Float(i) => {
                 // Floats have edge cases for hash computation, I ignore those cases for simplicity
-                state.write_i32(unsafe { transmute::<f32, i32>(*i) })
+                state.write_i32(transmute_float_to_int(*i))
             }
             Literal::String(i) => { i.hash(state) }
             Literal::Char(i) => { state.write_u32(*i as u32) }
