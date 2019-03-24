@@ -172,8 +172,7 @@ fn traverse_expr(result: &mut HashMap<String, Value>, env: &mut DynamicEnv, expr
 #[cfg(test)]
 mod tests {
     use analyzer::type_of_value;
-    use parsers::from_code;
-    use parsers::from_code_stm;
+    use test_utils::Test;
     use util::StringConversion;
 
     use super::*;
@@ -197,7 +196,7 @@ mod tests {
 
     #[test]
     fn check_constant() {
-        let stm = from_code_stm(b"x = 1");
+        let stm = Test::statement("x = 1");
         let mut env = DynamicEnv::new();
 
         assert_eq!(formatted(&mut env, &stm), "1 : number".s());
@@ -205,7 +204,7 @@ mod tests {
 
     #[test]
     fn check_identity() {
-        let stm = from_code_stm(b"id value = value");
+        let stm = Test::statement("id value = value");
         let mut env = DynamicEnv::new();
 
         assert_eq!(formatted(&mut env, &stm), "<function> : a -> a".s());
@@ -213,7 +212,7 @@ mod tests {
 
     #[test]
     fn check_recursivity() {
-        let stm = from_code_stm(b"fib num = case num of \n 0 -> 0\n 1 -> 1\n _ -> fib (num - 1) + fib (num - 2)");
+        let stm = Test::statement("fib num = case num of \n 0 -> 0\n 1 -> 1\n _ -> fib (num - 1) + fib (num - 2)");
         let mut env = DynamicEnv::default_lang_env();
 
         assert_eq!(formatted(&mut env, &stm), "<function> : Int -> number".s());
@@ -221,41 +220,41 @@ mod tests {
 
     #[test]
     fn check_adt() {
-        let decl = from_code_stm(b"type Adt = A | B");
+        let decl = Test::statement("type Adt = A | B");
         let mut env = DynamicEnv::default_lang_env();
 
         eval_stm(&mut env, &decl).unwrap();
 
-        assert_eq!(formatted_expr(&mut env, &from_code(b"A")), "A : Adt".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"B")), "B : Adt".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("A")), "A : Adt".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("B")), "B : Adt".s());
     }
 
     #[test]
     fn check_adt2() {
-        let decl = from_code_stm(b"type Adt a = A a | B Int");
+        let decl = Test::statement("type Adt a = A a | B Int");
         let mut env = DynamicEnv::default_lang_env();
 
         eval_stm(&mut env, &decl).unwrap();
 
-        assert_eq!(formatted_expr(&mut env, &from_code(b"A")), "<function> : a -> Adt a".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"B")), "<function> : Int -> Adt a".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"A 1")), "A 1 : Adt number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"B 1")), "B 1 : Adt a".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("A")), "<function> : a -> Adt a".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("B")), "<function> : Int -> Adt a".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("A 1")), "A 1 : Adt number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("B 1")), "B 1 : Adt a".s());
     }
 
     #[test]
     fn check_fib() {
-        let decl = from_code_stm(b"fib num = case num of \n0 -> 0 \n1 -> 1 \n_ -> fib (num - 1) + fib (num - 2)");
+        let decl = Test::statement("fib num = case num of \n0 -> 0 \n1 -> 1 \n_ -> fib (num - 1) + fib (num - 2)");
         let mut env = DynamicEnv::default_lang_env();
 
         eval_stm(&mut env, &decl).unwrap();
 
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib")), "<function> : Int -> number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 0")), "0 : number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 1")), "1 : number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 2")), "1 : number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 3")), "2 : number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 4")), "3 : number".s());
-        assert_eq!(formatted_expr(&mut env, &from_code(b"fib 5")), "5 : number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib")), "<function> : Int -> number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 0")), "0 : number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 1")), "1 : number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 2")), "1 : number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 3")), "2 : number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 4")), "3 : number".s());
+        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 5")), "5 : number".s());
     }
 }

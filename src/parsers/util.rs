@@ -6,7 +6,7 @@ use errors::ParseError;
 use parsers::input::Input;
 use source::SourceCode;
 use tokenizer::Token;
-use tokenizer::tokenize;
+use tokenizer::Tokenizer;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
@@ -254,7 +254,8 @@ pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
 }
 
 pub fn from(c: &str) -> Input {
-    let tokens = tokenize(c.as_bytes()).expect("Tokenizer error");
+    // TODO remove
+    let tokens = Tokenizer::new(&SourceCode::from_str(c)).tokenize().expect("Tokenizer error");
     Input::new(c.to_owned(), tokens)
 }
 

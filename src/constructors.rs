@@ -3,13 +3,14 @@ use std::vec::IntoIter;
 use ast::Int;
 use ast::Pattern;
 use ast::Type;
-use parsers::parse_pattern;
-use parsers::parse_type;
+use parsers::Parser;
+use source::SourceCode;
+use tokenizer::Tokenizer;
 
 // Type
 
 pub fn type_of(code: &str) -> Type {
-    parse_type(code).unwrap()
+    Parser::new(Tokenizer::new(&SourceCode::from_str(code))).parse_type().unwrap()
 }
 
 pub fn type_unit() -> Type {
@@ -103,7 +104,7 @@ pub fn type_record(entries: Vec<(&str, Type)>) -> Type {
 // Pattern
 
 pub fn pattern_of(code: &str) -> Pattern {
-    parse_pattern(code).unwrap()
+    Parser::new(Tokenizer::new(&SourceCode::from_str(code))).parse_pattern().unwrap()
 }
 
 

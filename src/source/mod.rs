@@ -42,6 +42,14 @@ impl SourceCode {
         Self::from_string(String::from_utf8_lossy(&bytes).to_string())
     }
 
+    /// Creates a SourceCode instance from an slice of bytes.
+    ///
+    /// If the vec contains any invalid UTF-8 sequences the function will replace them with
+    /// a replacement character: �
+    pub fn from_slice(bytes: &[u8]) -> Self {
+        Self::from_string(String::from_utf8_lossy(&bytes).to_string())
+    }
+
     /// Returns a real size of the source code
     pub fn len(&self) -> usize {
         self.code.len() - 4

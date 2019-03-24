@@ -17,6 +17,9 @@ use errors::ElmError;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::eval_expression;
 use interpreter::eval_statement;
+use parsers::Parser;
+use source::SourceCode;
+use tokenizer::Tokenizer;
 use types::ExternalFunc;
 use types::Function;
 use types::next_fun_id;
@@ -38,6 +41,8 @@ pub mod errors;
 pub mod rust_interop;
 pub mod loader;
 pub mod source;
+#[cfg(test)]
+pub mod test_utils;
 
 pub struct Interpreter {
     env: DynamicEnv,
@@ -59,7 +64,10 @@ impl Interpreter {
 
     /// Evaluates an expression like `1 + 2`
     pub fn eval_expr(&mut self, expr: &str) -> Result<Value, ElmError> {
-        eval_expression(&mut self.env, expr)
+        let code = SourceCode::from_str(expr);
+        let tokenizer = Tokenizer::new(&code);
+        let mut parser = Parser::new(tokenizer);
+        eval_expression(&mut self.env, &parser.parse_expression()?)
     }
 
     /// Evaluates an statement, for example:
@@ -68,7 +76,10 @@ impl Interpreter {
     /// `type alias Boolean = Bool`,
     /// `type List a = Cons a (List a) | Nil`
     pub fn eval_statement(&mut self, stm: &str) -> Result<Option<Value>, ElmError> {
-        eval_statement(&mut self.env, stm)
+        let code = SourceCode::from_str(stm);
+        let tokenizer = Tokenizer::new(&code);
+        let mut parser = Parser::new(tokenizer);
+        eval_statement(&mut self.env, &parser.parse_statement()?)
     }
 
     /// Evaluates a module, for example:
@@ -80,7 +91,11 @@ impl Interpreter {
     /// toRecord : (a, b) -> { x: a, y: b }
     /// toRecord (a, b) = { x = a, y = b }
     /// ```
-    pub fn eval_module(&mut self, _content: &str) -> Result<(), ElmError> {
+    pub fn eval_module(&mut self, _module: &str) -> Result<(), ElmError> {
+//        let code = SourceCode::from_str(_module);
+//        let tokenizer = Tokenizer::new(&code);
+//        let mut parser = Parser::new(tokenizer);
+//        eval_module(&mut self.env, &mut loader, parser.parse_module()?)
         unimplemented!()
     }
 

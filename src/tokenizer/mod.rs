@@ -62,26 +62,10 @@ pub struct TokenInfo {
     pub token: Token,
 }
 
-pub fn tokenize<'a>(stream: &[u8]) -> Result<Vec<TokenInfo>, LexicalError> {
+#[deprecated(since = "0.0.0", note = "please use `Tokenizer::tokenize` instead")]
+pub fn tokenize<'a>(stream: &[u8]) -> Result<Vec<TokenInfo>, ElmError> {
     let code = SourceCode::from_string(String::from_utf8_lossy(stream).to_string());
-    let (tokens, errors) = Tokenizer::new(&code).read_all();
-
-    if !errors.is_empty() {
-        let list = errors.into_iter()
-            .map(|e| match e {
-                ElmError::Tokenizer { info, .. } => info,
-                _ => unreachable!()
-            })
-            .collect::<Vec<_>>();
-
-        if list.len() == 1 {
-            Err(list.into_iter().next().unwrap())
-        } else {
-            Err(LexicalError::List(list))
-        }
-    } else {
-        Ok(tokens)
-    }
+    Tokenizer::new(&code).tokenize()
 }
 
 pub struct Tokenizer {
@@ -92,6 +76,24 @@ pub struct Tokenizer {
 impl Tokenizer {
     pub fn new(code: &SourceCode) -> Self {
         Tokenizer { code: code.clone(), pos: 0 }
+    }
+
+    pub fn source_code(&self) -> SourceCode {
+        self.code.clone()
+    }
+
+    pub fn tokenize(&mut self) -> Result<Vec<TokenInfo>, ElmError> {
+        let (tokens, errors) = self.read_all();
+
+        if !errors.is_empty() {
+            if errors.len() == 1 {
+                Err(errors.into_iter().next().unwrap())
+            } else {
+                Err(ElmError::List(errors))
+            }
+        } else {
+            Ok(tokens)
+        }
     }
 
     pub fn read_all(&mut self) -> (Vec<TokenInfo>, Vec<ElmError>) {
@@ -254,23 +256,26 @@ impl Tokenizer {
 
 #[cfg(test)]
 mod tests {
+    use source::SourceCode;
+    use test_utils::Test;
+    use tokenizer::Tokenizer;
     use util::StringConversion;
     use util::VecExt;
 
-    use super::*;
     use super::Token::*;
 
     #[test]
     fn check_tokens() {
-        let code = b"identifier1234,123.45";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "identifier1234,123.45";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
+
         assert_eq!(tokens, vec![Id("identifier1234".s()), Comma, LitFloat(123.45), Eof]);
     }
 
     #[test]
     fn check_multiline_comment() {
-        let code = b"1 + {- this is my comment -} 2";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "1 + {- this is my comment -} 2";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             LitInt(1),
             BinaryOperator("+".s()),
@@ -281,8 +286,8 @@ mod tests {
 
     #[test]
     fn check_multiline_comment_recursive() {
-        let code = b"1 + {- this {- is my -} comment -} 2";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "1 + {- this {- is my -} comment -} 2";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             LitInt(1),
             BinaryOperator("+".s()),
@@ -293,8 +298,8 @@ mod tests {
 
     #[test]
     fn check_line_comment() {
-        let code = b"1 --this is a comment\n2";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "1 --this is a comment\n2";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             LitInt(1),
             Indent(0),
@@ -305,8 +310,8 @@ mod tests {
 
     #[test]
     fn check_identifiers() {
-        let code = b"i, _a, b123, cBAD, aghjh, get_something";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "i, _a, b123, cBAD, aghjh, get_something";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             Id("i".s()), Comma,
             Underscore,
@@ -321,8 +326,8 @@ mod tests {
 
     #[test]
     fn check_indentation_token() {
-        let code = b"case i of\n  1\n  2\nmy_func";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "case i of\n  1\n  2\nmy_func";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             Case, Id("i".s()), Of,
             Indent(2), LitInt(1),
@@ -335,8 +340,8 @@ mod tests {
 
     #[test]
     fn prefix_minus_edge_case() {
-        let code = b"(+), (-), (*)";
-        let tokens = tokenize(code).unwrap().map(|info| info.token.clone());
+        let code = "(+), (-), (*)";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             LeftParen, BinaryOperator("+".s()), RightParen, Comma,
             LeftParen, PrefixMinus, RightParen, Comma,
@@ -347,11 +352,11 @@ mod tests {
     #[test]
     fn force_error() {
         let code = "foo\"bar!@#$%^&*()_+=-[]'\\/.,`test";
-        let result = tokenize(code.as_bytes());
+        let result = Tokenizer::new(&SourceCode::from_str(code)).tokenize();
         match result {
             Ok(_) => panic!("Error not found!"),
             Err(e) => {
-                println!("Found error: \n{}\n", ElmError::Tokenizer { code: SourceCode::from_str(code), info: e });
+                println!("Found error: \n{}\n", e);
             }
         }
     }

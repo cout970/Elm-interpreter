@@ -12,9 +12,9 @@ use ast::Type;
 use core::register_core;
 use errors::ElmError;
 use errors::LoaderError;
-use parsers::parse_mod;
+use parsers::Parser;
 use source::SourceCode;
-use tokenizer::tokenize;
+use tokenizer::Tokenizer;
 use types::Adt;
 use util::sort::sort_dependencies;
 
@@ -132,13 +132,7 @@ fn get_module_dependencies(module: &Module) -> Vec<String> {
 }
 
 fn load_source_file(file: &SourceFile) -> Result<Module, ElmError> {
-    let tokens = tokenize(file.source.as_bytes())
-        .map_err(|e| ElmError::Tokenizer { code: file.source.clone(), info: e })?;
-
-    let ast = parse_mod(&file.source, tokens)
-        .map_err(|e| ElmError::Parser { code: file.source.clone(), info: e })?;
-
-    Ok(ast)
+    Parser::new(Tokenizer::new(&file.source)).parse_module()
 }
 
 fn io_error(err: Error) -> ElmError {
@@ -192,6 +186,7 @@ fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, Error
 
 #[cfg(test)]
 mod test {
+    use ast::Expr;
     use interpreter::dynamic_env::DynamicEnv;
     use interpreter::eval_expression;
     use interpreter::eval_module;
@@ -209,7 +204,7 @@ mod test {
         eval_module(&mut env, &loader, "Mod.SubModule2").unwrap();
         eval_module(&mut env, &loader, "Main").unwrap();
 
-        let result = eval_expression(&mut env, "sayHello").unwrap();
+        let result = eval_expression(&mut env, &Expr::Ref((0, 0), "sayHello".to_string())).unwrap();
         println!("{}", result);
     }
 }

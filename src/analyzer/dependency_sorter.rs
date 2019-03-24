@@ -244,13 +244,13 @@ fn get_provided_names(stm: &Statement) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code_mod;
+    use test_utils::Test;
 
     use super::*;
 
     #[test]
     fn check_expr_dependencies() {
-        let module = from_code_mod(b"\ny = x + 1\n\nx = 0\n\nz = y");
+        let module = Test::module("\ny = x + 1\n\nx = 0\n\nz = y");
         let sorted = sort_statements(&module.statements).unwrap();
 
         let names: Vec<_> = sorted.iter().map(|stm| get_stm_name(stm)).collect();

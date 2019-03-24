@@ -25,13 +25,13 @@ pub enum ElmError {
     Interpreter { info: RuntimeError },
     Interop { info: InteropError },
     Loader { info: LoaderError },
+    List(Vec<ElmError>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum LexicalError {
     ReachedEnd { pos: u32 },
     UnableToTokenize { span: Span },
-    List(Vec<LexicalError>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -161,6 +161,11 @@ pub fn format_error(error: &ElmError) -> String {
             // TODO
             String::from("TODO")
         }
+        ElmError::List(list) => {
+            list.iter()
+                .map(|li| format_error(li))
+                .fold(String::new(), |base, item| base + &item)
+        }
     }
 }
 
@@ -168,23 +173,15 @@ pub fn format_lexical_error(code: &SourceCode, error: &LexicalError) -> String {
     let mut msg = String::new();
     msg.push_str("-- TOKENIZER ERROR ------------------------------------------------------------- elm\n");
 
-    let errors = match error {
-        LexicalError::List(list) => list.clone(),
-        _ => vec![error.clone()]
-    };
-
-    for error in errors {
-        match error {
-            LexicalError::ReachedEnd { pos } => {
-                let loc = print_code_location(code.as_str(), &(pos, pos + 1));
-                write!(&mut msg, "Unable to read complete token: {}\n", loc).unwrap();
-            },
-            LexicalError::UnableToTokenize { span } => {
-                let loc = print_code_location(code.as_str(), &span);
-                write!(&mut msg, "Unknown character sequence: {}\n", loc).unwrap();
-            },
-            LexicalError::List(_) => unreachable!()
-        }
+    match error {
+        LexicalError::ReachedEnd { pos } => {
+            let loc = print_code_location(code.as_str(), &(*pos, *pos + 1));
+            write!(&mut msg, "Unable to read complete token: {}\n", loc).unwrap();
+        },
+        LexicalError::UnableToTokenize { span } => {
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Unknown character sequence: {}\n", loc).unwrap();
+        },
     }
 
     msg

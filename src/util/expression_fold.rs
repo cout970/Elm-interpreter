@@ -175,7 +175,7 @@ pub fn get_operator_associativity(op: &str) -> Associativity {
 mod tests {
     use ast::Expr;
     use ast::Expr::Ref;
-    use parsers::from_code;
+    use test_utils::Test;
     use util::StringConversion;
 
     use super::*;
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn check_operator_precedence() {
-        let expr = from_code(b"a + b * c / d - f");
+        let expr = Test::expr("a + b * c / d - f");
         match expr {
             Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn check_operator_associativity_1() {
-        let expr = from_code(b"a >> b >> c"); // (a >> b) >> c
+        let expr = Test::expr("a >> b >> c"); // (a >> b) >> c
         match expr {
             Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn check_operator_associativity_2() {
-        let expr = from_code(b"a << b << c"); // a << (b << c)
+        let expr = Test::expr("a << b << c"); // a << (b << c)
         match expr {
             Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn check_operator_associativity_3() {
-        let expr = from_code(b"a >> b << c"); // Error
+        let expr = Test::expr("a >> b << c"); // Error
         match expr {
             Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn check_operator_associativity_4() {
-        let expr = from_code(b"a == b == c"); // Error
+        let expr = Test::expr("a == b == c"); // Error
         match expr {
             Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn check_operator_associativity_5() {
-        let expr = from_code(b"a == b");
+        let expr = Test::expr("a == b");
         match expr {
             Expr::OpChain(_, exprs, ops) => {
                 let tree = create_expr_tree(&exprs, &ops);

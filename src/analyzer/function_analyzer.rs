@@ -172,12 +172,12 @@ mod tests {
     use ast::Statement;
     use constructors::*;
     use core::register_core;
-    use parsers::from_code_stm;
+    use test_utils::Test;
 
     use super::*;
 
-    fn from_code_def(code: &[u8]) -> Definition {
-        let stm = from_code_stm(code);
+    fn from_code_def(code: &str) -> Definition {
+        let stm = Test::statement(code);
         match stm {
             Statement::Def(def) => def,
             _ => panic!("Expected definition but found: {:?}", stm)
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn check_constant() {
-        let def = from_code_def(b"const = 1");
+        let def = from_code_def("const = 1");
         let mut env = StaticEnv::new();
 
         assert_eq!(format_type(&mut env, &def), "number");
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn check_identity() {
-        let def = from_code_def(b"id arg1 = arg1");
+        let def = from_code_def("id arg1 = arg1");
         let mut env = StaticEnv::new();
 
         assert_eq!(format_type(&mut env, &def), "a -> a");
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn check_var_to_number() {
-        let def = from_code_def(b"sum arg1 arg2 = arg1 + arg2");
+        let def = from_code_def("sum arg1 arg2 = arg1 + arg2");
         let mut env = StaticEnv::new();
 
         env.add_definition("+", build_fun_type(&vec![
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn check_number_to_float() {
-        let def = from_code_def(b"sum arg1 = arg1 + 1.5");
+        let def = from_code_def("sum arg1 = arg1 + 1.5");
         let mut env = StaticEnv::new();
 
         env.add_definition("+", build_fun_type(&vec![
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn check_from_number_to_float() {
-        let def = from_code_def(b"sum = (+) 1.5");
+        let def = from_code_def("sum = (+) 1.5");
         let mut env = StaticEnv::new();
 
         env.add_definition("+", build_fun_type(&vec![
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn check_list_coercion() {
-        let def = from_code_def(b"my = [1, 1.5]");
+        let def = from_code_def("my = [1, 1.5]");
         let mut env = StaticEnv::new();
 
         assert_eq!(format_type(&mut env, &def), "List Float");
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn check_list_coercion2() {
-        let def = from_code_def(b"my b = [1, 1.5, b]");
+        let def = from_code_def("my b = [1, 1.5, b]");
         let mut env = StaticEnv::new();
 
         assert_eq!(format_type(&mut env, &def), "Float -> List Float");
@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn check_variable_separation() {
-        let def = from_code_def(b"my a b = [a, b]");
+        let def = from_code_def("my a b = [a, b]");
         let mut env = StaticEnv::new();
 
         assert_eq!(format_type(&mut env, &def), "a -> a -> List a");
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn check_variable_separation2() {
-        let def = from_code_def(b"my = (func, func)");
+        let def = from_code_def("my = (func, func)");
         let mut env = StaticEnv::new();
 
         env.add_definition("func", Type::Fun(

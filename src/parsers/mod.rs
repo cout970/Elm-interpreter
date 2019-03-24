@@ -3,8 +3,7 @@ use errors::*;
 use parsers::input::Input;
 use parsers::util::complete;
 use source::SourceCode;
-use tokenizer::TokenInfo;
-use tokenizer::tokenize;
+use tokenizer::Tokenizer;
 
 mod input;
 mod util;
@@ -14,127 +13,69 @@ mod types;
 mod statement;
 mod module;
 
-pub fn parse_mod(code: &SourceCode, tk: Vec<TokenInfo>) -> Result<Module, ParseError> {
-    let input = Input::new(code.as_str().to_string(), tk);
-
-    complete(&module::parse_module, input)
+pub struct Parser {
+    code: SourceCode,
+    tokenizer: Tokenizer,
 }
 
-/// Generates an abstract syntax tree from an elm expression
-pub fn parse_expression(code: &str) -> Result<Expr, ElmError> {
-    let code = SourceCode::from_str(code);
-    let tk = tokenize(code.as_bytes())
-        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
+impl Parser {
+    pub fn new(tokenizer: Tokenizer) -> Self {
+        Parser { code: tokenizer.source_code(), tokenizer }
+    }
 
-    let input = Input::new(code.to_string(), tk);
+    /// Generates an abstract syntax tree from an elm expression
+    pub fn parse_expression(&mut self) -> Result<Expr, ElmError> {
+        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
 
-    complete(&expression::parse_expr, input)
-        .map_err(|e| ElmError::Parser { code, info: e })
-}
+        complete(&expression::parse_expr, input)
+            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+    }
 
-/// Generates an abstract syntax tree from an elm statement
-pub fn parse_statement(code: &str) -> Result<Statement, ElmError> {
-    let code = SourceCode::from_str(code);
-    let tk = tokenize(code.as_bytes())
-        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
+    /// Generates an abstract syntax tree from an elm statement
+    pub fn parse_statement(&mut self) -> Result<Statement, ElmError> {
+        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
 
-    let input = Input::new(code.to_string(), tk);
+        complete(&statement::parse_statement, input)
+            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+    }
 
-    complete(&statement::parse_statement, input)
-        .map_err(|e| ElmError::Parser { code, info: e })
-}
+    /// Generates an abstract syntax tree from an elm module
+    pub fn parse_module(&mut self) -> Result<Module, ElmError> {
+        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
 
-/// Generates an abstract syntax tree from an elm module
-pub fn parse_module(code: &str) -> Result<Module, ElmError> {
-    let code = SourceCode::from_str(code);
-    let tk = tokenize(code.as_bytes())
-        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
+        complete(&module::parse_module, input)
+            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+    }
 
-    let input = Input::new(code.to_string(), tk);
+    /// Generates an abstract syntax tree from an elm type definition
+    pub fn parse_type(&mut self) -> Result<Type, ElmError> {
+        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
 
-    complete(&module::parse_module, input)
-        .map_err(|e| ElmError::Parser { code, info: e })
-}
+        complete(&types::parse_type, input)
+            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+    }
 
-/// Generates an abstract syntax tree from an elm type definition
-pub fn parse_type(code: &str) -> Result<Type, ElmError> {
-    let code = SourceCode::from_str(code);
-    let tk = tokenize(code.as_bytes())
-        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
+    /// Generates an abstract syntax tree from an elm pattern
+    pub fn parse_pattern(&mut self) -> Result<Pattern, ElmError> {
+        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
 
-    let input = Input::new(code.to_string(), tk);
-
-    complete(&types::parse_type, input)
-        .map_err(|e| ElmError::Parser { code, info: e })
-}
-
-/// Generates an abstract syntax tree from an elm pattern
-pub fn parse_pattern(code: &str) -> Result<Pattern, ElmError> {
-    let code = SourceCode::from_str(code);
-    let tk = tokenize(code.as_bytes())
-        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
-
-    let input = Input::new(code.to_string(), tk);
-
-    complete(&pattern::parse_pattern, input)
-        .map_err(|e| ElmError::Parser { code, info: e })
-}
-
-// Utility functions for testing
-
-#[cfg(test)]
-pub fn from_code(code: &[u8]) -> Expr {
-    let res = parse_expression(&String::from_utf8_lossy(code));
-
-    match res {
-        Ok(res) => res,
-        Err(error) => {
-            println!("Error: {}\n", error);
-            panic!();
-        }
+        complete(&pattern::parse_pattern, input)
+            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
     }
 }
-
-#[cfg(test)]
-pub fn from_code_stm(code: &[u8]) -> Statement {
-    let res = parse_statement(&String::from_utf8_lossy(code));
-
-    match res {
-        Ok(res) => res,
-        Err(error) => {
-            println!("Error: {}\n", error);
-            panic!();
-        }
-    }
-}
-
-#[cfg(test)]
-pub fn from_code_mod(code: &[u8]) -> Module {
-    let res = parse_module(&String::from_utf8_lossy(code));
-
-    match res {
-        Ok(res) => res,
-        Err(error) => {
-            println!("Error: {}\n", error);
-            panic!();
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code_mod;
-    use tokenizer::tokenize;
+    use test_utils::Test;
 
     #[test]
     fn test_bench_1() {
-        from_code_mod(include_bytes!("../../benches/data/tokenizer_1.elm"));
+        Test::module(include_str!("../../benches/data/tokenizer_1.elm"));
     }
 
     #[test]
     fn test_bench_2() {
-        from_code_mod(include_bytes!("../../benches/data/tokenizer_2.elm"));
+        Test::module(include_str!("../../benches/data/tokenizer_2.elm"));
     }
 
     #[test]
@@ -163,11 +104,11 @@ mod tests {
                     Leaf _ ->
                         JsArray.slice 0 lastPos tree"#;
 
-        let tk = tokenize(code.as_bytes()).unwrap();
+        let tk = Test::tokens(code);
 
         for info in tk.iter() {
             println!("|> {}", info.token);
         }
-        from_code_mod(code.as_bytes());
+        Test::module(code);
     }
 }

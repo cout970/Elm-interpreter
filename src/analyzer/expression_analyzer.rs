@@ -671,20 +671,20 @@ fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty:
 
 #[cfg(test)]
 mod tests {
-    use parsers::from_code;
+    use test_utils::Test;
 
     use super::*;
 
     #[test]
     fn check_unit() {
-        let expr = from_code(b"()");
+        let expr = Test::expr("()");
         let mut env = StaticEnv::new();
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
-        let expr = from_code(b"123");
+        let expr = Test::expr("123");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Var("number".s())));
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn check_fun() {
-        let expr = from_code(b"fun 123");
+        let expr = Test::expr("fun 123");
         let mut env = StaticEnv::new();
 
         env.add_definition("fun", Type::Fun(
@@ -705,7 +705,7 @@ mod tests {
 
     #[test]
     fn check_if() {
-        let expr = from_code(b"if True then 1 else 0");
+        let expr = Test::expr("if True then 1 else 0");
         let mut env = StaticEnv::new();
 
         env.add_definition("True", Type::Tag("Bool".s(), vec![]));
@@ -715,7 +715,7 @@ mod tests {
 
     #[test]
     fn check_lambda() {
-        let expr = from_code(b"\\x -> 1");
+        let expr = Test::expr("\\x -> 1");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Fun(
@@ -726,7 +726,7 @@ mod tests {
 
     #[test]
     fn check_list() {
-        let expr = from_code(b"[1, 2, 3]");
+        let expr = Test::expr("[1, 2, 3]");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag(
@@ -736,7 +736,7 @@ mod tests {
 
     #[test]
     fn check_bad_list() {
-        let expr = from_code(b"[1, 2, 'a']");
+        let expr = Test::expr("[1, 2, 'a']");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Err(
@@ -749,7 +749,7 @@ mod tests {
 
     #[test]
     fn check_record() {
-        let expr = from_code(b"{ a = 1, b = \"Hi\" }");
+        let expr = Test::expr("{ a = 1, b = \"Hi\" }");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
@@ -762,7 +762,7 @@ mod tests {
 
     #[test]
     fn check_operator_chain() {
-        let expr = from_code(b"1 + 2");
+        let expr = Test::expr("1 + 2");
         let mut env = StaticEnv::new();
 
         env.add_definition("+", Type::Fun(
@@ -780,7 +780,7 @@ mod tests {
 
     #[test]
     fn check_tuple() {
-        let expr = from_code(b"(1, \"a\", ())");
+        let expr = Test::expr("(1, \"a\", ())");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
@@ -794,7 +794,7 @@ mod tests {
 
     #[test]
     fn check_record_update() {
-        let expr = from_code(b"{ x | a = 0 }");
+        let expr = Test::expr("{ x | a = 0 }");
         let mut env = StaticEnv::new();
 
         let record_type = Type::Record(vec![
@@ -808,7 +808,7 @@ mod tests {
 
     #[test]
     fn check_case() {
-        let expr = from_code(b"case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
+        let expr = Test::expr("case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("String".s(), vec![])));
@@ -816,7 +816,7 @@ mod tests {
 
     #[test]
     fn check_case2() {
-        let expr = from_code(b"case 0 of\n 0 -> 1\n _ -> \"b\"");
+        let expr = Test::expr("case 0 of\n 0 -> 1\n _ -> \"b\"");
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Err(CaseBranchDontMatchReturnType((24, 27), "".s())));

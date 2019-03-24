@@ -396,14 +396,14 @@ mod tests {
     use ast::Pattern;
     use ast::Type;
     use interpreter::builtins::builtin_unit_fun;
-    use parsers::from_code;
+    use test_utils::Test;
     use util::builtin_fun_of;
 
     use super::*;
 
     #[test]
     fn check_unit() {
-        let expr = from_code(b"()");
+        let expr = Test::expr("()");
         let mut env = DynamicEnv::new();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Unit));
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn check_list() {
-        let expr = from_code(b"[1, 2, 3]");
+        let expr = Test::expr("[1, 2, 3]");
         let mut env = DynamicEnv::new();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::List(vec![
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn check_lambda() {
-        let expr = from_code(b"\\x -> 1");
+        let expr = Test::expr("\\x -> 1");
         let mut env = DynamicEnv::new();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(
@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn check_record() {
-        let expr = from_code(b"{ a = 0 }.a");
+        let expr = Test::expr("{ a = 0 }.a");
         let mut env = DynamicEnv::new();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Number(0)));
@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn check_application() {
-        let expr = from_code(b"fun 0");
+        let expr = Test::expr("fun 0");
         let mut env = DynamicEnv::new();
 
         let ty = Type::Fun(
@@ -470,7 +470,7 @@ mod tests {
 
     #[test]
     fn check_number() {
-        let expr = from_code(b"1 / 3");
+        let expr = Test::expr("1 / 3");
         let mut env = DynamicEnv::default_lang_env();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Float(0.3333333333333333)));
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn check_number2() {
-        let expr = from_code(b"4 // 3");
+        let expr = Test::expr("4 // 3");
         let mut env = DynamicEnv::default_lang_env();
 
         assert_eq!(eval_expr(&mut env, &expr), Ok(Value::Int(1)));
@@ -486,7 +486,7 @@ mod tests {
 
     #[test]
     fn check_number3() {
-        let expr = from_code(b"4 + 3");
+        let expr = Test::expr("4 + 3");
         let mut env = DynamicEnv::default_lang_env();
 
 
