@@ -240,7 +240,7 @@ impl Tokenizer {
             let mut ptr = 2;
 
             // Line ends with \n or \r\n
-            while self.byte(ptr) != b'\n' && self.byte(ptr) != b'\r' {
+            while self.byte(ptr) != b'\n' && self.byte(ptr) != b'\r' && self.byte(ptr) != b'\0' {
                 ptr += 1;
             }
 
@@ -342,5 +342,17 @@ mod tests {
             LeftParen, PrefixMinus, RightParen, Comma,
             LeftParen, BinaryOperator("*".s()), RightParen, Eof
         ]);
+    }
+
+    #[test]
+    fn force_error() {
+        let code = "foo\"bar!@#$%^&*()_+=-[]'\\/.,`test";
+        let result = tokenize(code.as_bytes());
+        match result {
+            Ok(_) => panic!("Error not found!"),
+            Err(e) => {
+                println!("Found error: \n{}\n", ElmError::Tokenizer { code: SourceCode::from_str(code), info: e });
+            }
+        }
     }
 }

@@ -177,7 +177,7 @@ pub fn format_lexical_error(code: &SourceCode, error: &LexicalError) -> String {
     for error in errors {
         match error {
             LexicalError::ReachedEnd { pos } => {
-                let loc = print_code_location(code.as_str(), &(pos - 1, pos));
+                let loc = print_code_location(code.as_str(), &(pos, pos + 1));
                 write!(&mut msg, "Unable to read complete token: {}\n", loc).unwrap();
             },
             LexicalError::UnableToTokenize { span } => {
