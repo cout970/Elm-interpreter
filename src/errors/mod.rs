@@ -15,8 +15,8 @@ use ast::Span;
 use interpreter::dynamic_env::DynamicEnv;
 use loader::Declaration;
 use loader::declaration_name;
+use source::Location;
 use source::SourceCode;
-use tokenizer::Location;
 use tokenizer::Token;
 use types::Value;
 use util::expression_fold::ExprTreeError;
@@ -34,6 +34,8 @@ pub enum ElmError {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum LexicalError {
+    ReachedEnd { pos: u32 },
+    UnableToTokenize { span: Span },
     Incomplete(Needed),
     Error(Location, ErrorKind),
     Failure(Location, ErrorKind),

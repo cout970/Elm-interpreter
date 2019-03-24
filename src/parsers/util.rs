@@ -255,7 +255,7 @@ pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
 }
 
 pub fn from(c: &str) -> Input {
-    let tokens: Vec<TokenInfo> = tokenize(c.as_bytes()).expect("Tokenizer error");
+    let tokens = tokenize(c.as_bytes()).expect("Tokenizer error");
     Input::new(c.to_owned(), tokens)
 }
 
@@ -268,7 +268,7 @@ pub fn test_parser<F, T: Debug>(func: F, code: &str)
             println!("Value: {:?}\n", res);
         }
         Err(error) => {
-            println!("Error: {}\n", ElmError::Parser { code: SourceCode::new(code), info: error });
+            println!("Error: {}\n", ElmError::Parser { code: SourceCode::from_str(code), info: error });
             panic!();
         }
     }
@@ -284,7 +284,7 @@ pub fn test_parser_result<F, T: Debug + PartialEq>(func: F, code: &str, value: T
             assert_eq!(value, res);
         }
         Err(error) => {
-            println!("Error: {}\n", ElmError::Parser { code: SourceCode::new(code), info: error });
+            println!("Error: {}\n", ElmError::Parser { code: SourceCode::from_str(code), info: error });
             panic!();
         }
     }
@@ -300,7 +300,7 @@ pub fn test_parser_error<F, T: Debug>(func: F, code: &str)
             panic!();
         }
         Err(error) => {
-            println!("Error: {}\n", ElmError::Parser { code: SourceCode::new(code), info: error });
+            println!("Error: {}\n", ElmError::Parser { code: SourceCode::from_str(code), info: error });
         }
     }
 }

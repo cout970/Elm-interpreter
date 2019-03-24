@@ -25,7 +25,7 @@ pub fn parse_mod(code: &SourceCode, tk: Vec<TokenInfo>) -> Result<Module, ParseE
 
 /// Generates an abstract syntax tree from an elm expression
 pub fn parse_expression(code: &str) -> Result<Expr, ElmError> {
-    let code = SourceCode::new(code);
+    let code = SourceCode::from_str(code);
     let tk = tokenize(code.as_bytes())
         .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
@@ -37,7 +37,7 @@ pub fn parse_expression(code: &str) -> Result<Expr, ElmError> {
 
 /// Generates an abstract syntax tree from an elm statement
 pub fn parse_statement(code: &str) -> Result<Statement, ElmError> {
-    let code = SourceCode::new(code);
+    let code = SourceCode::from_str(code);
     let tk = tokenize(code.as_bytes())
         .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
@@ -49,7 +49,7 @@ pub fn parse_statement(code: &str) -> Result<Statement, ElmError> {
 
 /// Generates an abstract syntax tree from an elm module
 pub fn parse_module(code: &str) -> Result<Module, ElmError> {
-    let code = SourceCode::new(code);
+    let code = SourceCode::from_str(code);
     let tk = tokenize(code.as_bytes())
         .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
@@ -61,7 +61,7 @@ pub fn parse_module(code: &str) -> Result<Module, ElmError> {
 
 /// Generates an abstract syntax tree from an elm type definition
 pub fn parse_type(code: &str) -> Result<Type, ElmError> {
-    let code = SourceCode::new(code);
+    let code = SourceCode::from_str(code);
     let tk = tokenize(code.as_bytes())
         .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
@@ -73,7 +73,7 @@ pub fn parse_type(code: &str) -> Result<Type, ElmError> {
 
 /// Generates an abstract syntax tree from an elm pattern
 pub fn parse_pattern(code: &str) -> Result<Pattern, ElmError> {
-    let code = SourceCode::new(code);
+    let code = SourceCode::from_str(code);
     let tk = tokenize(code.as_bytes())
         .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 

@@ -5,6 +5,8 @@ use tokenizer::Token::*;
 use tokenizer::Token;
 use util::*;
 
+// Tokenizing is done with the crate nom, except error handling and skipping spaces, comments and indentation
+
 named!(lower<char>, one_of!("abcdefghijklmnopqrstuvwxyz"));
 named!(upper<char>, one_of!("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
 
@@ -129,21 +131,6 @@ named!(right_arrow<Token>, map!(tag!("->"), |_c| RightArrow));
 
 named!(eof_marker<Token>, alt!(map!(eof!(), |_c| Eof) | map!(char!('\0'), |_c| Eof)));
 
-named!(pub read_token_forced<Token>, alt!(
-    read_binop
-    | comma
-    | back_slash
-    | read_id
-    | read_upper_id
-    | read_literal
-    | left_paren
-    | right_paren
-    | left_braket
-    | right_braket
-    | left_brace
-    | right_brace
-    | eof_marker
-));
 
 fn read_binop(input: &[u8]) -> IResult<&[u8], Token> {
     let (output, binop): (&[u8], String) = basic_binop_string(input)?;
@@ -193,6 +180,22 @@ fn from_binop(id: String) -> Token {
         _ => BinaryOperator(id)
     }
 }
+
+named!(pub read_token<Token>, alt!(
+    read_binop
+    | comma
+    | back_slash
+    | read_id
+    | read_upper_id
+    | read_literal
+    | left_paren
+    | right_paren
+    | left_braket
+    | right_braket
+    | left_brace
+    | right_brace
+    | eof_marker
+));
 
 #[cfg(test)]
 mod tests {
@@ -251,17 +254,17 @@ mod tests {
 
     #[test]
     fn check_binop() {
-        assert_ok!(read_token_forced(b"= "), Equals);
-        assert_ok!(read_token_forced(b"== "), BinaryOperator("==".s()));
-        assert_ok!(read_token_forced(b"=== "), BinaryOperator("===".s()));
-        assert_ok!(read_token_forced(b"- "), BinaryOperator("-".s()));
-        assert_ok!(read_token_forced(b"-- "), BinaryOperator("--".s()));
-        assert_ok!(read_token_forced(b"--- "), BinaryOperator("---".s()));
-        assert_ok!(read_token_forced(b". "), Dot);
-        assert_ok!(read_token_forced(b".. "), DoubleDot);
-        assert_ok!(read_token_forced(b"... "), BinaryOperator("...".s()));
-        assert_ok!(read_token_forced(b"-> "), RightArrow);
-        assert_ok!(read_token_forced(b"<- "), LeftArrow);
-        assert_ok!(read_token_forced(b"<-- "), BinaryOperator("<--".s()));
+        assert_ok!(read_token(b"= "), Equals);
+        assert_ok!(read_token(b"== "), BinaryOperator("==".s()));
+        assert_ok!(read_token(b"=== "), BinaryOperator("===".s()));
+        assert_ok!(read_token(b"- "), BinaryOperator("-".s()));
+        assert_ok!(read_token(b"-- "), BinaryOperator("--".s()));
+        assert_ok!(read_token(b"--- "), BinaryOperator("---".s()));
+        assert_ok!(read_token(b". "), Dot);
+        assert_ok!(read_token(b".. "), DoubleDot);
+        assert_ok!(read_token(b"... "), BinaryOperator("...".s()));
+        assert_ok!(read_token(b"-> "), RightArrow);
+        assert_ok!(read_token(b"<- "), LeftArrow);
+        assert_ok!(read_token(b"<-- "), BinaryOperator("<--".s()));
     }
 }

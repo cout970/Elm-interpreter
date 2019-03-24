@@ -27,13 +27,13 @@ use util::create_vec_inv;
 pub mod ast;
 pub mod types;
 #[macro_use]
-mod util;
-mod tokenizer;
-mod parsers;
+pub mod util;
+pub mod tokenizer;
+pub mod parsers;
 pub mod analyzer;
 pub mod constructors;
-mod core;
-mod interpreter;
+pub mod core;
+pub mod interpreter;
 pub mod errors;
 pub mod rust_interop;
 pub mod loader;
