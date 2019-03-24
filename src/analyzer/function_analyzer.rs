@@ -1,5 +1,6 @@
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::pattern_analyzer::*;
+use analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
 use analyzer::type_helper::is_assignable;
 use analyzer::TypeError;

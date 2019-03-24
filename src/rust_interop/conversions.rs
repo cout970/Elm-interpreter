@@ -47,107 +47,107 @@ pub fn convert_from_rust(val: &Any) -> Option<Value> {
     if let Some(()) = val.downcast_ref::<()>() {
         return Some(Value::Unit);
     }
-    if let Some(unwraped) = val.downcast_ref::<Int>() {
-        return Some(Value::Int(*unwraped));
+    if let Some(unwrapped) = val.downcast_ref::<Int>() {
+        return Some(Value::Int(*unwrapped));
     }
-    if let Some(unwraped) = val.downcast_ref::<Float>() {
-        return Some(Value::Float(*unwraped));
+    if let Some(unwrapped) = val.downcast_ref::<Float>() {
+        return Some(Value::Float(*unwrapped));
     }
-    if let Some(unwraped) = val.downcast_ref::<String>() {
-        return Some(Value::String(unwraped.clone()));
+    if let Some(unwrapped) = val.downcast_ref::<String>() {
+        return Some(Value::String(unwrapped.clone()));
     }
-    if let Some(unwraped) = val.downcast_ref::<char>() {
-        return Some(Value::Char(*unwraped));
+    if let Some(unwrapped) = val.downcast_ref::<char>() {
+        return Some(Value::Char(*unwrapped));
     }
 
-    if let Some(unwraped) = val.downcast_ref::<Vec<Box<Any>>>() {
-        let values = unwraped.iter()
+    if let Some(unwrapped) = val.downcast_ref::<Vec<Box<Any>>>() {
+        let values = unwrapped.iter()
             .map(|t| convert_from_rust(t))
             .collect::<Option<Vec<Value>>>()?;
 
         return Some(Value::List(values));
     }
 
-    if let Some(unwraped) = val.downcast_ref::<HashMap<String, Box<Any>>>() {
+    if let Some(unwrapped) = val.downcast_ref::<HashMap<String, Box<Any>>>() {
         let mut values: Vec<(String, Value)> = vec![];
 
-        for (key, value) in unwraped {
+        for (key, value) in unwrapped {
             values.push((key.clone(), convert_from_rust(value)?));
         }
 
         return Some(Value::Record(values));
     }
 
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>)>() {
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>)>() {
         let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
         ];
         return Some(Value::Tuple(values));
     }
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>)>() {
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>)>() {
         let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
-            convert_from_rust(&*unwraped.2)?,
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
+            convert_from_rust(&*unwrapped.2)?,
         ];
         return Some(Value::Tuple(values));
     }
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
         let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
-            convert_from_rust(&*unwraped.2)?,
-            convert_from_rust(&*unwraped.3)?,
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
+            convert_from_rust(&*unwrapped.2)?,
+            convert_from_rust(&*unwrapped.3)?,
         ];
         return Some(Value::Tuple(values));
     }
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
         let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
-            convert_from_rust(&*unwraped.2)?,
-            convert_from_rust(&*unwraped.3)?,
-            convert_from_rust(&*unwraped.4)?,
-        ];
-        return Some(Value::Tuple(values));
-    }
-
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
-        let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
-            convert_from_rust(&*unwraped.2)?,
-            convert_from_rust(&*unwraped.3)?,
-            convert_from_rust(&*unwraped.4)?,
-            convert_from_rust(&*unwraped.5)?,
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
+            convert_from_rust(&*unwrapped.2)?,
+            convert_from_rust(&*unwrapped.3)?,
+            convert_from_rust(&*unwrapped.4)?,
         ];
         return Some(Value::Tuple(values));
     }
 
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
         let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
-            convert_from_rust(&*unwraped.2)?,
-            convert_from_rust(&*unwraped.3)?,
-            convert_from_rust(&*unwraped.4)?,
-            convert_from_rust(&*unwraped.5)?,
-            convert_from_rust(&*unwraped.6)?,
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
+            convert_from_rust(&*unwrapped.2)?,
+            convert_from_rust(&*unwrapped.3)?,
+            convert_from_rust(&*unwrapped.4)?,
+            convert_from_rust(&*unwrapped.5)?,
         ];
         return Some(Value::Tuple(values));
     }
 
-    if let Some(unwraped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
         let values = vec![
-            convert_from_rust(&*unwraped.0)?,
-            convert_from_rust(&*unwraped.1)?,
-            convert_from_rust(&*unwraped.2)?,
-            convert_from_rust(&*unwraped.3)?,
-            convert_from_rust(&*unwraped.4)?,
-            convert_from_rust(&*unwraped.5)?,
-            convert_from_rust(&*unwraped.6)?,
-            convert_from_rust(&*unwraped.7)?,
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
+            convert_from_rust(&*unwrapped.2)?,
+            convert_from_rust(&*unwrapped.3)?,
+            convert_from_rust(&*unwrapped.4)?,
+            convert_from_rust(&*unwrapped.5)?,
+            convert_from_rust(&*unwrapped.6)?,
+        ];
+        return Some(Value::Tuple(values));
+    }
+
+    if let Some(unwrapped) = val.downcast_ref::<(Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>, Box<Any>)>() {
+        let values = vec![
+            convert_from_rust(&*unwrapped.0)?,
+            convert_from_rust(&*unwrapped.1)?,
+            convert_from_rust(&*unwrapped.2)?,
+            convert_from_rust(&*unwrapped.3)?,
+            convert_from_rust(&*unwrapped.4)?,
+            convert_from_rust(&*unwrapped.5)?,
+            convert_from_rust(&*unwrapped.6)?,
+            convert_from_rust(&*unwrapped.7)?,
         ];
         return Some(Value::Tuple(values));
     }

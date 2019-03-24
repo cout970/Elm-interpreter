@@ -70,16 +70,3 @@ mod tests {
         e.call_fn("test_function", (&mut 1, &mut 2, &mut 3)).unwrap();
     }
 }
-
-
-// Function call
-
-// /// Represents a value that can be pass as arguments to a function,
-// /// there are default implementations for tuples for types that are 'static,
-// /// tuples are used to specify arguments, for 1 arg functions use a trailing comma like (1,)
-//pub trait FunArgs<'a> {
-//    fn into_vec(self) -> Vec<&'a mut Any>;
-//    fn get_types(&self) -> Vec<TypeId>;
-//}
-//
-

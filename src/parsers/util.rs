@@ -1,9 +1,10 @@
 use std::fmt::Debug;
 
 use ast::Int;
-use errors::ErrorWrapper;
+use errors::ElmError;
+use errors::ParseError;
 use parsers::input::Input;
-use parsers::ParseError;
+use source::SourceCode;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
 use tokenizer::tokenize;
@@ -267,7 +268,7 @@ pub fn test_parser<F, T: Debug>(func: F, code: &str)
             println!("Value: {:?}\n", res);
         }
         Err(error) => {
-            println!("Error: {}\n", ErrorWrapper::ParseError(code.to_owned(), error));
+            println!("Error: {}\n", ElmError::Parser { code: SourceCode::new(code), info: error });
             panic!();
         }
     }
@@ -283,7 +284,7 @@ pub fn test_parser_result<F, T: Debug + PartialEq>(func: F, code: &str, value: T
             assert_eq!(value, res);
         }
         Err(error) => {
-            println!("Error: {}\n", ErrorWrapper::ParseError(code.to_owned(), error));
+            println!("Error: {}\n", ElmError::Parser { code: SourceCode::new(code), info: error });
             panic!();
         }
     }
@@ -299,7 +300,7 @@ pub fn test_parser_error<F, T: Debug>(func: F, code: &str)
             panic!();
         }
         Err(error) => {
-            println!("Error: {}\n", ErrorWrapper::ParseError(code.to_owned(), error));
+            println!("Error: {}\n", ElmError::Parser { code: SourceCode::new(code), info: error });
         }
     }
 }

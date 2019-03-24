@@ -2,18 +2,13 @@ use nom::*;
 
 use ast::{Float, Int};
 use ast::Span;
+use errors::*;
 use tokenizer::token_reader::read_tokens;
 
 mod input;
 mod token_parser;
 mod token_reader;
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum LexicalError {
-    Incomplete(Needed),
-    Error(Location, ErrorKind),
-    Failure(Location, ErrorKind),
-}
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {

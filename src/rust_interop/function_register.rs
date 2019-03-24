@@ -6,17 +6,18 @@
 use std::any::Any;
 use std::any::TypeId;
 
-use errors::ErrorWrapper;
+use errors::ElmError;
+use errors::interop_err;
+use errors::InteropError;
 use Interpreter;
 use rust_interop::FnAny;
-use rust_interop::InteropError;
 
 pub trait FunctionRegister {
-    fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), ErrorWrapper>;
+    fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), ElmError>;
 }
 
 pub trait RegisterFn<FN, ARGS, RET> {
-    fn register_fn(&mut self, name: &str, f: FN) -> Result<(), ErrorWrapper>;
+    fn register_fn(&mut self, name: &str, f: FN) -> Result<(), ElmError>;
 }
 
 pub struct Ref<A>(A);
@@ -41,19 +42,19 @@ macro_rules! def_register {
             T: FunctionRegister
         {
             #[allow(non_snake_case, dead_code, unused_mut, unused)]
-            fn register_fn(&mut self, name: &str, f: FN) -> Result<(), ErrorWrapper> {
+            fn register_fn(&mut self, name: &str, f: FN) -> Result<(), ElmError> {
                 let fun = move |_: &mut Interpreter, mut args: Vec<&mut Any>| {
                     // Check for length at the beginning to avoid
                     // per-element bound checks.
                     if args.len() != count_args!($($par)*) {
-                        return Err(ErrorWrapper::InteropError(InteropError::FunctionArgMismatch));
+                        return interop_err(InteropError::FunctionArgMismatch);
                     }
 
                     let mut drain = args.drain(..);
                     $(
                     // Downcast every element, return in case of a type mismatch
                     let $par = ((*drain.next().unwrap()).downcast_mut() as Option<&mut $par>)
-                        .ok_or(ErrorWrapper::InteropError(InteropError::FunctionArgMismatch))?;
+                        .ok_or(ElmError::Interop{ info: InteropError::FunctionArgMismatch })?;
                     )*
 
                     // Call the user-supplied function using ($clone) to
@@ -86,7 +87,7 @@ mod tests {
     struct Test {}
 
     impl FunctionRegister for Test {
-        fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, _boxed: Box<FnAny>) -> Result<(), ErrorWrapper> {
+        fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, _boxed: Box<FnAny>) -> Result<(), ElmError> {
             assert_eq!(name, "test_function");
             assert_eq!(args, vec![TypeId::of::<i32>()]);
             assert_eq!(ret, TypeId::of::<i32>());

@@ -1,7 +1,7 @@
 use std::str::Chars;
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SourceCode {
     code: Arc<String>
 }
@@ -31,5 +31,10 @@ impl SourceCode {
 
     pub fn as_str(&self) -> &str {
         self.code.as_str()
+    }
+
+    // TODO remove this is copying large strings
+    pub fn to_string(&self) -> String {
+        self.code.as_str().to_owned()
     }
 }

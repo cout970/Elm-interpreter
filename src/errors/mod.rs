@@ -5,23 +5,122 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use analyzer::TypeError;
+use nom::ErrorKind;
+use nom::Needed;
+
+use analyzer::inter_mod_analyzer::ModulePath;
+use analyzer::PatternMatchingError;
+use ast::Pattern;
 use ast::Span;
-use interpreter::RuntimeError;
+use interpreter::dynamic_env::DynamicEnv;
+use loader::Declaration;
 use loader::declaration_name;
-use parsers::ParseError;
-use rust_interop::InteropError;
 use source::SourceCode;
-use tokenizer::LexicalError;
+use tokenizer::Location;
+use tokenizer::Token;
+use types::Value;
+use util::expression_fold::ExprTreeError;
 use util::format::print_vec;
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone)]
 pub enum ElmError {
     Tokenizer { code: SourceCode, info: LexicalError },
     Parser { code: SourceCode, info: ParseError },
-    Analyser { info: TypeError },
+    Analyser { code: SourceCode, info: TypeError },
     Interpreter { info: RuntimeError },
+    Interop { info: InteropError },
     Loader { info: LoaderError },
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum LexicalError {
+    Incomplete(Needed),
+    Error(Location, ErrorKind),
+    Failure(Location, ErrorKind),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TypeError {
+    List(Vec<TypeError>),
+    MissingDefinition(Span, String),
+    ListNotHomogeneous(Span, String),
+    IfWithNonBoolCondition(Span, String),
+    IfBranchesDoesntMatch(Span, String),
+    ArgumentsDoNotMatch(Span, String),
+    NotAFunction(Span, String),
+    InvalidOperandChain(Span, String),
+    RecordUpdateOnNonRecord(Span, String),
+    RecordUpdateUnknownField(Span, String),
+    CaseBranchDontMatchReturnType(Span, String),
+    DefinitionTypeAndReturnTypeMismatch,
+    InvalidPattern(Span, PatternMatchingError),
+    ConstantEvaluationError(String),
+    VariableAlreadyDeclared(String),
+    UnableToCalculateFunctionType(String),
+    VariableNameShadowed(String),
+    UndeclaredTypeVariables(Vec<String>),
+    UnusedTypeVariables(Vec<String>),
+    InvalidPatternAmount(usize, usize),
+    InternalError,
+    CyclicStatementDependency(Vec<String>),
+}
+
+
+/// Enum with all possible parsing errors
+#[derive(PartialEq, Debug, Clone)]
+pub enum ParseError {
+    //@formatter:off
+    Expected                    { span: Span, expected: Token, found: Token },
+    ExpectedInt                 { span: Span, found: Token },
+    ExpectedId                  { span: Span, found: Token },
+    ExpectedUpperId             { span: Span, found: Token },
+    ExpectedBinaryOperator      { span: Span, found: Token },
+    ExpectedIndentationLevel    { span: Span, expected: u32, found: u32 },
+    ExpectedIndentation         { span: Span, found: Token },
+    UnmatchedToken              { span: Span, found: Token, options: Vec<Token> },
+    //@formatter:on
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RuntimeError {
+    MissingModule(ModulePath),
+    MissingDefinition(String, DynamicEnv),
+    IncorrectDefType(TypeError),
+    RecordUpdateOnNonRecord(String, Value),
+    InvalidIfCondition(Value),
+    InvalidExpressionChain(ExprTreeError),
+    RecordFieldNotFound(String, Value),
+    CaseExpressionNonExhaustive(Value, Vec<Pattern>),
+    FunArgumentSizeMismatch(u32, u32),
+    ExpectedRecord(Value),
+    ExpectedFunction(Value),
+    ExpectedAdt(Value),
+    ExpectedTuple(Value),
+    ExpectedList(Value),
+    ExpectedFloat(Value),
+    ExpectedInt(Value),
+    ExpectedString(Value),
+    ExpectedNumber(Value),
+    ExpectedNonEmptyList(Value),
+    UnknownOperatorPattern(String),
+    InternalErrorRecordAccess(Value),
+    InternalErrorAdtCreation(Value),
+    UnknownBuiltinFunction(u32),
+    BuiltinFunctionError,
+    ImpossibleConversion,
+    MissingSourceFile,
+    CyclicModuleDependency(Vec<ModulePath>),
+    MissingExposing(String, Vec<Declaration>),
+    InternalError,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum InteropError {
+    FunctionArgMismatch,
+    MismatchOutputType,
+    FunctionNotFound(String),
+    FunRegistrationUnknownTypeArg(usize),
+    FunRegistrationUnknownTypeRet,
 }
 
 #[derive(Clone, Debug)]
@@ -32,22 +131,41 @@ pub enum LoaderError {
     MissingImport { name: String },
 }
 
-#[derive(PartialEq, Clone)]
-pub enum ErrorWrapper {
-    LexicalError(LexicalError),
-    ParseError(String, ParseError),
-    TypeError(String, TypeError),
-    RuntimeError(RuntimeError),
-    InteropError(InteropError),
+pub fn lexical_err<T>(code: &SourceCode, info: LexicalError) -> Result<T, ElmError> {
+    Err(ElmError::Tokenizer { code: code.clone(), info })
 }
 
-pub fn format_error(error: &ErrorWrapper) -> String {
+pub fn parsing_err<T>(code: &SourceCode, info: ParseError) -> Result<T, ElmError> {
+    Err(ElmError::Parser { code: code.clone(), info })
+}
+
+pub fn type_err<T>(code: &SourceCode, info: TypeError) -> Result<T, ElmError> {
+    Err(ElmError::Analyser { code: code.clone(), info })
+}
+
+pub fn runtime_err(info: RuntimeError) -> ElmError {
+    ElmError::Interpreter { info }
+}
+
+pub fn interop_err<T>(info: InteropError) -> Result<T, ElmError> {
+    Err(ElmError::Interop { info })
+}
+
+pub fn loader_err<T>(info: LoaderError) -> Result<T, ElmError> {
+    Err(ElmError::Loader { info })
+}
+
+pub fn format_error(error: &ElmError) -> String {
     match error {
-        ErrorWrapper::LexicalError(it) => { format_lexical_error(it) }
-        ErrorWrapper::ParseError(code, it) => { format_parse_error(code, it) }
-        ErrorWrapper::TypeError(code, it) => { format_type_error(code, it) }
-        ErrorWrapper::RuntimeError(it) => { format_runtime_error(it) }
-        ErrorWrapper::InteropError(it) => { format_interop_error(it) }
+        ElmError::Tokenizer { code, info } => { format_lexical_error(info) }
+        ElmError::Parser { code, info } => { format_parse_error(code.as_str(), info) }
+        ElmError::Analyser { code, info } => { format_type_error(code.as_str(), info) }
+        ElmError::Interpreter { info } => { format_runtime_error(info) }
+        ElmError::Interop { info } => { format_interop_error(info) }
+        ElmError::Loader { info } => {
+            // TODO
+            String::from("TODO")
+        }
     }
 }
 
@@ -330,14 +448,40 @@ pub fn print_code_location(input: &str, span: &Span) -> String {
     output
 }
 
-impl Display for ErrorWrapper {
+impl Display for ElmError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self))
     }
 }
 
-impl Debug for ErrorWrapper {
+impl Debug for ElmError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self))
+    }
+}
+
+macro_rules! iff {
+    (let $p:pat = $e:expr) => {{
+        if let $p = $e { true } else { false }
+    }};
+}
+
+impl PartialEq for LoaderError {
+    fn eq(&self, other: &LoaderError) -> bool {
+        match self {
+            LoaderError::IO { .. } => {
+                // io:Error cannot be compared so we ignore this case
+                true
+            },
+            LoaderError::MissingDependencies { dependencies: this, .. } => {
+                if let LoaderError::MissingDependencies { dependencies: other } = other { this == other } else { false }
+            },
+            LoaderError::CyclicDependency { cycle: this, .. } => {
+                if let LoaderError::CyclicDependency { cycle: other } = other { this == other } else { false }
+            },
+            LoaderError::MissingImport { name: this, .. } => {
+                if let LoaderError::MissingImport { name: other } = other { this == other } else { false }
+            },
+        }
     }
 }

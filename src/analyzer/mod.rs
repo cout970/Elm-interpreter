@@ -3,12 +3,13 @@ use std::ops::Deref;
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::expression_analyzer::get_adt_type;
 use analyzer::function_analyzer::analyze_function;
-use analyzer::pattern_analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
 use ast::Definition;
 use ast::Expr;
+use ast::Pattern;
 use ast::Span;
 use ast::Type;
+use errors::*;
 use types::Function;
 use types::Value;
 use util::StringConversion;
@@ -23,30 +24,21 @@ mod pattern_analyzer;
 mod type_helper;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TypeError {
-    List(Vec<TypeError>),
-    MissingDefinition(Span, String),
-    ListNotHomogeneous(Span, String),
-    IfWithNonBoolCondition(Span, String),
-    IfBranchesDoesntMatch(Span, String),
-    ArgumentsDoNotMatch(Span, String),
-    NotAFunction(Span, String),
-    InvalidOperandChain(Span, String),
-    RecordUpdateOnNonRecord(Span, String),
-    RecordUpdateUnknownField(Span, String),
-    CaseBranchDontMatchReturnType(Span, String),
-    DefinitionTypeAndReturnTypeMismatch,
-    InvalidPattern(Span, PatternMatchingError),
-    ConstantEvaluationError(String),
-    VariableAlreadyDeclared(String),
-    UnableToCalculateFunctionType(String),
-    VariableNameShadowed(String),
-    UndeclaredTypeVariables(Vec<String>),
-    UnusedTypeVariables(Vec<String>),
-    InvalidPatternAmount(usize, usize),
-    InternalError,
-    CyclicStatementDependency(Vec<String>),
+pub enum PatternMatchingError {
+    ListPatternsAreNotHomogeneous(Type, Type),
+    UnknownOperatorPattern(String),
+    UnknownAdtVariant(String),
+    ExpectedListType(Type),
+    ExpectedUnit(Type),
+    ExpectedTuple(Pattern, Type),
+    ExpectedRecord(Type),
+    ExpectedAdt(String, Type),
+    PatternNotExhaustive(Pattern),
+    InvalidRecordEntryName(String),
+    ExpectedLiteral(String, Type),
+    TODO,
 }
+
 
 pub fn type_check_expression(env: &mut StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
     analyze_expression(env, None, expr)

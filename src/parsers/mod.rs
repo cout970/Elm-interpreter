@@ -1,6 +1,7 @@
 use ast::{Expr, Module, Pattern, Statement, Type};
 use ast::Span;
-use errors::ErrorWrapper;
+use errors::*;
+use errors::ElmError;
 use parsers::input::Input;
 use parsers::util::complete;
 use source::SourceCode;
@@ -16,21 +17,6 @@ mod types;
 mod statement;
 mod module;
 
-/// Enum with all possible parsing errors
-#[derive(PartialEq, Debug, Clone)]
-pub enum ParseError {
-    //@formatter:off
-    Expected                    { span: Span, expected: Token, found: Token },
-    ExpectedInt                 { span: Span, found: Token },
-    ExpectedId                  { span: Span, found: Token },
-    ExpectedUpperId             { span: Span, found: Token },
-    ExpectedBinaryOperator      { span: Span, found: Token },
-    ExpectedIndentationLevel    { span: Span, expected: u32, found: u32 },
-    ExpectedIndentation         { span: Span, found: Token },
-    UnmatchedToken              { span: Span, found: Token, options: Vec<Token> },
-    //@formatter:on
-}
-
 pub fn parse_mod(code: &SourceCode, tk: Vec<TokenInfo>) -> Result<Module, ParseError> {
     let input = Input::new(code.as_str().to_string(), tk);
 
@@ -38,58 +24,63 @@ pub fn parse_mod(code: &SourceCode, tk: Vec<TokenInfo>) -> Result<Module, ParseE
 }
 
 /// Generates an abstract syntax tree from an elm expression
-pub fn parse_expression(code: &str) -> Result<Expr, ErrorWrapper> {
+pub fn parse_expression(code: &str) -> Result<Expr, ElmError> {
+    let code = SourceCode::new(code);
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::LexicalError(e))?;
+        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
-    let input = Input::new(code.to_owned(), tk);
+    let input = Input::new(code.to_string(), tk);
 
     complete(&expression::parse_expr, input)
-        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
+        .map_err(|e| ElmError::Parser { code, info: e })
 }
 
 /// Generates an abstract syntax tree from an elm statement
-pub fn parse_statement(code: &str) -> Result<Statement, ErrorWrapper> {
+pub fn parse_statement(code: &str) -> Result<Statement, ElmError> {
+    let code = SourceCode::new(code);
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::LexicalError(e))?;
+        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
-    let input = Input::new(code.to_owned(), tk);
+    let input = Input::new(code.to_string(), tk);
 
     complete(&statement::parse_statement, input)
-        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
+        .map_err(|e| ElmError::Parser { code, info: e })
 }
 
 /// Generates an abstract syntax tree from an elm module
-pub fn parse_module(code: &str) -> Result<Module, ErrorWrapper> {
+pub fn parse_module(code: &str) -> Result<Module, ElmError> {
+    let code = SourceCode::new(code);
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::LexicalError(e))?;
+        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
-    let input = Input::new(code.to_owned(), tk);
+    let input = Input::new(code.to_string(), tk);
 
     complete(&module::parse_module, input)
-        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
+        .map_err(|e| ElmError::Parser { code, info: e })
 }
 
 /// Generates an abstract syntax tree from an elm type definition
-pub fn parse_type(code: &str) -> Result<Type, ErrorWrapper> {
+pub fn parse_type(code: &str) -> Result<Type, ElmError> {
+    let code = SourceCode::new(code);
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::LexicalError(e))?;
+        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
-    let input = Input::new(code.to_owned(), tk);
+    let input = Input::new(code.to_string(), tk);
 
     complete(&types::parse_type, input)
-        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
+        .map_err(|e| ElmError::Parser { code, info: e })
 }
 
 /// Generates an abstract syntax tree from an elm pattern
-pub fn parse_pattern(code: &str) -> Result<Pattern, ErrorWrapper> {
+pub fn parse_pattern(code: &str) -> Result<Pattern, ElmError> {
+    let code = SourceCode::new(code);
     let tk = tokenize(code.as_bytes())
-        .map_err(|e| ErrorWrapper::LexicalError(e))?;
+        .map_err(|e| ElmError::Tokenizer { code: code.clone(), info: e })?;
 
-    let input = Input::new(code.to_owned(), tk);
+    let input = Input::new(code.to_string(), tk);
 
     complete(&pattern::parse_pattern, input)
-        .map_err(|e| ErrorWrapper::ParseError(code.to_owned(), e))
+        .map_err(|e| ElmError::Parser { code, info: e })
 }
 
 // Utility functions for testing

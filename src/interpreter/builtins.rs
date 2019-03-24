@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 
-use errors::ErrorWrapper;
+use errors::*;
+use errors::ElmError;
 use Interpreter;
-use interpreter::RuntimeError;
 use interpreter::RuntimeError::*;
 use types::ExternalFunc;
 use types::Value;

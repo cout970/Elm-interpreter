@@ -1,3 +1,4 @@
+use analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
 use analyzer::type_helper::calculate_common_type;
 use ast::*;
@@ -8,23 +9,6 @@ use constructors::type_string;
 use constructors::type_var;
 use util::create_vec;
 use util::VecExt;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum PatternMatchingError {
-    ListPatternsAreNotHomogeneous(Type, Type),
-    UnknownOperatorPattern(String),
-    UnknownAdtVariant(String),
-    ExpectedListType(Type),
-    ExpectedUnit(Type),
-    ExpectedTuple(Pattern, Type),
-    ExpectedRecord(Type),
-    ExpectedAdt(String, Type),
-    PatternNotExhaustive(Pattern),
-    InvalidRecordEntryName(String),
-    ExpectedLiteral(String, Type),
-    TODO,
-}
-
 
 pub fn is_exhaustive(pattern: &Pattern) -> bool {
     match pattern {

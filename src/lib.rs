@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::Type;
-use errors::ErrorWrapper;
+use errors::ElmError;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::eval_expression;
 use interpreter::eval_statement;
@@ -58,7 +58,7 @@ impl Interpreter {
     }
 
     /// Evaluates an expression like `1 + 2`
-    pub fn eval_expr(&mut self, expr: &str) -> Result<Value, ErrorWrapper> {
+    pub fn eval_expr(&mut self, expr: &str) -> Result<Value, ElmError> {
         eval_expression(&mut self.env, expr)
     }
 
@@ -67,7 +67,7 @@ impl Interpreter {
     /// `sum a b = a + b`,
     /// `type alias Boolean = Bool`,
     /// `type List a = Cons a (List a) | Nil`
-    pub fn eval_statement(&mut self, stm: &str) -> Result<Option<Value>, ErrorWrapper> {
+    pub fn eval_statement(&mut self, stm: &str) -> Result<Option<Value>, ElmError> {
         eval_statement(&mut self.env, stm)
     }
 
@@ -80,20 +80,20 @@ impl Interpreter {
     /// toRecord : (a, b) -> { x: a, y: b }
     /// toRecord (a, b) = { x = a, y = b }
     /// ```
-    pub fn eval_module(&mut self, _content: &str) -> Result<(), ErrorWrapper> {
+    pub fn eval_module(&mut self, _content: &str) -> Result<(), ElmError> {
         unimplemented!()
     }
 
     /// Evaluates a module and it's dependencies in a project
     /// folder is the path to the project containing all the source files
     /// main_file is the name of the first file to load without the .elm extension
-    pub fn eval_files(&mut self, folder: &str) -> Result<(), ErrorWrapper> {
+    pub fn eval_files(&mut self, folder: &str) -> Result<(), ElmError> {
         unimplemented!()
     }
 
     /// Registers a function that can be called in elm,
     /// the return value is not checked so make sure it matches the return type
-    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: ExternalFunc) -> Result<(), ErrorWrapper> {
+    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: ExternalFunc) -> Result<(), ElmError> {
         let arg_count = args.len() as u32;
         let function_type = build_fun_type(&create_vec_inv(args, ret));
 

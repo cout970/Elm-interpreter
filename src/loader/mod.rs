@@ -104,7 +104,7 @@ impl ModuleLoader {
 
         analyze_module_imports(&self.loaded_modules, &mut env, &ast.imports)?;
         let declarations = analyze_module_declarations(&mut env, &ast.statements)
-            .map_err(|e| ElmError::Analyser { info: e })?;
+            .map_err(|e| ElmError::Analyser { code: src.source.clone(), info: e })?;
 
         let module = LoadedModule {
             src,

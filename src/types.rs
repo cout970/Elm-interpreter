@@ -13,9 +13,9 @@ use ast::Float;
 use ast::Int;
 use ast::Pattern;
 use ast::Type;
-use errors::ErrorWrapper;
+use errors::*;
+use errors::ElmError;
 use Interpreter;
-use interpreter::RuntimeError;
 use rust_interop::FnAny;
 
 // Represents the final value after the evaluation of an expression tree

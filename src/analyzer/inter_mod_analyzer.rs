@@ -9,8 +9,8 @@ use std::sync::Arc;
 use analyzer::dependency_sorter::sort_modules;
 use ast::*;
 use core::get_core_module_by_path;
-use errors::ErrorWrapper;
-use interpreter::RuntimeError;
+use errors::*;
+use errors::ElmError;
 use loader::Declaration;
 use parsers::parse_module;
 use types::Adt;
@@ -33,7 +33,7 @@ pub struct ModuleInfo {
     pub path: ModulePath,
 }
 
-//pub fn analyze_all_modules(modules: Vec<ModuleInfo>) -> Result<InterModuleInfo, ErrorWrapper> {
+//pub fn analyze_all_modules(modules: Vec<ModuleInfo>) -> Result<InterModuleInfo, ElmError> {
 //    let mut loaded: HashMap<ModulePath, CheckedModule> = HashMap::new();
 //
 //    for info in modules {
@@ -47,7 +47,7 @@ pub struct ModuleInfo {
 //    Ok(loaded)
 //}
 
-//pub fn load_all_files(base: ModulePath, path: String) -> Result<Vec<ModuleInfo>, ErrorWrapper> {
+//pub fn load_all_files(base: ModulePath, path: String) -> Result<Vec<ModuleInfo>, ElmError> {
 //    let mut visited = HashSet::new();
 //    let mut to_visit = vec![(base, path)];
 //    let mut infos = vec![];
@@ -75,8 +75,8 @@ pub struct ModuleInfo {
 //    Ok(vec![])
 //}
 
-//pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<ModuleInfo>, ErrorWrapper>
-//    where F: Fn(&ModulePath) -> Result<String, ErrorWrapper> {
+//pub fn load_all_modules<F>(path: &ModulePath, getter: F) -> Result<Vec<ModuleInfo>, ElmError>
+//    where F: Fn(&ModulePath) -> Result<String, ElmError> {
 //    let mut visited: HashSet<ModulePath> = HashSet::new();
 //    let mut inv_load_order: Vec<ModuleInfo> = vec![];
 //    let mut to_visit: Vec<ModulePath> = vec![path.clone()];
@@ -107,7 +107,7 @@ pub struct ModuleInfo {
 //    let order = sort_modules(&inv_load_order)
 //        .map_err(|e| {
 //            let paths: Vec<ModulePath> = e.iter().map(|&p| p.clone()).collect();
-//            ErrorWrapper::RuntimeError(RuntimeError::CyclicModuleDependency(paths))
+//            ElmError::RuntimeError(RuntimeError::CyclicModuleDependency(paths))
 //        })?;
 //
 //    let mut result: Vec<ModuleInfo> = vec![];
@@ -149,7 +149,7 @@ pub struct ModuleInfo {
 //}
 
 
-//pub fn find_module_func(base_paths: &'static [&str]) -> impl Fn(&ModulePath) -> Result<String, ErrorWrapper> {
+//pub fn find_module_func(base_paths: &'static [&str]) -> impl Fn(&ModulePath) -> Result<String, ElmError> {
 //    move |path| {
 //        let mut file = None;
 //
@@ -175,7 +175,7 @@ pub struct ModuleInfo {
 //
 //                Ok(code)
 //            }
-//            None => Err(ErrorWrapper::RuntimeError(RuntimeError::MissingSourceFile))
+//            None => Err(ElmError::RuntimeError(RuntimeError::MissingSourceFile))
 //        }
 //    }
 //}

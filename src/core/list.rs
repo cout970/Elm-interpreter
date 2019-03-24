@@ -1,9 +1,8 @@
 use ast::Type;
 use constructors::type_of;
-use errors::ErrorWrapper;
+use errors::*;
+use errors::ElmError;
 use Interpreter;
-use interpreter::RuntimeError;
-use rust_interop::InteropError;
 use types::ExternalFunc;
 use types::Value;
 
@@ -39,7 +38,7 @@ macro_rules! cast {
     };
 }
 
-fn test(val: &Value) -> Result<(), ErrorWrapper> {
+fn test(val: &Value) -> Result<(), ElmError> {
     let y = cast!(val, Value::Number);
 
     ExternalFunc {
