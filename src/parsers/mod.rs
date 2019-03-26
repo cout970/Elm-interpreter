@@ -25,7 +25,7 @@ impl Parser {
 
     /// Generates an abstract syntax tree from an elm expression
     pub fn parse_expression(&mut self) -> Result<Expr, ElmError> {
-        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
+        let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&expression::parse_expr, input)
             .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
@@ -33,7 +33,7 @@ impl Parser {
 
     /// Generates an abstract syntax tree from an elm statement
     pub fn parse_statement(&mut self) -> Result<Statement, ElmError> {
-        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
+        let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&statement::parse_statement, input)
             .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
@@ -41,7 +41,7 @@ impl Parser {
 
     /// Generates an abstract syntax tree from an elm module
     pub fn parse_module(&mut self) -> Result<Module, ElmError> {
-        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
+        let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&module::parse_module, input)
             .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
@@ -49,7 +49,7 @@ impl Parser {
 
     /// Generates an abstract syntax tree from an elm type definition
     pub fn parse_type(&mut self) -> Result<Type, ElmError> {
-        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
+        let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&types::parse_type, input)
             .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
@@ -57,7 +57,7 @@ impl Parser {
 
     /// Generates an abstract syntax tree from an elm pattern
     pub fn parse_pattern(&mut self) -> Result<Pattern, ElmError> {
-        let input = Input::new(self.code.to_string(), self.tokenizer.tokenize()?);
+        let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&pattern::parse_pattern, input)
             .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })

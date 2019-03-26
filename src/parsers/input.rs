@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -5,8 +6,10 @@ use std::rc::Rc;
 
 use ast::Span;
 use errors::print_code_location;
+use source::SourceCode;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
+use tokenizer::Tokenizer;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Input {
@@ -17,12 +20,12 @@ pub struct Input {
 
 #[derive(PartialEq, Debug, Clone)]
 struct RawInput {
-    string: String,
+    string: SourceCode,
     tokens: Vec<TokenInfo>,
 }
 
 impl Input {
-    pub fn new(code_str: String, code: Vec<TokenInfo>) -> Self {
+    pub fn new(code_str: SourceCode, code: Vec<TokenInfo>) -> Self {
         Input {
             raw: Rc::new(RawInput { string: code_str, tokens: code }),
             ptr: 0,
@@ -110,7 +113,7 @@ impl Input {
 
 impl Display for Input {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", print_code_location(&self.raw.string, &self.span()))?;
+        write!(f, "{}", print_code_location(self.raw.string.as_str(), &self.span()))?;
         Ok(())
     }
 }

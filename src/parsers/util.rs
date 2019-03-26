@@ -253,12 +253,15 @@ pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
     Ok(t)
 }
 
-pub fn from(c: &str) -> Input {
+#[cfg(Test)]
+fn from(c: &str) -> Input {
     // TODO remove
-    let tokens = Tokenizer::new(&SourceCode::from_str(c)).tokenize().expect("Tokenizer error");
-    Input::new(c.to_owned(), tokens)
+    let code = SourceCode::from_str(c);
+    let tokens = Tokenizer::new(&code).tokenize().expect("Tokenizer error");
+    Input::new(code, tokens)
 }
 
+#[cfg(Test)]
 pub fn test_parser<F, T: Debug>(func: F, code: &str)
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
     let input = from(code);
@@ -274,6 +277,7 @@ pub fn test_parser<F, T: Debug>(func: F, code: &str)
     }
 }
 
+#[cfg(Test)]
 pub fn test_parser_result<F, T: Debug + PartialEq>(func: F, code: &str, value: T)
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
     let input = from(code);
