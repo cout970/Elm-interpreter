@@ -38,7 +38,6 @@ pub enum LexicalError {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
-    List(Vec<TypeError>),
     MissingDefinition(Span, String),
     ListNotHomogeneous(Span, Type, Type, u32),
     IfWithNonBoolCondition(Span, String),
@@ -137,8 +136,21 @@ pub fn parsing_err<T>(code: &SourceCode, info: ParseError) -> Result<T, ElmError
     Err(ElmError::Parser { code: code.clone(), info })
 }
 
-pub fn type_err<T>(code: &SourceCode, info: TypeError) -> Result<T, ElmError> {
-    Err(ElmError::Analyser { code: code.clone(), info })
+pub fn type_err<T>(code: &SourceCode, info: TypeError) -> ElmError {
+    ElmError::Analyser { code: code.clone(), info }
+}
+
+pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Vec<T>, func: F) -> ElmError {
+    assert!(!info.is_empty());
+    if info.len() == 1 {
+        func(code.clone(), info.into_iter().next().unwrap())
+    } else {
+        let list = info.into_iter()
+            .map(|err| func(code.clone(), err))
+            .collect::<Vec<_>>();
+
+        ElmError::List(list)
+    }
 }
 
 pub fn runtime_err(info: RuntimeError) -> ElmError {
@@ -234,15 +246,6 @@ pub fn format_parse_error(code: &str, error: &ParseError) -> String {
 pub fn format_type_error(code: &str, error: &TypeError) -> String {
     let mut msg = String::new();
     match error {
-        TypeError::List(errors) => {
-            let len = errors.len();
-            for e in errors {
-                msg.push_str(&format_type_error(code, e));
-                msg.push('\n');
-            }
-
-            write!(&mut msg, "\nFound {} errors\n", len).unwrap();
-        }
         TypeError::MissingDefinition(span, name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             let upper = name.chars().next().unwrap().is_ascii_uppercase();

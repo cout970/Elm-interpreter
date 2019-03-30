@@ -57,11 +57,9 @@ pub fn analyze_module_imports(modules: &HashMap<String, LoadedModule>, env: &mut
 }
 
 /* The environment must contain all the imports resolved */
-pub fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>) -> Result<Vec<Declaration>, TypeError> {
+pub fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<TypeError>> {
     let statements = sort_statements(statements)
-        .map_err(|e| {
-            TypeError::CyclicStatementDependency(e)
-        })?;
+        .map_err(|e| vec![TypeError::CyclicStatementDependency(e)])?;
 
     let mut declarations = vec![];
     let mut errors = vec![];
@@ -95,7 +93,7 @@ pub fn analyze_module_declarations(env: &mut StaticEnv, statements: &Vec<Stateme
     if errors.is_empty() {
         Ok(declarations)
     } else {
-        Err(TypeError::List(errors))
+        Err(errors)
     }
 }
 

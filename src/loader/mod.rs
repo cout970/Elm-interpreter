@@ -11,6 +11,7 @@ use ast::Module;
 use ast::Type;
 use core::register_core;
 use errors::ElmError;
+use errors::err_list;
 use errors::LoaderError;
 use parsers::Parser;
 use source::SourceCode;
@@ -102,7 +103,7 @@ impl ModuleLoader {
 
         analyze_module_imports(&self.loaded_modules, &mut env, &ast.imports)?;
         let declarations = analyze_module_declarations(&mut env, &ast.statements)
-            .map_err(|e| ElmError::Analyser { code: src.source.clone(), info: e })?;
+            .map_err(|list| err_list(&src.source, list, |code, info| ElmError::Analyser { code, info }))?;
 
         let module = LoadedModule {
             src,

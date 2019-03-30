@@ -11,85 +11,10 @@ use util::build_fun_type;
 use util::create_vec_inv;
 use util::StringConversion;
 
-pub fn analyze_let_destructuring(env: &mut StaticEnv, pattern: &Pattern, expr: &Expr) -> Result<Vec<(String, Type)>, TypeError> {
-    let (pat_ty, vars) = analyze_pattern(env, pattern)
-        .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
-
-    let ty = analyze_expression(env, Some(&pat_ty), expr)?;
-
-    if is_assignable(&pat_ty, &ty) {
-        Ok(vars)
-    } else {
-        Err(TypeError::DefinitionTypeAndReturnTypeMismatch)
-    }
-}
-
 pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
     let expr = Analyser::from(env.clone()).analyse_definition(fun)?;
     Ok(expr.header)
 }
-
-fn unpack_types(ty: &Type) -> Vec<Type> {
-    let mut curr = ty.clone();
-    let mut components = vec![];
-
-    while let Type::Fun(a, b) = curr {
-        components.push((*a).clone());
-        curr = (*b).clone();
-    }
-    components.push(curr.clone());
-    components
-}
-
-pub fn analyze_function_arguments(env: &mut StaticEnv, patterns: &Vec<Pattern>, func_ty: &Option<Type>) -> Result<(Vec<Type>, Vec<(String, Type)>), TypeError> {
-    let mut arguments: Vec<Type> = vec![];
-    let mut argument_vars: Vec<(String, Type)> = vec![];
-
-    let iter: Vec<(Option<Type>, &Pattern)> = match func_ty {
-        Some(ty) => {
-            let list = unpack_types(ty);
-
-            if patterns.len() > list.len() {
-                println!("patterns: {:?}", patterns);
-                println!("list: {:?}", list);
-                return Err(TypeError::InvalidPatternAmount(list.len(), patterns.len()));
-            }
-
-            list.into_iter().zip(patterns).map(|(ty, pat)| (Some(ty), pat)).collect()
-        }
-        _ => {
-            patterns.iter().map(|p| (None, p)).collect()
-        }
-    };
-
-    for (ty, patt) in iter {
-        if !is_exhaustive(patt) {
-            // TODO
-            return Err(TypeError::InvalidPattern((0, 0), PatternMatchingError::PatternNotExhaustive(patt.clone())));
-        }
-
-        let (ty, vars) = match ty {
-            Some(ty) => {
-                // TODO
-                analyze_pattern_with_type(env, patt, ty)
-                    .map_err(|e| TypeError::InvalidPattern((0, 0), e))?
-            }
-            None => {
-                //TODO
-                analyze_pattern(env, patt)
-                    .map_err(|e| TypeError::InvalidPattern((0, 0), e))?
-            }
-        };
-
-        arguments.push(ty);
-        for pair in vars {
-            argument_vars.push(pair);
-        }
-    }
-
-    Ok((arguments, argument_vars))
-}
-
 
 #[cfg(test)]
 mod tests {

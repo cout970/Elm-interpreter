@@ -60,7 +60,6 @@ pub enum PatternMatchingError {
     PatternNotExhaustive(Pattern),
     InvalidRecordEntryName(String),
     ExpectedLiteral(String, Type),
-    TODO,
 }
 
 pub struct Analyser {
@@ -221,7 +220,6 @@ impl Analyser {
 
         Ok((arguments, argument_vars))
     }
-
 
     pub fn analyze_expression(&mut self, expected: Option<&Type>, expr: &Expr) -> Result<TypedExpr, TypeError> {
         let typed_expr: TypedExpr = match expr {
@@ -531,6 +529,19 @@ impl Analyser {
                 span(app),
                 format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg),
             ));
+        }
+    }
+
+    pub fn analyze_let_destructuring(env: &mut StaticEnv, pattern: &Pattern, expr: &Expr) -> Result<Vec<(String, Type)>, TypeError> {
+        let (pat_ty, vars) = analyze_pattern(env, pattern)
+            .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
+
+        let ty = analyze_expression(env, Some(&pat_ty), expr)?;
+
+        if is_assignable(&pat_ty, &ty) {
+            Ok(vars)
+        } else {
+            Err(TypeError::DefinitionTypeAndReturnTypeMismatch)
         }
     }
 

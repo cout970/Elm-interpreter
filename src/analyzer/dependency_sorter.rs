@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use analyzer::function_analyzer::analyze_function_arguments;
+use analyzer::Analyser;
 use analyzer::static_env::StaticEnv;
 use ast::*;
 use util::qualified_name;
@@ -94,7 +94,8 @@ fn get_def_dependencies(env: &mut StaticEnv, def: &Definition)-> Vec<String>{
 }
 
 fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) -> Vec<String> {
-    for (_, entries) in analyze_function_arguments(env, patterns, &None) {
+    let mut analyser = Analyser::from(env.clone());
+    for (_, entries) in analyser.analyze_function_arguments(patterns, &None) {
         for (name, _) in entries {
             env.add_definition(&name, Type::Unit);
         }

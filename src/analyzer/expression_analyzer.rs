@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use analyzer::Analyser;
 use analyzer::function_analyzer::analyze_function;
-use analyzer::function_analyzer::analyze_let_destructuring;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::PatternMatchingError;
