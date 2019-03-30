@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use analyzer::Analyzer;
 use analyzer::static_env::StaticEnv;
 use ast::*;
+use source::SourceCode;
 use util::qualified_name;
 use util::sort::get_acyclic_dependency_graph;
 use util::visitors::expr_visitor_block;
@@ -13,32 +14,32 @@ use util::visitors::type_visitor;
 pub fn sort_statements(stms: &Vec<Statement>) -> Result<Vec<&Statement>, Vec<String>> {
     // stm name, provided names, dependencies
     let mut stm_map: Vec<(String, Vec<String>, Vec<String>)> = Vec::new();
+    let mut all_names = HashMap::new();
 
     for stm in stms {
         let name = get_stm_name(stm).to_owned();
         let provided = get_provided_names(stm);
         let deps = get_stm_dependencies(stm);
+
+        for prov_name in &provided {
+            all_names.insert(prov_name.clone(), name.clone());
+        }
         stm_map.push((name, provided, deps));
     }
 
     let mut graph: HashMap<&String, Vec<&String>> = HashMap::new();
 
     for (stm, _, deps) in &stm_map {
+        let mut graph_deps = vec![];
+        for name in deps {
+            if name != stm {
+                if let Some(graph_dep) = all_names.get(name) {
+                    graph_deps.push(graph_dep);
+                }
+            }
+        }
 
-        // TODO this is really messy and inefficient
-        let deps: Vec<&String> = deps.iter()
-            .filter(|&dep| {
-                dep != stm && stm_map.iter().any(|(_, names, _)| names.contains(dep))
-            })
-            .map(|dep| {
-                &stm_map.iter()
-                    .find(|(_, names, _)| names.contains(dep))
-                    .unwrap()
-                    .0
-            })
-            .collect();
-
-        graph.insert(stm, deps);
+        graph.insert(stm, graph_deps);
     }
 
     let sorted_names: Vec<&String> = get_acyclic_dependency_graph(graph)
@@ -57,8 +58,7 @@ fn get_stm_dependencies(def: &Statement) -> Vec<String> {
         Statement::Alias(_, _, ty) => { get_type_dependencies(ty) }
         Statement::Port(_, ty) => { get_type_dependencies(ty) }
         Statement::Def(def) => {
-            let mut fake_env = StaticEnv::new();
-            get_def_dependencies(&mut fake_env, def)
+            get_def_dependencies(&mut Analyzer::new(SourceCode::from_str("")), def)
         }
         Statement::Adt(_, _, branches) =>
             branches.iter()
@@ -71,10 +71,10 @@ fn get_stm_dependencies(def: &Statement) -> Vec<String> {
     }
 }
 
-fn get_def_dependencies(env: &mut StaticEnv, def: &Definition)-> Vec<String>{
-    let mut names = add_patterns(env, &def.patterns);
+fn get_def_dependencies(analyzer: &mut Analyzer, def: &Definition) -> Vec<String> {
+    let mut names = add_patterns(analyzer, &def.patterns);
 
-    for x in get_expr_dependencies(env, &def.expr) {
+    for x in get_expr_dependencies(analyzer, &def.expr) {
         names.push(x);
     }
 
@@ -87,11 +87,10 @@ fn get_def_dependencies(env: &mut StaticEnv, def: &Definition)-> Vec<String>{
     names
 }
 
-fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) -> Vec<String> {
-    let mut analyser = Analyzer::from(env.clone());
+fn add_patterns(analyser: &mut Analyzer, patterns: &Vec<Pattern>) -> Vec<String> {
     for (_, entries) in analyser.analyze_function_arguments(patterns, &None) {
         for (name, _) in entries {
-            env.add_definition(&name, Type::Unit);
+            analyser.env.add_definition(&name, Type::Unit);
         }
     }
     let mut deps = vec![];
@@ -139,72 +138,72 @@ fn get_type_dependencies(ty: &Type) -> Vec<String> {
     refs.into_iter().collect()
 }
 
-fn get_expr_dependencies(env: &mut StaticEnv, expr: &Expr) -> Vec<String> {
+fn get_expr_dependencies(analyzer: &mut Analyzer, expr: &Expr) -> Vec<String> {
     let mut local_refs: HashSet<String> = HashSet::new();
 
-    expr_visitor_block(&mut (env, &mut local_refs), expr, &|(env, refs), sub_expr| {
+    expr_visitor_block(&mut (analyzer, &mut local_refs), expr, &|(analyzer, refs), sub_expr| {
         match sub_expr {
             Expr::RecordUpdate(_, name, _) => {
-                if let None = env.find_definition(name) {
+                if let None = analyzer.env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }
             Expr::QualifiedRef(_, path, name) => {
                 let full_name = qualified_name(path, name);
-                if let None = env.find_definition(&full_name) {
+                if let None = analyzer.env.find_definition(&full_name) {
                     refs.insert(full_name);
                 }
             }
             Expr::OpChain(_, _, ops) => {
                 for op in ops {
-                    if let None = env.find_definition(op) {
+                    if let None = analyzer.env.find_definition(op) {
                         refs.insert(op.clone());
                     }
                 }
             }
             Expr::Ref(_, name) => {
-                if let None = env.find_definition(name) {
+                if let None = analyzer.env.find_definition(name) {
                     refs.insert(name.clone());
                 }
             }
-
             Expr::RecordField(_, _, _) => {}
             Expr::RecordAccess(_, _) => {}
             Expr::If(_, _, _, _) => {}
             Expr::Case(_, _, _) => {}
             Expr::Application(_, _, _) => {}
             Expr::Literal(_, _) => {}
-
             Expr::Lambda(_, patterns, _) => {
-                env.enter_block();
-                add_patterns(env, patterns);
+                analyzer.env.enter_block();
+                add_patterns(analyzer, patterns);
             }
             Expr::Let(_, decls, _) => {
-                env.enter_block();
+                analyzer.env.enter_block();
                 for decl in decls {
                     match decl {
                         LetDeclaration::Def(def) => {
-                            add_patterns(env, &def.patterns);
-                            for x in get_def_dependencies(env, def) {
+                            add_patterns(analyzer, &def.patterns);
+                            for x in get_def_dependencies(analyzer, def) {
                                 refs.insert(x);
                             }
                         }
-                        LetDeclaration::Pattern(pattern, _) => {
-                            add_patterns(env, &vec![pattern.clone()]);
-                            // TODO
+                        LetDeclaration::Pattern(pattern, expr) => {
+                            add_patterns(analyzer, &vec![pattern.clone()]);
+                            for x in get_expr_dependencies(analyzer, expr) {
+                                refs.insert(x);
+                            }
                         }
                     }
                 }
             }
             _ => {}
         }
-    }, &|(env, _), sub_expr| {
+    }, &|(analyzer, _), sub_expr| {
         match sub_expr {
             Expr::Lambda(_, _, _) => {
-                env.exit_block();
+                analyzer.env.exit_block();
             }
             Expr::Let(_, _, _) => {
-                env.exit_block();
+                analyzer.env.exit_block();
             }
             _ => {}
         }
