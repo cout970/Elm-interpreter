@@ -426,12 +426,12 @@ mod tests {
         let expr = Test::expr("\\x -> 1");
         let mut env = DynamicEnv::new();
 
-        assert_eq!(eval_expr(&mut env, &expr), Ok(
-            Value::Fun {
-                arg_count: 1,
-                args: vec![],
-                captures: HashMap::new(),
-                fun: Arc::new(Function::Expr(
+        let value = eval_expr(&mut env, &expr).unwrap();
+        match value {
+            Value::Fun { args, captures, fun, .. } => {
+                assert_eq!(args, vec![]);
+                assert_eq!(captures, HashMap::new());
+                assert_eq!(fun, Arc::new(Function::Expr(
                     1,
                     vec![Pattern::Var("x".s())],
                     Expr::Literal((6, 7), Literal::Int(1)),
@@ -439,9 +439,10 @@ mod tests {
                         Box::new(Type::Var("a".s())),
                         Box::new(Type::Var("number".s())),
                     ),
-                )),
+                )));
             }
-        ));
+            _ => panic!("Not a function: {}", value)
+        }
     }
 
     #[test]

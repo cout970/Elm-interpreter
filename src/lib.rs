@@ -1,6 +1,6 @@
 // Development only {
 // cargo watch -s 'clear && cargo test --color always 2>&1'
-// cargo watch -c -q -s 'cargo rustc -lib -- -Awarnings -Zno-codegen && cargo test'
+// cargo watch -c -q -s 'cargo rustc --lib -- -Awarnings -Zno-codegen && cargo test'
 #![allow(dead_code)]
 // }
 

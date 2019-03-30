@@ -53,7 +53,7 @@ pub enum TypeError {
     ConstantEvaluationError(String),
     VariableAlreadyDeclared(String),
     UnableToCalculateFunctionType(String),
-    VariableNameShadowed(String),
+    VariableNameShadowed(Span, String),
     UndeclaredTypeVariables(Vec<String>),
     UnusedTypeVariables(Vec<String>),
     InvalidPatternAmount(usize, usize),
