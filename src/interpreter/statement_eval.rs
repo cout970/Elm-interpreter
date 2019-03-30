@@ -171,7 +171,6 @@ fn traverse_expr(result: &mut HashMap<String, Value>, env: &mut DynamicEnv, expr
 
 #[cfg(test)]
 mod tests {
-    use analyzer::type_of_value;
     use test_utils::Test;
     use util::StringConversion;
 
@@ -181,7 +180,7 @@ mod tests {
         let result = eval_stm(env, stm);
         let option = result.unwrap();
         let value = option.unwrap();
-        let ty = type_of_value(&value);
+        let ty = value.get_type();
 
         format!("{} : {}", value, ty)
     }
@@ -189,7 +188,7 @@ mod tests {
     fn formatted_expr(env: &mut DynamicEnv, expr: &Expr) -> String {
         let result = eval_expr(env, expr);
         let value = result.unwrap();
-        let ty = type_of_value(&value);
+        let ty = value.get_type();
 
         format!("{} : {}", value, ty)
     }

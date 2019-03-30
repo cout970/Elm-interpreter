@@ -1,12 +1,13 @@
+use std::collections::HashMap;
 use std::ops::Deref;
+use std::sync::Arc;
 
-use analyzer::expression_analyzer::analyze_expression;
-use analyzer::expression_analyzer::get_adt_type;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::pattern_analyzer::is_exhaustive;
 use analyzer::static_env::StaticEnv;
+use analyzer::type_inference::type_inference_find_var_replacements;
 use ast::*;
 use ast::Definition;
 use ast::Expr;
@@ -14,6 +15,7 @@ use errors::*;
 use typed_ast::expr_type;
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
+use types::Adt;
 use types::Function;
 use types::Value;
 use util::build_fun_type;
@@ -23,7 +25,7 @@ use util::qualified_name;
 pub mod static_env;
 pub mod module_analyser;
 mod function_analyzer;
-mod expression_analyzer;
+mod type_inference;
 mod dependency_sorter;
 mod pattern_analyzer;
 mod type_helper;
@@ -269,13 +271,14 @@ fn unpack_types(ty: &Type) -> Vec<Type> {
 }
 
 pub fn type_check_expression(env: &mut StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
-    analyze_expression(env, None, expr)
+    Ok(expr_type(&Analyser::from(env.clone()).analyze_expression(None, expr)?))
 }
 
 pub fn type_check_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
-    analyze_function(env, fun)
+    Ok(Analyser::from(env.clone()).analyze_definition(fun)?.header)
 }
 
+// Use Value.get_type() instead
 pub fn type_of_value(value: &Value) -> Type {
     match value {
         Value::Unit => {
@@ -309,22 +312,30 @@ pub fn type_of_value(value: &Value) -> Type {
         Value::Record(items) => {
             Type::Record(items.iter().map(|(s, i)| (s.to_owned(), type_of_value(i))).collect())
         }
-        Value::Adt(var_name, items, adt) => {
-            get_adt_type(var_name, items, adt.clone())
+        Value::Adt(name, vars, adt) => {
+            let variant = adt.variants.iter().find(|var| &var.name == name).unwrap();
+
+            let mut var_replacement: HashMap<String, Type> = HashMap::new();
+            let value_types: Vec<Type> = vars.iter().map(|v| type_of_value(v)).collect();
+
+            type_inference_find_var_replacements(&mut var_replacement, &Type::Tuple(value_types), &Type::Tuple(variant.types.clone()));
+
+            let final_types = adt.types.iter()
+                .map(|ty| {
+                    var_replacement.get(ty).cloned().unwrap_or_else(|| Type::Var(ty.clone()))
+                })
+                .collect();
+
+            Type::Tag(adt.name.clone(), final_types)
         }
         Value::Fun { fun, args, .. } => {
-            let fun_ty = type_of_function(fun.deref());
-
+            let fun_ty = match fun.deref() {
+                Function::External(_, _, ty) => ty,
+                Function::Wrapper(_, _, ty) => ty,
+                Function::Expr(_, _, _, ty) => ty,
+            };
             strip_fun_args(args.len(), &fun_ty).clone()
         }
-    }
-}
-
-fn type_of_function(fun: &Function) -> &Type {
-    match fun {
-        Function::External(_, _, ty) => ty,
-        Function::Wrapper(_, _, ty) => ty,
-        Function::Expr(_, _, _, ty) => ty,
     }
 }
 

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use analyzer::type_check_expression;
-use analyzer::type_of_value;
 use ast::*;
 use errors::*;
 use errors::RuntimeError::*;
@@ -189,7 +188,7 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
 fn exec_fun(env: &mut DynamicEnv, fun: &Function, captures: &HashMap<String, Value>, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     env.enter_block();
     for (name, val) in captures {
-        env.add(name, val.clone(), type_of_value(val))
+        env.add(name, val.clone(), val.get_type())
     }
     let res = match fun {
         Function::External(_, func, _) => {
@@ -289,10 +288,10 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
 pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value) -> Result<(), RuntimeError> {
     match pattern {
         Pattern::Var(n) => {
-            env.add(&n, value.clone(), type_of_value(value));
+            env.add(&n, value.clone(), value.get_type());
         }
         Pattern::Alias(pat, name) => {
-            env.add(name, value.clone(), type_of_value(value));
+            env.add(name, value.clone(), value.get_type());
             add_pattern_values(env, pat, value)?;
         }
         Pattern::Record(ref items) => {
@@ -302,7 +301,7 @@ pub fn add_pattern_values(env: &mut DynamicEnv, pattern: &Pattern, value: &Value
                         .find(|(name, _)| name == patt)
                         .ok_or(RecordFieldNotFound(patt.clone(), value.clone()))?;
 
-                    env.add(name, val.clone(), type_of_value(val));
+                    env.add(name, val.clone(), val.get_type());
                 }
             } else {
                 return Err(ExpectedRecord(value.clone()));

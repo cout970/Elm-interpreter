@@ -5,7 +5,6 @@ use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
 
-use elm_interpreter::analyzer::type_of_value;
 use elm_interpreter::Interpreter;
 
 /*
@@ -37,7 +36,7 @@ fn repl() {
         // Print
         match result {
             Ok(value) => {
-                println!("{} : {}", value, type_of_value(&value));
+                println!("{} : {}", value, value.get_type());
             }
             Err(_) => {
                 // Invalid statement, try expression
@@ -46,7 +45,7 @@ fn repl() {
                 match result {
                     Ok(opt) => {
                         if let Some(value) = opt {
-                            println!("{} : {}", value, type_of_value(&value));
+                            println!("{} : {}", value, value.get_type());
                         }
                     }
                     Err(error) => {

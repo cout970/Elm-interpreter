@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
 use analyzer::Analyser;
-use analyzer::expression_analyzer::backtrack_expr;
-use analyzer::expression_analyzer::expr_tree_to_expr;
-use analyzer::expression_analyzer::find_var_replacements;
-use analyzer::expression_analyzer::rename_variables;
-use analyzer::expression_analyzer::replace_vars_with_concrete_types;
-use analyzer::expression_analyzer::type_from_expected;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::PatternMatchingError;
 use analyzer::type_helper::calculate_common_type;
 use analyzer::type_helper::get_common_type;
 use analyzer::type_helper::is_assignable;
+use analyzer::type_inference::expr_tree_to_expr;
+use analyzer::type_inference::type_inference_backtrack_expr;
+use analyzer::type_inference::type_inference_find_var_replacements;
+use analyzer::type_inference::type_inference_rename_variables;
+use analyzer::type_inference::type_inference_replace_vars_with_concrete_types;
+use analyzer::type_inference::type_inference_type_from_expected;
 use ast::*;
 use ast;
 use constructors::*;
@@ -47,13 +47,13 @@ impl Analyser {
             }
 
             let mut vars: HashMap<String, Type> = HashMap::new();
-            find_var_replacements(&mut vars, &expr_type(&input), &argument);
+            type_inference_find_var_replacements(&mut vars, &expr_type(&input), &argument);
             // vars: [number => Float], change number to float
 
-            let output = replace_vars_with_concrete_types(&vars, &result);
+            let output = type_inference_replace_vars_with_concrete_types(&vars, &result);
             // Float
 
-            backtrack_expr(&mut self.env, &vars, fun);
+            type_inference_backtrack_expr(&mut self.env, &vars, fun);
             // env: [number => Float]
 
             Ok(TypedExpr::Application(output, Box::new(function), Box::new(input)))
@@ -71,13 +71,13 @@ impl Analyser {
             .ok_or(TypeError::MissingDefinition(span, name.to_string()))?;
 
         let new_ty = if let Some(expected_ty) = expected {
-            let new_ty = type_from_expected(&mut self.env, expected_ty, &def);
+            let new_ty = type_inference_type_from_expected(&mut self.env, expected_ty, &def);
             self.env.replace(name, new_ty.clone());
 
             new_ty
         } else {
             if !self.env.is_local(name) {
-                rename_variables(&mut self.env, &mut HashMap::new(), def)
+                type_inference_rename_variables(&mut self.env, &mut HashMap::new(), def)
             } else {
                 def
             }

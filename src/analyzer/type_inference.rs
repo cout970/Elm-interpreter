@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use analyzer::Analyser;
 use analyzer::static_env::StaticEnv;
-use analyzer::type_of_value;
 use ast::*;
 use errors::TypeError;
 use typed_ast::expr_type;
@@ -12,11 +11,6 @@ use types::Value;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::qualified_name;
-
-pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
-    let expr = Analyser::from(env.clone()).analyze_expression(expected, expr)?;
-    Ok(expr_type(&expr))
-}
 
 pub fn expr_tree_to_expr(tree: ExprTree) -> Expr {
     match tree {
@@ -39,60 +33,60 @@ pub fn expr_tree_to_expr(tree: ExprTree) -> Expr {
     }
 }
 
-pub fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr) {
+pub fn type_inference_backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr) {
     match expr {
         Expr::Unit(..) => {}
         Expr::Literal(_, _) => {}
         Expr::RecordAccess(_, _) => {}
         Expr::Tuple(_, items) => {
-            items.iter().for_each(|i| backtrack_expr(env, vars, i));
+            items.iter().for_each(|i| type_inference_backtrack_expr(env, vars, i));
         }
         Expr::List(_, items) => {
-            items.iter().for_each(|i| backtrack_expr(env, vars, i));
+            items.iter().for_each(|i| type_inference_backtrack_expr(env, vars, i));
         }
         Expr::Record(_, items) => {
-            items.iter().for_each(|(_, i)| backtrack_expr(env, vars, i));
+            items.iter().for_each(|(_, i)| type_inference_backtrack_expr(env, vars, i));
         }
         Expr::RecordUpdate(_, _, items) => {
-            items.iter().for_each(|(_, i)| backtrack_expr(env, vars, i));
+            items.iter().for_each(|(_, i)| type_inference_backtrack_expr(env, vars, i));
         }
         Expr::RecordField(_, e, _) => {
-            backtrack_expr(env, vars, e);
+            type_inference_backtrack_expr(env, vars, e);
         }
         Expr::If(_, a, b, c) => {
-            backtrack_expr(env, vars, a);
-            backtrack_expr(env, vars, b);
-            backtrack_expr(env, vars, c);
+            type_inference_backtrack_expr(env, vars, a);
+            type_inference_backtrack_expr(env, vars, b);
+            type_inference_backtrack_expr(env, vars, c);
         }
         Expr::Lambda(_, _, e) => {
-            backtrack_expr(env, vars, e);
+            type_inference_backtrack_expr(env, vars, e);
         }
         Expr::Application(_, a, b) => {
-            backtrack_expr(env, vars, a);
-            backtrack_expr(env, vars, b);
+            type_inference_backtrack_expr(env, vars, a);
+            type_inference_backtrack_expr(env, vars, b);
         }
         Expr::Let(_, _, e) => {
-            backtrack_expr(env, vars, e);
+            type_inference_backtrack_expr(env, vars, e);
         }
         Expr::Case(_, e, items) => {
-            backtrack_expr(env, vars, e);
-            items.iter().for_each(|(_, i)| backtrack_expr(env, vars, i));
+            type_inference_backtrack_expr(env, vars, e);
+            items.iter().for_each(|(_, i)| type_inference_backtrack_expr(env, vars, i));
         }
         Expr::OpChain(_, exprs, ops) => {
             match create_expr_tree(exprs, ops) {
-                Ok(tree) => backtrack_expr(env, vars, &expr_tree_to_expr(tree)),
+                Ok(tree) => type_inference_backtrack_expr(env, vars, &expr_tree_to_expr(tree)),
                 Err(_) => {}
             }
         }
         Expr::QualifiedRef(_, path, name) => {
             let full_name = qualified_name(path, name);
 
-            backtrack_expr(env, vars, &Expr::Ref((0, 0), full_name))
+            type_inference_backtrack_expr(env, vars, &Expr::Ref((0, 0), full_name))
         }
         Expr::Ref(_, variable) => {
             match env.find_definition(variable) {
                 Some(variable_type) => {
-                    env.replace(variable, replace_vars_with_concrete_types(vars, &variable_type))
+                    env.replace(variable, type_inference_replace_vars_with_concrete_types(vars, &variable_type))
                 }
                 None => {}
             }
@@ -100,48 +94,31 @@ pub fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &
     }
 }
 
-pub fn get_adt_type(name: &String, vars: &Vec<Value>, adt: Arc<Adt>) -> Type {
-    let variant = adt.variants.iter().find(|var| &var.name == name).unwrap();
-
-    let mut var_replacement: HashMap<String, Type> = HashMap::new();
-    let value_types: Vec<Type> = vars.iter().map(|v| type_of_value(v)).collect();
-
-    find_var_replacements(&mut var_replacement, &Type::Tuple(value_types), &Type::Tuple(variant.types.clone()));
-
-    let final_types = adt.types.iter()
-        .map(|ty| {
-            var_replacement.get(ty).cloned().unwrap_or_else(|| Type::Var(ty.clone()))
-        })
-        .collect();
-
-    Type::Tag(adt.name.clone(), final_types)
-}
-
-pub fn replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type) -> Type {
+pub fn type_inference_replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type) -> Type {
     match ty {
         Type::Var(name) => {
             vars.get(name).unwrap_or(ty).clone()
         }
         Type::Tag(name, sub) => {
-            Type::Tag(name.clone(), sub.iter().map(|i| replace_vars_with_concrete_types(vars, i)).collect())
+            Type::Tag(name.clone(), sub.iter().map(|i| type_inference_replace_vars_with_concrete_types(vars, i)).collect())
         }
         Type::Fun(a, b) => {
             Type::Fun(
-                Box::from(replace_vars_with_concrete_types(vars, a)),
-                Box::from(replace_vars_with_concrete_types(vars, b)),
+                Box::from(type_inference_replace_vars_with_concrete_types(vars, a)),
+                Box::from(type_inference_replace_vars_with_concrete_types(vars, b)),
             )
         }
         Type::Unit => {
             Type::Unit
         }
         Type::Tuple(sub) => {
-            Type::Tuple(sub.iter().map(|i| replace_vars_with_concrete_types(vars, i)).collect())
+            Type::Tuple(sub.iter().map(|i| type_inference_replace_vars_with_concrete_types(vars, i)).collect())
         }
         Type::Record(sub) => {
-            Type::Record(sub.iter().map(|(n, i)| (n.clone(), replace_vars_with_concrete_types(vars, i))).collect())
+            Type::Record(sub.iter().map(|(n, i)| (n.clone(), type_inference_replace_vars_with_concrete_types(vars, i))).collect())
         }
         Type::RecExt(name, sub) => {
-            Type::RecExt(name.clone(), sub.iter().map(|(n, i)| (n.clone(), replace_vars_with_concrete_types(vars, i))).collect())
+            Type::RecExt(name.clone(), sub.iter().map(|(n, i)| (n.clone(), type_inference_replace_vars_with_concrete_types(vars, i))).collect())
         }
     }
 }
@@ -149,7 +126,7 @@ pub fn replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type)
 // Float, number => [number => Float]
 // Float -> Float, number -> number => [number => Float]
 // number -> Float, number -> number => [number => Float]
-pub fn find_var_replacements(vars: &mut HashMap<String, Type>, arg: &Type, fun_in: &Type) {
+pub fn type_inference_find_var_replacements(vars: &mut HashMap<String, Type>, arg: &Type, fun_in: &Type) {
     match fun_in {
         Type::Var(name) => {
             if let Type::Var(_) = arg {
@@ -162,37 +139,37 @@ pub fn find_var_replacements(vars: &mut HashMap<String, Type>, arg: &Type, fun_i
         }
         Type::Tag(_, sub_in) => {
             if let Type::Tag(_, sub_arg) = arg {
-                sub_in.iter().zip(sub_arg).for_each(|(i, a)| find_var_replacements(vars, a, i));
+                sub_in.iter().zip(sub_arg).for_each(|(i, a)| type_inference_find_var_replacements(vars, a, i));
             }
         }
         Type::Fun(a_in, b_in) => {
             if let Type::Fun(a_arg, b_arg) = arg {
-                find_var_replacements(vars, a_arg, a_in);
-                find_var_replacements(vars, b_arg, b_in);
+                type_inference_find_var_replacements(vars, a_arg, a_in);
+                type_inference_find_var_replacements(vars, b_arg, b_in);
             }
         }
         Type::Unit => {}
         Type::Tuple(sub_in) => {
             if let Type::Tuple(sub_arg) = arg {
-                sub_in.iter().zip(sub_arg).for_each(|(i, a)| find_var_replacements(vars, a, i));
+                sub_in.iter().zip(sub_arg).for_each(|(i, a)| type_inference_find_var_replacements(vars, a, i));
             }
         }
         Type::Record(sub_in) => {
             if let Type::Record(sub_arg) = arg {
                 // TODO entries may not be ordered
-                sub_in.iter().zip(sub_arg).for_each(|((_, i), (_, a))| find_var_replacements(vars, a, i));
+                sub_in.iter().zip(sub_arg).for_each(|((_, i), (_, a))| type_inference_find_var_replacements(vars, a, i));
             }
         }
         Type::RecExt(_, sub_in) => {
             if let Type::RecExt(_, sub_arg) = arg {
                 // TODO entries may not be ordered
-                sub_in.iter().zip(sub_arg).for_each(|((_, i), (_, a))| find_var_replacements(vars, a, i));
+                sub_in.iter().zip(sub_arg).for_each(|((_, i), (_, a))| type_inference_find_var_replacements(vars, a, i));
             }
         }
     }
 }
 
-pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) -> Type {
+pub fn type_inference_type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) -> Type {
     match value {
         Type::Var(_) => {
             expected.clone()
@@ -202,7 +179,7 @@ pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) ->
                 if val_name == exp_name {
                     let sub = exp_sub.iter()
                         .zip(val_sub)
-                        .map(|(e, v)| type_from_expected(env, e, v))
+                        .map(|(e, v)| type_inference_type_from_expected(env, e, v))
                         .collect::<Vec<Type>>();
 
                     Type::Tag(val_name.clone(), sub)
@@ -216,8 +193,8 @@ pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) ->
         Type::Fun(val_in, val_out) => {
             if let Type::Fun(exp_in, exp_out) = expected {
                 Type::Fun(
-                    Box::from(type_from_expected(env, exp_in, val_in)),
-                    Box::from(type_from_expected(env, exp_out, val_out)),
+                    Box::from(type_inference_type_from_expected(env, exp_in, val_in)),
+                    Box::from(type_inference_type_from_expected(env, exp_out, val_out)),
                 )
             } else {
                 value.clone()
@@ -230,7 +207,7 @@ pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) ->
             if let Type::Tuple(exp) = expected {
                 Type::Tuple(
                     exp.iter().zip(val)
-                        .map(|(e, v)| type_from_expected(env, e, v))
+                        .map(|(e, v)| type_inference_type_from_expected(env, e, v))
                         .collect::<Vec<Type>>()
                 )
             } else {
@@ -241,7 +218,7 @@ pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) ->
             if let Type::Record(exp) = expected {
                 Type::Record(
                     exp.iter().zip(val)
-                        .map(|((ne, e), (_, v))| (ne.clone(), type_from_expected(env, e, v)))
+                        .map(|((ne, e), (_, v))| (ne.clone(), type_inference_type_from_expected(env, e, v)))
                         .collect::<Vec<(String, Type)>>()
                 )
             } else {
@@ -253,7 +230,7 @@ pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) ->
                 if val_name == exp_name {
                     Type::Record(
                         exp.iter().zip(val)
-                            .map(|((ne, e), (_, v))| (ne.clone(), type_from_expected(env, e, v)))
+                            .map(|((ne, e), (_, v))| (ne.clone(), type_inference_type_from_expected(env, e, v)))
                             .collect::<Vec<(String, Type)>>()
                     )
                 } else {
@@ -266,7 +243,7 @@ pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) ->
     }
 }
 
-pub fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty: Type) -> Type {
+pub fn type_inference_rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty: Type) -> Type {
     match ty {
         Type::Unit => {
             Type::Unit
@@ -288,19 +265,19 @@ pub fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>,
             }
         }
         Type::Tag(name, sub) => {
-            Type::Tag(name, sub.into_iter().map(|i| rename_variables(env, vars, i)).collect())
+            Type::Tag(name, sub.into_iter().map(|i| type_inference_rename_variables(env, vars, i)).collect())
         }
         Type::Fun(i, o) => {
-            Type::Fun(Box::from(rename_variables(env, vars, *i)), Box::from(rename_variables(env, vars, *o)))
+            Type::Fun(Box::from(type_inference_rename_variables(env, vars, *i)), Box::from(type_inference_rename_variables(env, vars, *o)))
         }
         Type::Tuple(sub) => {
-            Type::Tuple(sub.into_iter().map(|i| rename_variables(env, vars, i)).collect())
+            Type::Tuple(sub.into_iter().map(|i| type_inference_rename_variables(env, vars, i)).collect())
         }
         Type::Record(sub) => {
-            Type::Record(sub.into_iter().map(|(s, i)| (s, rename_variables(env, vars, i))).collect())
+            Type::Record(sub.into_iter().map(|(s, i)| (s, type_inference_rename_variables(env, vars, i))).collect())
         }
         Type::RecExt(name, sub) => {
-            Type::RecExt(name, sub.into_iter().map(|(s, i)| (s, rename_variables(env, vars, i))).collect())
+            Type::RecExt(name, sub.into_iter().map(|(s, i)| (s, type_inference_rename_variables(env, vars, i))).collect())
         }
     }
 }
@@ -313,6 +290,11 @@ mod tests {
     use util::StringConversion;
 
     use super::*;
+
+    fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
+        let expr = Analyser::from(env.clone()).analyze_expression(expected, expr)?;
+        Ok(expr_type(&expr))
+    }
 
     #[test]
     fn check_unit() {

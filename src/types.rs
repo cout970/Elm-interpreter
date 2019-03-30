@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use analyzer::type_of_value;
 use ast::*;
 use errors::*;
 use Interpreter;
@@ -150,5 +151,11 @@ impl Hash for Value {
                 }
             }
         }
+    }
+}
+
+impl Value {
+    pub fn get_type(&self) -> Type {
+        type_of_value(self)
     }
 }

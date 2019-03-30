@@ -1,4 +1,3 @@
-use analyzer::type_of_value;
 use ast::Pattern;
 use ast::Type;
 use types::Value;
@@ -52,7 +51,7 @@ pub enum LetEntry {
 
 pub fn expr_type(expr: &TypedExpr) -> Type {
     match expr {
-        TypedExpr::Const(value) => type_of_value(value),
+        TypedExpr::Const(value) => value.get_type(),
         TypedExpr::Tuple(ty, _) => ty.clone(),
         TypedExpr::List(ty, _) => ty.clone(),
         TypedExpr::Record(ty, _) => ty.clone(),
