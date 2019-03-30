@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use analyzer::function_analyzer::analyze_function;
+use analyzer::dependency_sorter::sort_statements;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::pattern_analyzer::is_exhaustive;
@@ -11,7 +11,11 @@ use analyzer::type_inference::type_inference_find_var_replacements;
 use ast::*;
 use ast::Definition;
 use ast::Expr;
+use core::register_core;
 use errors::*;
+use loader::Declaration;
+use loader::LoadedModule;
+use source::SourceCode;
 use typed_ast::expr_type;
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
@@ -23,14 +27,14 @@ use util::create_vec_inv;
 use util::qualified_name;
 
 pub mod static_env;
-pub mod module_analyser;
-mod function_analyzer;
 mod type_inference;
 mod dependency_sorter;
 mod pattern_analyzer;
 mod type_helper;
 
 mod expression_helper;
+mod statement_helper;
+mod module_helper;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternMatchingError {
@@ -47,21 +51,23 @@ pub enum PatternMatchingError {
     ExpectedLiteral(String, Type),
 }
 
-pub struct Analyser {
-    env: StaticEnv
+pub struct Analyzer {
+    env: StaticEnv,
+    source: SourceCode,
 }
 
-impl Analyser {
-    pub fn new() -> Self {
-        Analyser { env: StaticEnv::new() }
+impl Analyzer {
+    pub fn new(source: SourceCode) -> Self {
+        let mut env = StaticEnv::new();
+        register_core(&mut env);
+        Analyzer { env, source }
     }
 
     pub fn from(env: StaticEnv) -> Self {
-        Analyser { env }
+        panic!("Replace me!")
     }
 
     pub fn analyze_definition(&mut self, fun: &Definition) -> Result<TypedDefinition, TypeError> {
-        println!("analyze_function: {}", fun.name);
         let name_seq = self.env.name_seq.save();
 
         // Extract function input types and argument variables
@@ -256,6 +262,47 @@ impl Analyser {
             Expr::Unit(..) => Ok(TypedExpr::Const(Value::Unit)),
         }
     }
+
+    pub fn analyze_statement(&mut self, stm: &Statement) -> Result<Vec<Declaration>, TypeError> {
+        let decls = match stm {
+            Statement::Alias(name, vars, ty) => {
+                self.analyze_statement_typealias(name, vars, ty)?
+            }
+            Statement::Adt(name, vars, variants) => {
+                self.analyze_statement_adt(name, vars, variants)?
+            }
+            Statement::Port(name, ty) => {
+                self.analyze_statement_port(name, ty)?
+            }
+            Statement::Def(def) => {
+                self.analyze_statement_definition(def)?
+            }
+            Statement::Infix(_, _, name, def) => {
+                println!("ignore infix operator: {}", name);
+
+                match self.env.find_definition(name) {
+                    None => {
+                        let func = self.env.find_definition(def);
+                        match func {
+                            Some(ty) => {
+                                vec![Declaration::Def(name.clone(), ty)]
+                            }
+                            _ => vec![]
+                        }
+                    }
+                    _ => vec![]
+                }
+            }
+        };
+
+        Ok(decls)
+    }
+
+    pub fn analyze_module(&mut self, modules: &HashMap<String, LoadedModule>, imports: &Vec<Import>, statements: &Vec<Statement>) -> Result<Vec<Declaration>, ElmError> {
+        self.analyze_module_imports(modules, imports)?;
+        self.analyze_module_declarations(statements)
+            .map_err(|list| err_list(&self.source, list, |code, info| ElmError::Analyser { code, info }))
+    }
 }
 
 fn unpack_types(ty: &Type) -> Vec<Type> {
@@ -268,14 +315,6 @@ fn unpack_types(ty: &Type) -> Vec<Type> {
     }
     components.push(curr.clone());
     components
-}
-
-pub fn type_check_expression(env: &mut StaticEnv, expr: &Expr) -> Result<Type, TypeError> {
-    Ok(expr_type(&Analyser::from(env.clone()).analyze_expression(None, expr)?))
-}
-
-pub fn type_check_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
-    Ok(Analyser::from(env.clone()).analyze_definition(fun)?.header)
 }
 
 // Use Value.get_type() instead
@@ -361,105 +400,96 @@ mod tests {
 
     use super::*;
 
-    fn from_code_def(code: &str) -> Definition {
+    fn from_code_def(code: &str) -> (Definition, Analyzer) {
         let stm = Test::statement(code);
         match stm {
-            Statement::Def(def) => def,
+            Statement::Def(def) => (def, Analyzer::new(SourceCode::from_str(code))),
             _ => panic!("Expected definition but found: {:?}", stm)
         }
     }
 
-    fn format_type(env: &mut StaticEnv, def: &Definition) -> String {
-        format!("{}", analyze_function(env, def).expect("Run into type error"))
+    fn format_type(analyzer: &mut Analyzer, def: &Definition) -> String {
+        format!("{}", analyzer.analyze_definition(def).expect("Run into type error").header)
     }
 
     #[test]
     fn check_constant() {
-        let def = from_code_def("const = 1");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("const = 1");
 
-        assert_eq!(format_type(&mut env, &def), "number");
+        assert_eq!(format_type(&mut analyzer, &def), "number");
     }
 
     #[test]
     fn check_identity() {
-        let def = from_code_def("id arg1 = arg1");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("id arg1 = arg1");
 
-        assert_eq!(format_type(&mut env, &def), "a -> a");
+        assert_eq!(format_type(&mut analyzer, &def), "a -> a");
     }
 
     #[test]
     fn check_var_to_number() {
-        let def = from_code_def("sum arg1 arg2 = arg1 + arg2");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("sum arg1 arg2 = arg1 + arg2");
 
-        env.add_definition("+", build_fun_type(&vec![
+        analyzer.env.add_definition("+", build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
         ]));
 
-        assert_eq!(format_type(&mut env, &def), "number -> number -> number");
+        assert_eq!(format_type(&mut analyzer, &def), "number -> number -> number");
     }
 
     #[test]
     fn check_number_to_float() {
-        let def = from_code_def("sum arg1 = arg1 + 1.5");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("sum arg1 = arg1 + 1.5");
 
-        env.add_definition("+", build_fun_type(&vec![
+        analyzer.env.add_definition("+", build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
         ]));
 
-        assert_eq!(format_type(&mut env, &def), "Float -> Float");
+        assert_eq!(format_type(&mut analyzer, &def), "Float -> Float");
     }
 
     #[test]
     fn check_from_number_to_float() {
-        let def = from_code_def("sum = (+) 1.5");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("sum = (+) 1.5");
 
-        env.add_definition("+", build_fun_type(&vec![
+        analyzer.env.add_definition("+", build_fun_type(&vec![
             Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
         ]));
 
-        assert_eq!(format_type(&mut env, &def), "Float -> Float");
+        assert_eq!(format_type(&mut analyzer, &def), "Float -> Float");
     }
 
     #[test]
     fn check_list_coercion() {
-        let def = from_code_def("my = [1, 1.5]");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("my = [1, 1.5]");
 
-        assert_eq!(format_type(&mut env, &def), "List Float");
+        assert_eq!(format_type(&mut analyzer, &def), "List Float");
     }
 
     #[test]
     fn check_list_coercion2() {
-        let def = from_code_def("my b = [1, 1.5, b]");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("my b = [1, 1.5, b]");
 
-        assert_eq!(format_type(&mut env, &def), "Float -> List Float");
+        assert_eq!(format_type(&mut analyzer, &def), "Float -> List Float");
     }
 
     #[test]
     fn check_variable_separation() {
-        let def = from_code_def("my a b = [a, b]");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("my a b = [a, b]");
 
-        assert_eq!(format_type(&mut env, &def), "a -> a -> List a");
+        assert_eq!(format_type(&mut analyzer, &def), "a -> a -> List a");
     }
 
     #[test]
     fn check_variable_separation2() {
-        let def = from_code_def("my = (func, func)");
-        let mut env = StaticEnv::new();
+        let (def, mut analyzer) = from_code_def("my = (func, func)");
 
-        env.add_definition("func", Type::Fun(
+        analyzer.env.add_definition("func", Type::Fun(
             Box::from(Type::Var("a".s())),
             Box::from(Type::Var("a".s())),
         ));
 
-        assert_eq!(format_type(&mut env, &def), "( a -> a, b -> b )");
+        assert_eq!(format_type(&mut analyzer, &def), "( a -> a, b -> b )");
     }
 
     #[test]

@@ -170,14 +170,6 @@ pub fn build_fun_type(types: &[Type]) -> Type {
     }
 }
 
-pub fn get_fun_return(ty: &Type) -> Type {
-    if let Type::Fun(_, ty) = ty {
-        get_fun_return(&*ty)
-    } else {
-        ty.clone()
-    }
-}
-
 pub fn qualified_name(path: &[String], name: &str) -> String {
     let mut full_name = String::new();
     for x in path {

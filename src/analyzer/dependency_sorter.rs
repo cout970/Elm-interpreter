@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use analyzer::Analyser;
+use analyzer::Analyzer;
 use analyzer::static_env::StaticEnv;
 use ast::*;
 use util::qualified_name;
@@ -18,7 +18,6 @@ pub fn sort_statements(stms: &Vec<Statement>) -> Result<Vec<&Statement>, Vec<Str
         let name = get_stm_name(stm).to_owned();
         let provided = get_provided_names(stm);
         let deps = get_stm_dependencies(stm);
-//        println!("stm: {}, provided: {:?}, deps: {:?}", name, provided, deps);
         stm_map.push((name, provided, deps));
     }
 
@@ -42,13 +41,8 @@ pub fn sort_statements(stms: &Vec<Statement>) -> Result<Vec<&Statement>, Vec<Str
         graph.insert(stm, deps);
     }
 
-//    println!("statements graph: {:#?}", graph);
-
-
     let sorted_names: Vec<&String> = get_acyclic_dependency_graph(graph)
         .map_err(|e| e.iter().map(|&i| i.clone()).collect::<Vec<String>>())?;
-
-//    println!("sorted statements: {:#?}", sorted_names);
 
     Ok(sorted_names.iter().
         map(|name| {
@@ -94,7 +88,7 @@ fn get_def_dependencies(env: &mut StaticEnv, def: &Definition)-> Vec<String>{
 }
 
 fn add_patterns(env: &mut StaticEnv, patterns: &Vec<Pattern>) -> Vec<String> {
-    let mut analyser = Analyser::from(env.clone());
+    let mut analyser = Analyzer::from(env.clone());
     for (_, entries) in analyser.analyze_function_arguments(patterns, &None) {
         for (name, _) in entries {
             env.add_definition(&name, Type::Unit);

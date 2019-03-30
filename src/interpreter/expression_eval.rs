@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use analyzer::type_check_expression;
 use ast::*;
+use constructors::type_unit;
 use errors::*;
 use errors::RuntimeError::*;
 use Interpreter;
@@ -71,8 +71,11 @@ pub fn eval_expr(env: &mut DynamicEnv, expr: &Expr) -> Result<Value, RuntimeErro
             }
         }
         Expr::Lambda(_, patt, _expr) => {
-            let ty = type_check_expression(&mut env.types, expr)
-                .map_err(|e| IncorrectDefType(e))?;
+//            let ty = type_check_expression(&mut env.types, expr)
+//                .map_err(|e| IncorrectDefType(e))?;
+
+            // TODO replace hole interpreter
+            let ty = type_unit();
 
             Value::Fun {
                 args: vec![],

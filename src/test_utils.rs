@@ -1,3 +1,4 @@
+use analyzer::Analyzer;
 use ast::Expr;
 use ast::Module;
 use ast::Statement;
@@ -22,6 +23,21 @@ impl Test {
 
         match res {
             Ok(res) => res,
+            Err(error) => {
+                println!("Error: {}\n", error);
+                panic!();
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub fn expr_analyzer(code: &str) -> (Expr, Analyzer) {
+        let src = SourceCode::from_str(code);
+        let mut parser = Parser::new(Tokenizer::new(&src));
+        let res = parser.parse_expression();
+
+        match res {
+            Ok(res) => (res, Analyzer::new(src)),
             Err(error) => {
                 println!("Error: {}\n", error);
                 panic!();

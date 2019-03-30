@@ -12,8 +12,7 @@ extern crate pretty_assertions;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use analyzer::Analyser;
-use analyzer::module_analyser::analyze_statement;
+use analyzer::Analyzer;
 use ast::Type;
 use errors::ElmError;
 use interpreter::dynamic_env::DynamicEnv;
@@ -83,8 +82,8 @@ impl Interpreter {
         let tokenizer = Tokenizer::new(&code);
         let mut parser = Parser::new(tokenizer);
         let stm = parser.parse_statement()?;
-        let mut analyser = Analyser::new();
-        analyze_statement(&mut self.env.types, &stm);
+        let mut analyser = Analyzer::new(code.clone());
+        let declarations = analyser.analyze_statement(&stm).expect("Analysis error");
         eval_statement(&mut self.env, &stm)
     }
 

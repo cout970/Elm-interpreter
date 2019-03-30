@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use analyzer::type_check_function;
 use ast::*;
 use ast::Definition;
+use constructors::type_unit;
 use errors::*;
 use interpreter::builtins::builtin_adt_constructor;
 use interpreter::dynamic_env::DynamicEnv;
@@ -74,21 +74,18 @@ pub fn eval_stm(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, 
             // TODO
         }
         Statement::Def(def) => {
-            let def_ty = type_check_function(&mut env.types, def)
-                .map_err(|e| RuntimeError::IncorrectDefType(e))?;
-
             let Definition { name, patterns, expr, .. } = &def;
 
             let value = Value::Fun {
                 args: vec![],
                 arg_count: patterns.len() as u32,
                 captures: extract_captures(env, expr),
-                fun: Arc::new(Function::Expr(next_fun_id(), patterns.clone(), expr.clone(), def_ty.clone())),
+                fun: Arc::new(Function::Expr(next_fun_id(), patterns.clone(), expr.clone(), type_unit())), // TODO
             };
 
             let ret = if patterns.len() == 0 { eval_expr(env, expr)? } else { value };
 
-            env.add(name, ret.clone(), def_ty);
+            env.add(name, ret.clone(), ret.get_type());
 
             return Ok(Some(ret));
         }

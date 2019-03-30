@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use analyzer::Analyser;
+use analyzer::Analyzer;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::PatternMatchingError;
@@ -24,7 +24,7 @@ use types::Value;
 use util::build_fun_type;
 use util::expression_fold::*;
 
-impl Analyser {
+impl Analyzer {
     pub fn analyze_application(&mut self, fun: &Expr, arg: &Expr, app: &Expr) -> Result<TypedExpr, TypeError> {
         // example of variable type inference:
         // sum = (+) 1.5
@@ -439,69 +439,59 @@ mod tests {
 
     use super::*;
 
-    fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
-        let expr = Analyser::from(env.clone()).analyze_definition(fun)?;
-        Ok(expr.header)
-    }
-
-    fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
-        let expr = Analyser::from(env.clone()).analyze_expression(expected, expr)?;
+    fn analyze_expression(analyzer: &mut Analyzer, expr: &Expr) -> Result<Type, TypeError> {
+        let expr = analyzer.analyze_expression(None, expr)?;
         Ok(expr_type(&expr))
     }
 
     #[test]
     fn check_ref() {
-        let mut env = StaticEnv::new();
-        env.add_definition("varName", type_int());
-        let expr = analyze_expression(&mut env, None, &Test::expr("varName"));
+        let (expr, mut analyzer) = Test::expr_analyzer("varName");
+        analyzer.env.add_definition("varName", type_int());
+        let expr = analyze_expression(&mut analyzer, &expr);
 
         assert_eq!(Ok(type_int()), expr);
     }
 
     #[test]
     fn check_unit() {
-        let expr = Test::expr("()");
-        let mut env = StaticEnv::new();
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Unit));
+        let (expr, mut analyzer) = Test::expr_analyzer("()");
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Unit));
     }
 
     #[test]
     fn check_literal() {
-        let expr = Test::expr("123");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("123");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Var("number".s())));
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Var("number".s())));
     }
 
     #[test]
     fn check_fun() {
-        let expr = Test::expr("fun 123");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("fun 123");
 
-        env.add_definition("fun", Type::Fun(
+        analyzer.env.add_definition("fun", Type::Fun(
             Box::new(Type::Tag("Int".s(), vec![])),
             Box::new(Type::Tag("Int".s(), vec![])),
         ));
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("Int".s(), vec![])));
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag("Int".s(), vec![])));
     }
 
     #[test]
     fn check_if() {
-        let expr = Test::expr("if True then 1 else 0");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("if True then 1 else 0");
 
-        env.add_definition("True", Type::Tag("Bool".s(), vec![]));
+        analyzer.env.add_definition("True", Type::Tag("Bool".s(), vec![]));
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Var("number".s())));
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Var("number".s())));
     }
 
     #[test]
     fn check_lambda() {
-        let expr = Test::expr("\\x -> 1");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("\\x -> 1");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Fun(
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Fun(
             Box::new(Type::Var("a".s())),
             Box::new(Type::Var("number".s())),
         )));
@@ -509,30 +499,27 @@ mod tests {
 
     #[test]
     fn check_list() {
-        let expr = Test::expr("[1, 2, 3]");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("[1, 2, 3]");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag(
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag(
             "List".s(), vec![Type::Var("number".s())],
         )));
     }
 
     #[test]
     fn check_bad_list() {
-        let expr = Test::expr("[1, 2, 'a']");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("[1, 2, 'a']");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Err(
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Err(
             TypeError::ListNotHomogeneous(span(&expr), type_number(), type_char(), 2)
         ));
     }
 
     #[test]
     fn check_record() {
-        let expr = Test::expr("{ a = 1, b = \"Hi\" }");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("{ a = 1, b = \"Hi\" }");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(
             Type::Record(vec![
                 ("a".s(), Type::Var("number".s())),
                 ("b".s(), Type::Tag("String".s(), vec![])),
@@ -542,10 +529,9 @@ mod tests {
 
     #[test]
     fn check_operator_chain() {
-        let expr = Test::expr("1 + 2");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("1 + 2");
 
-        env.add_definition("+", Type::Fun(
+        analyzer.env.add_definition("+", Type::Fun(
             Box::new(Type::Var("number".s())),
             Box::new(Type::Fun(
                 Box::new(Type::Var("number".s())),
@@ -553,17 +539,16 @@ mod tests {
             )),
         ));
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(
             Type::Var("number".s())
         ));
     }
 
     #[test]
     fn check_tuple() {
-        let expr = Test::expr("(1, \"a\", ())");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("(1, \"a\", ())");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(
             Type::Tuple(vec![
                 Type::Var("number".s()),
                 Type::Tag("String".s(), vec![]),
@@ -574,8 +559,7 @@ mod tests {
 
     #[test]
     fn check_record_update() {
-        let expr = Test::expr("{ x | a = 0 }");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("{ x | a = 0 }");
 
         // Type of x
         let record_type = Type::Record(vec![
@@ -588,25 +572,23 @@ mod tests {
             ("a".s(), Type::Var("number".s()))
         ]);
 
-        env.add_definition("x", record_type.clone());
+        analyzer.env.add_definition("x", record_type.clone());
 
-        let result = analyze_expression(&mut env, None, &expr);
+        let result = analyze_expression(&mut analyzer, &expr);
         assert_eq!(result, Ok(result_type));
     }
 
     #[test]
     fn check_case() {
-        let expr = Test::expr("case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(Type::Tag("String".s(), vec![])));
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag("String".s(), vec![])));
     }
 
     #[test]
     fn check_case2() {
-        let expr = Test::expr("case 0 of\n 0 -> 1\n _ -> \"b\"");
-        let mut env = StaticEnv::new();
+        let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> 1\n _ -> \"b\"");
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Err(TypeError::CaseBranchDontMatchReturnType((24, 27), "".s())));
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Err(TypeError::CaseBranchDontMatchReturnType((24, 27), "".s())));
     }
 }

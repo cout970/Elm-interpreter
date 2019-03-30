@@ -4,8 +4,7 @@ use std::io::Error;
 use std::path::Path;
 use std::sync::Arc;
 
-use analyzer::module_analyser::analyze_module_declarations;
-use analyzer::module_analyser::analyze_module_imports;
+use analyzer::Analyzer;
 use analyzer::static_env::StaticEnv;
 use ast::Module;
 use ast::Type;
@@ -35,7 +34,6 @@ pub struct SourceFile {
 pub struct LoadedModule {
     pub src: SourceFile,
     pub ast: Module,
-    pub env: StaticEnv,
     pub declarations: Vec<Declaration>,
     pub dependencies: Vec<String>,
 }
@@ -98,20 +96,10 @@ impl ModuleLoader {
             return Err(ElmError::Loader { info: LoaderError::MissingDependencies { dependencies: missing_deps } });
         }
 
-        let mut env = StaticEnv::new();
-        register_core(&mut env);
+        let mut analyzer = Analyzer::new(src.source.clone());
+        let declarations = analyzer.analyze_module(&self.loaded_modules, &ast.imports, &ast.statements)?;
 
-        analyze_module_imports(&self.loaded_modules, &mut env, &ast.imports)?;
-        let declarations = analyze_module_declarations(&mut env, &ast.statements)
-            .map_err(|list| err_list(&src.source, list, |code, info| ElmError::Analyser { code, info }))?;
-
-        let module = LoadedModule {
-            src,
-            ast,
-            env,
-            declarations,
-            dependencies: deps,
-        };
+        let module = LoadedModule { src, ast, declarations, dependencies: deps };
 
         self.loaded_modules.insert(name, module);
         Ok(())
