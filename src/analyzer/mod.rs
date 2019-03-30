@@ -10,7 +10,6 @@ use analyzer::expression_analyzer::get_adt_type;
 use analyzer::expression_analyzer::rename_variables;
 use analyzer::expression_analyzer::replace_vars_with_concrete_types;
 use analyzer::expression_analyzer::type_from_expected;
-use analyzer::expression_analyzer::type_of_app;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
@@ -21,6 +20,7 @@ use analyzer::type_helper::get_common_type;
 use analyzer::type_helper::is_assignable;
 use ast::Definition;
 use ast::Expr;
+use ast::Float;
 use ast::Literal;
 use ast::Pattern;
 use ast::span;
@@ -62,7 +62,6 @@ pub enum PatternMatchingError {
     ExpectedLiteral(String, Type),
     TODO,
 }
-
 
 pub struct Analyser {
     env: StaticEnv
@@ -288,10 +287,7 @@ impl Analyser {
                         let elem_type = expr_type(&elem);
 
                         if !is_assignable(&list_type, &elem_type) {
-                            return Err(TypeError::ListNotHomogeneous(
-                                span(expr),
-                                format!("List of '{}', but found element '{}' at index: {}", list_type, elem, i),
-                            ));
+                            return Err(TypeError::ListNotHomogeneous(span(expr), list_type, expr_type(&elem), i as u32));
                         }
 
                         if let Type::Var(_) = list_type {
@@ -421,17 +417,20 @@ impl Analyser {
                     name.clone(),
                     update_types.iter().map(|(name, expr)| (name.clone(), expr_type(expr))).collect::<Vec<_>>(),
                 );
+                let rec_type = Type::Record(
+                    update_types.iter().map(|(name, expr)| (name.clone(), expr_type(expr))).collect::<Vec<_>>(),
+                );
 
                 // Record to update
-                let record = self.analyze_expression(Some(&own_type), &Expr::Ref(*span, name.to_owned()))?;
+                let ref_expr = self.analyze_expression(Some(&rec_type), &Expr::Ref(*span, name.to_owned()))?;
 
-                match &record {
-                    TypedExpr::Record(_, fields) => {
+                match expr_type(&ref_expr) {
+                    Type::Record(fields) => {
                         for (field_name, _) in updates {
                             if !fields.iter().any(|(field, _)| field == field_name) {
                                 return Err(TypeError::RecordUpdateUnknownField(
                                     *span,
-                                    format!("Field '{}' not found in record: {} of type: {}", field_name, name, record),
+                                    format!("Field '{}' not found in record: {} of type: {}", field_name, name, ref_expr),
                                 ));
                             }
                         }
@@ -439,12 +438,12 @@ impl Analyser {
                     _ => {
                         return Err(TypeError::RecordUpdateOnNonRecord(
                             *span,
-                            format!("Expecting record to update but found: {}", record),
+                            format!("Expecting record to update but found: {}", ref_expr),
                         ));
                     }
                 }
 
-                TypedExpr::RecordUpdate(own_type, Box::new(record), update_types)
+                TypedExpr::RecordUpdate(own_type, Box::new(ref_expr), update_types)
             }
             Expr::Case(_, expr, branches) => self.analyze_case_expr(expected, &*expr, branches)?,
             Expr::If(_, cond, a, b) => {
@@ -469,7 +468,21 @@ impl Analyser {
             }
             Expr::Literal(_, lit) => {
                 let value = match lit {
-                    Literal::Int(i) => Value::Number(*i),
+                    Literal::Int(i) => {
+                        if let Some(expected) = expected {
+                            if let Type::Tag(name, _) = expected {
+                                match name.as_str() {
+                                    "Int" => Value::Int(*i),
+                                    "Float" => Value::Float(*i as Float),
+                                    _ => Value::Number(*i)
+                                }
+                            } else {
+                                Value::Number(*i)
+                            }
+                        } else {
+                            Value::Number(*i)
+                        }
+                    }
                     Literal::Float(i) => Value::Float(*i),
                     Literal::String(i) => Value::String(i.clone()),
                     Literal::Char(i) => Value::Char(*i),
@@ -685,7 +698,6 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
         ty
     }
 }
-
 
 #[cfg(test)]
 mod tests {

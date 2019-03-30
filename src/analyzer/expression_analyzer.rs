@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use analyzer::Analyser;
 use analyzer::function_analyzer::analyze_function;
-use analyzer::function_analyzer::analyze_function_arguments;
 use analyzer::function_analyzer::analyze_let_destructuring;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
@@ -15,6 +15,7 @@ use analyzer::type_of_value;
 use ast::*;
 use errors::TypeError::*;
 use errors::TypeError;
+use typed_ast::expr_type;
 use types::Adt;
 use types::Value;
 use util::build_fun_type;
@@ -24,368 +25,8 @@ use util::qualified_name;
 use util::StringConversion;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
-//    println!("analyze_expression {{ expected: {:?}, expr: {:?} }}", expected, expr);
-//    println!("analyze_expression {{ env: {:?} }}", env);
-    match expr {
-        Expr::Ref(_, name) => {
-            let def = env.find_definition(name)
-                .or_else(|| env.find_alias(name))
-                .ok_or(MissingDefinition(span(expr), name.clone()))?;
-
-
-            if let Some(expected_ty) = expected {
-                let new_ty = type_from_expected(env, expected_ty, &def);
-                env.replace(name, new_ty.clone());
-
-                Ok(new_ty)
-            } else {
-                if !env.is_local(name) {
-                    let mut vars = HashMap::new();
-                    Ok(rename_variables(env, &mut vars, def))
-                } else {
-                    Ok(def)
-                }
-            }
-        }
-        Expr::QualifiedRef(_, path, name) => {
-            let full_name = qualified_name(path, name);
-
-            analyze_expression(env, expected, &Expr::Ref((0, 0), full_name))
-        }
-        Expr::Application(_, fun, arg) => {
-            type_of_app(env, &**fun, &**arg, expr)
-        }
-        Expr::Lambda(_, patterns, expr) => {
-            let (tys, new_vars) = analyze_function_arguments(env, patterns, &None)?;
-
-            env.enter_block();
-            for (name, value) in &new_vars {
-                if env.find_definition(name).is_some() {
-                    env.exit_block();
-                    return Err(VariableNameShadowed(name.clone()));
-                }
-
-                env.add_definition(name, value.clone());
-            }
-
-            let out = analyze_expression(env, expected, expr);
-            env.exit_block();
-
-            let mut var = tys.clone();
-            var.push(out?);
-
-            Ok(build_fun_type(&var))
-        }
-        Expr::List(_, exprs) => {
-            if exprs.is_empty() {
-                Ok(Type::Tag("List".s(), vec![Type::Var(env.next_name())]))
-            } else {
-                let mut first = analyze_expression(env, None, &exprs[0])?;
-
-                for i in 1..exprs.len() {
-                    let elem = analyze_expression(env, Some(&first), &exprs[i])?;
-
-                    if is_assignable(&first, &elem) {
-                        if let Type::Var(_) = first {
-                            first = elem;
-                        }
-                    } else {
-                        return Err(ListNotHomogeneous(
-                            span(expr),
-                            format!("List of '{}', but found element '{}' at index: {}", first, elem, i),
-                        ));
-                    }
-                }
-
-                Ok(Type::Tag("List".s(), vec![first]))
-            }
-        }
-        Expr::Let(_, decls, expr) => {
-            env.enter_block();
-            for decl in decls {
-                match decl {
-                    LetDeclaration::Def(def) => {
-                        let def_ty = analyze_function(env, def);
-
-                        match def_ty {
-                            Ok(ty) => {
-                                env.add_definition(&def.name, ty);
-                            }
-                            Err(e) => {
-                                env.exit_block();
-                                return Err(e);
-                            }
-                        }
-                    }
-                    LetDeclaration::Pattern(pattern, expr) => {
-                        let res = analyze_let_destructuring(env, pattern, expr);
-
-                        match res {
-                            Ok(vars) => {
-                                for (name, ty) in vars {
-                                    env.add_definition(&name, ty);
-                                }
-                            }
-                            Err(e) => {
-                                env.exit_block();
-                                return Err(e);
-                            }
-                        }
-                    }
-                }
-            }
-            let res = analyze_expression(env, expected, expr);
-            env.exit_block();
-
-            res
-        }
-        Expr::OpChain(_, exprs, ops) => {
-            match create_expr_tree(exprs, ops) {
-                Ok(tree) => analyze_expression(env, expected, &expr_tree_to_expr(tree)),
-                Err(_) => Err(InvalidOperandChain(span(expr), format!("You cannot mix >> and << without parentheses"))),
-            }
-        }
-        Expr::Record(_, entries) => {
-            let types: Vec<(String, Type)> = entries.iter()
-                .map(|(name, expr)| analyze_expression(env, None, expr).map(|ty| (name.clone(), ty)))
-                .collect::<Result<_, _>>()?;
-
-            Ok(Type::Record(types))
-        }
-        Expr::RecordAccess(_, _) => {
-            Ok(Type::Fun(
-                Box::new(Type::Var(env.next_name())),
-                Box::new(Type::Var(env.next_name())),
-            ))
-        }
-        Expr::RecordField(_, expr, name) => {
-            let exp_ty = Type::Record(vec![
-                (name.clone(), expected.map(|e| e.clone()).unwrap_or(Type::Var(env.next_name())))
-            ]);
-            let record = match analyze_expression(env, Some(&exp_ty), expr) {
-                Ok(t) => t.clone(),
-                Err(e) => { return Err(e); }
-            };
-
-            if let Type::Record(fields) = record {
-                let field: Option<&Type> = fields
-                    .iter()
-                    .find(|(f_name, _)| f_name == name)
-                    .map(|(_, f_type)| f_type);
-
-                match field {
-                    Some(t) => Ok(t.clone()),
-                    None => Err(InternalError)
-                }
-            } else {
-                Err(InternalError)
-            }
-        }
-        Expr::Tuple(_, items) => {
-            let types: Vec<Type> = items.iter()
-                .map(|e| analyze_expression(env, None, e))
-                .collect::<Result<_, _>>()?;
-
-            Ok(Type::Tuple(types))
-        }
-        Expr::RecordUpdate(_, name, updates) => {
-            let mut update_types = vec![];
-            for (name, expr) in updates {
-                update_types.push((name.clone(), analyze_expression(env, None, expr)?));
-            }
-            let exp_ty = Type::Record(update_types);
-
-            let record_type = analyze_expression(env, Some(&exp_ty), &Expr::Ref((0, 0), name.to_owned()))?;
-
-            if let Type::Record(fields) = &record_type {
-                for (field_name, _) in updates {
-                    let found = fields.iter().any(|(field, _)| field == field_name);
-                    if !found {
-                        return Err(RecordUpdateUnknownField(
-                            span(expr),
-                            format!("Field '{}' not found in record: {} of type: {}", field_name, name, record_type),
-                        ));
-                    }
-                }
-
-                Ok(record_type.clone())
-            } else {
-                Err(RecordUpdateOnNonRecord(
-                    span(expr),
-                    format!("Expecting record to update but found: {}", record_type),
-                ))
-            }
-        }
-        Expr::Case(_, expr, branches) => {
-            analyze_case_expr(env, expected, &*expr, branches)
-        }
-        Expr::If(_, cond, a, b) => {
-            let cond = analyze_expression(env, Some(&Type::Tag("Bool".s(), vec![])), cond)?;
-            let true_branch = analyze_expression(env, expected, a)?;
-            let false_branch = analyze_expression(env, expected, b)?;
-
-            if !is_assignable(&Type::Tag("Bool".s(), vec![]), &cond) {
-                return Err(IfWithNonBoolCondition(span(expr), format!("Expected Bool expression but found {}", cond)));
-            }
-
-            let branches = vec![true_branch, false_branch];
-            let ret_ty = calculate_common_type(&branches);
-            match ret_ty {
-                Ok(ty) => Ok(ty.clone()),
-                Err((a, b)) => Err(
-                    IfBranchesDoesntMatch(span(expr), format!("True Branch: {}, False Branch: {}", a, b))
-                )
-            }
-        }
-        Expr::Unit(..) => {
-            Ok(Type::Unit)
-        }
-        Expr::Literal(_, lit) => {
-            Ok(type_of_literal(lit, expected))
-        }
-    }
-}
-
-fn analyze_case_expr(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr, branches: &Vec<(Pattern, Expr)>) -> Result<Type, TypeError> {
-    let patterns_types = branches.iter()
-        .map(|(p, _)| analyze_pattern(env, p).map(|(ty, _)| ty))
-        .collect::<Result<Vec<_>, PatternMatchingError>>()
-        .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
-
-    let mut patterns_types_iter = patterns_types.iter();
-    let mut patterns_type = patterns_types_iter.next().unwrap();
-
-    while let Some(ty) = patterns_types_iter.next() {
-        match get_common_type(patterns_type, ty) {
-            Some(ty) => { patterns_type = ty; }
-            None => {
-                return Err(TypeError::InvalidPattern(
-                    span(expr),
-                    PatternMatchingError::ListPatternsAreNotHomogeneous(patterns_type.clone(), ty.clone())
-                ));
-            }
-        }
-    }
-
-    let cond_type = analyze_expression(env, Some(patterns_type), expr)?;
-
-    let mut iter = branches.iter();
-    let (first_pattern, first_expr) = iter.next().unwrap();
-
-    let first_type = {
-        // check patterns for variables
-        let (_, vars) = analyze_pattern_with_type(env, first_pattern, cond_type.clone())
-            .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
-
-        // add variable to the environment
-        env.enter_block();
-
-        for (name, ty) in &vars {
-            env.add_definition(name, ty.clone());
-        }
-
-        let result = analyze_expression(env, expected, first_expr);
-
-        // reset environment
-        env.exit_block();
-
-        result?
-    };
-
-    while let Some((pattern, expression)) = iter.next() {
-//        println!("{}", pattern);
-        // check patterns for variables
-        let (_, vars) = analyze_pattern_with_type(env, pattern, cond_type.clone())
-            .map_err(|e| TypeError::InvalidPattern(span(expr), e))?;
-
-        // add variable to the environment
-        env.enter_block();
-
-        for (name, ty) in &vars {
-            env.add_definition(name, ty.clone());
-        }
-
-        let result = analyze_expression(env, Some(&first_type), expression);
-
-        // reset environment
-        env.exit_block();
-
-        let ret = result?;
-
-        if !is_assignable(&first_type, &ret) {
-            return Err(CaseBranchDontMatchReturnType(span(expression), "".s()));
-        }
-    }
-
-    Ok(first_type)
-}
-
-fn type_of_literal(lit: &Literal, expected: Option<&Type>) -> Type {
-    match lit {
-        Literal::Int(_) => {
-            match expected {
-                Some(ty) => {
-                    match ty {
-                        Type::Var(_) => Type::Var("number".s()),
-                        Type::Tag(name, _) => {
-                            match name.as_str() {
-                                "Int" => Type::Tag("Int".s(), vec![]),
-                                "Float" => Type::Tag("Float".s(), vec![]),
-                                _ => Type::Var("number".s())
-                            }
-                        }
-                        _ => Type::Tag("Int".s(), vec![])
-                    }
-                }
-                _ => Type::Var("number".s())
-            }
-        }
-        Literal::Float(_) => Type::Tag("Float".s(), vec![]),
-        Literal::Char(_) => Type::Tag("Char".s(), vec![]),
-        Literal::String(_) => Type::Tag("String".s(), vec![]),
-    }
-}
-
-pub fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr, app: &Expr) -> Result<Type, TypeError> {
-    // example of variable type inference:
-    // sum = (+) 1.5
-
-//    TypedExpr::Application(
-//        own_type,
-//        Box::new(self.analyze_expression(None, &**fun)?),
-//        Box::new(self.analyze_expression(None, &**arg)?),
-//    )
-
-    let function = analyze_expression(env, None, fun)?;
-    // (+) : number -> number -> number
-
-    if let Type::Fun(ref argument, ref result) = function {
-        // argument: number
-        // result: number -> number
-
-        let input = analyze_expression(env, Some(argument), arg)?;
-        // Float
-
-        if is_assignable(&**argument, &input) {
-            // true
-
-            let mut vars: HashMap<String, Type> = HashMap::new();
-            find_var_replacements(&mut vars, &input, argument);
-            // vars: [number => Float], change number to float
-
-            let output = replace_vars_with_concrete_types(&vars, result);
-            // Float
-
-            backtrack_expr(env, &vars, fun);
-            // env: [number => Float]
-
-            Ok(output)
-        } else {
-            Err(ArgumentsDoNotMatch(span(arg), format!("Expected argument: {}, found: {}", argument, input)))
-        }
-    } else {
-        Err(NotAFunction(span(app), format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg)))
-    }
+    let expr = Analyser::from(env.clone()).analyze_expression(expected, expr)?;
+    Ok(expr_type(&expr))
 }
 
 pub fn expr_tree_to_expr(tree: ExprTree) -> Expr {
@@ -677,6 +318,8 @@ pub fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>,
 
 #[cfg(test)]
 mod tests {
+    use constructors::type_char;
+    use constructors::type_number;
     use test_utils::Test;
 
     use super::*;
@@ -746,10 +389,7 @@ mod tests {
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Err(
-            ListNotHomogeneous(
-                span(&expr),
-                "List of 'number', but found element 'Char' at index: 2".s(),
-            )
+            ListNotHomogeneous(span(&expr), type_number(), type_char(), 2)
         ));
     }
 
@@ -803,13 +443,21 @@ mod tests {
         let expr = Test::expr("{ x | a = 0 }");
         let mut env = StaticEnv::new();
 
+        // Type of x
         let record_type = Type::Record(vec![
+            ("a".s(), Type::Var("number".s())),
+            ("b".s(), Type::Var("number".s())),
+        ]);
+
+        // Type of expr
+        let result_type = Type::RecExt("x".s(), vec![
             ("a".s(), Type::Var("number".s()))
         ]);
 
         env.add_definition("x", record_type.clone());
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Ok(record_type));
+        let result = analyze_expression(&mut env, None, &expr);
+        assert_eq!(result, Ok(result_type));
     }
 
     #[test]

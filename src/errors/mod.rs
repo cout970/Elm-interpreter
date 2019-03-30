@@ -8,6 +8,7 @@ use std::sync::Arc;
 use analyzer::PatternMatchingError;
 use ast::Pattern;
 use ast::Span;
+use ast::Type;
 use interpreter::dynamic_env::DynamicEnv;
 use loader::Declaration;
 use loader::declaration_name;
@@ -39,7 +40,7 @@ pub enum LexicalError {
 pub enum TypeError {
     List(Vec<TypeError>),
     MissingDefinition(Span, String),
-    ListNotHomogeneous(Span, String),
+    ListNotHomogeneous(Span, Type, Type, u32),
     IfWithNonBoolCondition(Span, String),
     IfBranchesDoesntMatch(Span, String),
     ArgumentsDoNotMatch(Span, String),
