@@ -153,9 +153,7 @@ fn create_fun(a: Type, b: Vec<Type>) -> Type {
 
 #[cfg(test)]
 mod tests {
-    use parsers::util::test_parser;
-    use parsers::util::test_parser_error;
-    use parsers::util::test_parser_result;
+    use parsers::util::test_utils::*;
     use util::StringConversion;
 
     use super::*;

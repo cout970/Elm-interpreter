@@ -103,7 +103,7 @@ fn get_default_header() -> ModuleHeader {
     ModuleHeader { name: "Main".to_owned(), exposing: ModuleExposing::All }
 }
 
-fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Vec<Declaration>, TypeError> {
+pub fn analyze_statement(env: &mut StaticEnv, stm: &Statement) -> Result<Vec<Declaration>, TypeError> {
     let decls = match stm {
         Statement::Alias(name, vars, ty) => {
             println!("analyze_type_alias: {}", name);

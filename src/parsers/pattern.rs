@@ -97,9 +97,7 @@ pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
 
 #[cfg(test)]
 mod tests {
-    use parsers::util::test_parser;
-    use parsers::util::test_parser_error;
-    use parsers::util::test_parser_result;
+    use parsers::util::test_utils::*;
     use util::StringConversion;
 
     use super::*;

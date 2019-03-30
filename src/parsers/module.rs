@@ -233,8 +233,7 @@ mod tests {
     use ast::Literal;
     use ast::Pattern;
     use ast::Statement;
-    use parsers::util::test_parser;
-    use parsers::util::test_parser_error;
+    use parsers::util::test_utils::*;
     use util::StringConversion;
 
     use super::*;

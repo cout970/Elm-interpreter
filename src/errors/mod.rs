@@ -13,6 +13,7 @@ use loader::Declaration;
 use loader::declaration_name;
 use source::SourceCode;
 use tokenizer::Token;
+use typed_ast::TypedExpr;
 use types::Value;
 use util::expression_fold::ExprTreeError;
 use util::format::print_vec;
@@ -58,6 +59,7 @@ pub enum TypeError {
     InvalidPatternAmount(usize, usize),
     InternalError,
     CyclicStatementDependency(Vec<String>),
+    ExpectingRecordWithName { record: TypedExpr, name: String },
 }
 
 

@@ -1,3 +1,4 @@
+use analyzer::Analyser;
 use analyzer::expression_analyzer::analyze_expression;
 use analyzer::pattern_analyzer::*;
 use analyzer::PatternMatchingError;
@@ -5,6 +6,7 @@ use analyzer::static_env::StaticEnv;
 use analyzer::type_helper::is_assignable;
 use analyzer::TypeError;
 use ast::*;
+use typed_ast::expr_type;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::StringConversion;
@@ -23,86 +25,8 @@ pub fn analyze_let_destructuring(env: &mut StaticEnv, pattern: &Pattern, expr: &
 }
 
 pub fn analyze_function(env: &mut StaticEnv, fun: &Definition) -> Result<Type, TypeError> {
-    let Definition { header, name, patterns, expr } = &fun;
-
-    println!("analyze_function: {}", name);
-
-    let save = env.name_seq.save();
-    let (argument_types, local_vars) = analyze_function_arguments(env, patterns, header)?;
-
-    env.enter_block();
-    for (arg_name, ty) in &local_vars {
-        env.add_definition(arg_name, ty.clone());
-    }
-
-    if let Some(ty) = header {
-        // Enable recursivity
-        env.add_definition(name, ty.clone());
-
-        let fn_types = unpack_types(ty);
-        let return_type = fn_types.last().expect("Expected last value to exist");
-
-        // Infer return type and update env replacing var types with concrete types
-        let expr_result = analyze_expression(env, Some(return_type), expr);
-
-        env.exit_block();
-        env.name_seq.restore(save);
-
-        match expr_result {
-            Ok(_) => {
-                Ok(ty.clone())
-            }
-            Err(e) => {
-                println!("Error in function: '{}'", name);
-                Err(e)
-            }
-        }
-    } else {
-
-        // infer return type based on the return expression
-        let self_type = create_vec_inv(&argument_types, Type::Var("z".s()));
-        env.add_definition(name, build_fun_type(&self_type));
-
-        // Infer return type and update env replacing var types with concrete types
-        let return_type = analyze_expression(env, None, expr);
-        let mut final_arg_types: Vec<Type> = vec![];
-
-        // Update argument variable with concrete types
-        'outer: for arg in &argument_types {
-            if let Type::Var(arg_var_name) = arg {
-
-                // search in local variables for the type of this variable,
-                // this is needed because the number of arguments and local variables can be different
-                for (name, ty) in &local_vars {
-                    if let Type::Var(local_var_name) = ty {
-                        if local_var_name == arg_var_name {
-                            final_arg_types.push(env.find_definition(name).unwrap());
-                            continue 'outer;
-                        }
-                    }
-                }
-
-                panic!("Unable to find variable '{}' in {:?}, for function: {}", &arg, local_vars, name);
-            } else {
-                final_arg_types.push(arg.clone());
-            }
-        }
-
-        env.exit_block();
-        env.name_seq.restore(save);
-
-        match return_type {
-            Ok(return_type) => {
-                final_arg_types.push(return_type);
-
-                Ok(build_fun_type(&final_arg_types))
-            }
-            Err(e) => {
-                println!("Error in function: '{}', error: {:?}", name, e);
-                Err(e)
-            }
-        }
-    }
+    let expr = Analyser::from(env.clone()).analyse_definition(fun)?;
+    Ok(expr.header)
 }
 
 fn unpack_types(ty: &Type) -> Vec<Type> {

@@ -12,6 +12,8 @@ extern crate pretty_assertions;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use analyzer::Analyser;
+use analyzer::module_analyser::analyze_statement;
 use ast::Type;
 use errors::ElmError;
 use interpreter::dynamic_env::DynamicEnv;
@@ -28,6 +30,7 @@ use util::build_fun_type;
 use util::create_vec_inv;
 
 pub mod ast;
+pub mod typed_ast;
 pub mod types;
 #[macro_use]
 pub mod util;
@@ -79,7 +82,10 @@ impl Interpreter {
         let code = SourceCode::from_str(stm);
         let tokenizer = Tokenizer::new(&code);
         let mut parser = Parser::new(tokenizer);
-        eval_statement(&mut self.env, &parser.parse_statement()?)
+        let stm = parser.parse_statement()?;
+        let mut analyser = Analyser::new();
+        analyze_statement(&mut self.env.types, &stm);
+        eval_statement(&mut self.env, &stm)
     }
 
     /// Evaluates a module, for example:

@@ -286,8 +286,7 @@ fn create_binop_chain(first: Expr, rest: Vec<(String, Expr)>) -> Expr {
 #[cfg(test)]
 mod tests {
     use ast::Definition;
-    use parsers::util::test_parser;
-    use parsers::util::test_parser_error;
+    use parsers::util::test_utils::*;
     use util::StringConversion;
 
     use super::*;

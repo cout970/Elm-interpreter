@@ -9,6 +9,39 @@ use types::Adt;
 use types::AdtVariant;
 use util::name_sequence::NameSequence;
 
+#[derive(Clone)]
+struct EnvBlock {
+    previous: Option<Arc<EnvBlock>>,
+    functions: HashMap<String, Type>,
+}
+
+impl EnvBlock {
+    pub fn new() -> Self {
+        EnvBlock {
+            previous: None,
+            functions: HashMap::new(),
+        }
+    }
+
+    pub fn find_definition(&self, name: &str) -> Option<Type> {
+        match self.functions.get(name) {
+            Some(it) => Some(it.clone()),
+            None => self.previous.as_ref().and_then(|prev| prev.find_definition(name))
+        }
+    }
+
+    pub fn enter(self) -> Self {
+        EnvBlock {
+            previous: Some(Arc::new(self)),
+            functions: HashMap::new(),
+        }
+    }
+}
+
+fn test(env: &mut EnvBlock) {
+    let new_level = env.clone().enter();
+}
+
 #[derive(Clone, PartialEq)]
 pub struct StaticEnv {
     blocks: Vec<Block>,
@@ -71,7 +104,7 @@ impl StaticEnv {
 
         block.adts.insert(name.to_owned(), var.clone());
         // variants for reverse adt lookup
-        for AdtVariant{ name, .. } in &var.variants {
+        for AdtVariant { name, .. } in &var.variants {
             block.adt_variants.insert(name.to_owned(), var.clone());
         }
     }
@@ -84,7 +117,7 @@ impl StaticEnv {
         self.search(name, |block| &block.adt_variants)
     }
 
-    fn search<T: Clone, F: Fn(&Block)->&HashMap<String, T>>(&self, name: &str, func: F) -> Option<T> {
+    fn search<T: Clone, F: Fn(&Block) -> &HashMap<String, T>>(&self, name: &str, func: F) -> Option<T> {
         for block in self.blocks.iter().rev() {
             let opt = func(block).get(name).cloned();
 

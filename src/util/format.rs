@@ -6,6 +6,8 @@ use std::fmt::Write;
 
 use ast::*;
 use tokenizer::Token;
+use typed_ast::expr_type;
+use typed_ast::TypedExpr;
 use types::ExternalFunc;
 use types::Value;
 use types::WrapperFunc;
@@ -87,6 +89,12 @@ impl Display for Type {
             }
         }
         Ok(())
+    }
+}
+
+impl Display for TypedExpr {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "TypedExpr(type: {})", expr_type(self))
     }
 }
 

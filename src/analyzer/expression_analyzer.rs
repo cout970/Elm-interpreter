@@ -346,9 +346,15 @@ fn type_of_literal(lit: &Literal, expected: Option<&Type>) -> Type {
     }
 }
 
-fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr, app: &Expr) -> Result<Type, TypeError> {
+pub fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr, app: &Expr) -> Result<Type, TypeError> {
     // example of variable type inference:
     // sum = (+) 1.5
+
+//    TypedExpr::Application(
+//        own_type,
+//        Box::new(self.analyze_expression(None, &**fun)?),
+//        Box::new(self.analyze_expression(None, &**arg)?),
+//    )
 
     let function = analyze_expression(env, None, fun)?;
     // (+) : number -> number -> number
@@ -382,7 +388,7 @@ fn type_of_app(env: &mut StaticEnv, fun: &Expr, arg: &Expr, app: &Expr) -> Resul
     }
 }
 
-fn expr_tree_to_expr(tree: ExprTree) -> Expr {
+pub fn expr_tree_to_expr(tree: ExprTree) -> Expr {
     match tree {
         ExprTree::Leaf(e) => e,
         ExprTree::Branch(op, left, right) => {
@@ -403,7 +409,7 @@ fn expr_tree_to_expr(tree: ExprTree) -> Expr {
     }
 }
 
-fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr) {
+pub fn backtrack_expr(env: &mut StaticEnv, vars: &HashMap<String, Type>, expr: &Expr) {
     match expr {
         Expr::Unit(..) => {}
         Expr::Literal(_, _) => {}
@@ -481,7 +487,7 @@ pub fn get_adt_type(name: &String, vars: &Vec<Value>, adt: Arc<Adt>) -> Type {
     Type::Tag(adt.name.clone(), final_types)
 }
 
-fn replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type) -> Type {
+pub fn replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type) -> Type {
     match ty {
         Type::Var(name) => {
             vars.get(name).unwrap_or(ty).clone()
@@ -513,7 +519,7 @@ fn replace_vars_with_concrete_types(vars: &HashMap<String, Type>, ty: &Type) -> 
 // Float, number => [number => Float]
 // Float -> Float, number -> number => [number => Float]
 // number -> Float, number -> number => [number => Float]
-fn find_var_replacements(vars: &mut HashMap<String, Type>, arg: &Type, fun_in: &Type) {
+pub fn find_var_replacements(vars: &mut HashMap<String, Type>, arg: &Type, fun_in: &Type) {
     match fun_in {
         Type::Var(name) => {
             if let Type::Var(_) = arg {
@@ -556,7 +562,7 @@ fn find_var_replacements(vars: &mut HashMap<String, Type>, arg: &Type, fun_in: &
     }
 }
 
-fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) -> Type {
+pub fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) -> Type {
     match value {
         Type::Var(_) => {
             expected.clone()
@@ -630,7 +636,7 @@ fn type_from_expected(env: &mut StaticEnv, expected: &Type, value: &Type) -> Typ
     }
 }
 
-fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty: Type) -> Type {
+pub fn rename_variables(env: &mut StaticEnv, vars: &mut HashMap<String, String>, ty: Type) -> Type {
     match ty {
         Type::Unit => {
             Type::Unit

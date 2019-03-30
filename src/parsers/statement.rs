@@ -104,9 +104,7 @@ mod tests {
     use ast::Expr;
     use ast::Literal;
     use ast::Pattern;
-    use parsers::util::test_parser;
-    use parsers::util::test_parser_error;
-    use parsers::util::test_parser_result;
+    use parsers::util::test_utils::*;
     use util::StringConversion;
 
     use super::*;
