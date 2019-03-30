@@ -1,46 +1,24 @@
-use std::collections::HashMap;
 use std::ops::Deref;
-use std::str::Chars;
 
 use analyzer::expression_analyzer::analyze_expression;
-use analyzer::expression_analyzer::backtrack_expr;
-use analyzer::expression_analyzer::expr_tree_to_expr;
-use analyzer::expression_analyzer::find_var_replacements;
 use analyzer::expression_analyzer::get_adt_type;
-use analyzer::expression_analyzer::rename_variables;
-use analyzer::expression_analyzer::replace_vars_with_concrete_types;
-use analyzer::expression_analyzer::type_from_expected;
-use analyzer::expression_helper::*;
 use analyzer::function_analyzer::analyze_function;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::pattern_analyzer::is_exhaustive;
 use analyzer::static_env::StaticEnv;
-use analyzer::type_helper::calculate_common_type;
-use analyzer::type_helper::get_common_type;
-use analyzer::type_helper::is_assignable;
+use ast::*;
 use ast::Definition;
 use ast::Expr;
-use ast::Float;
-use ast::LetDeclaration;
-use ast::Literal;
-use ast::Pattern;
-use ast::span;
-use ast::Type;
-use constructors::type_bool;
 use errors::*;
-use source::SourceCode;
 use typed_ast::expr_type;
-use typed_ast::LetEntry;
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
 use types::Function;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
-use util::expression_fold::ExprTreeError;
 use util::qualified_name;
-use util::StringConversion;
 
 pub mod static_env;
 pub mod module_analyser;
@@ -111,7 +89,7 @@ impl Analyser {
 
             // Create a self function type with a variable as output type, we don't know
             // the return type yet, it must be inferred
-            let self_type = create_vec_inv(&argument_types, Type::Var("z".s()));
+            let self_type = create_vec_inv(&argument_types, Type::Var("z".to_string()));
             // Register own type to be able to call the function recursively
             self.env.add_definition(&fun.name, build_fun_type(&self_type));
 
@@ -241,25 +219,25 @@ impl Analyser {
                 self.analyze_expression_lambda(expected, *span, patterns, expr)
             }
             Expr::List(span, exprs) => {
-                self.analyze_expression_list(expected, *span, exprs)
+                self.analyze_expression_list(*span, exprs)
             }
             Expr::Let(span, decls, expr) => {
                 self.analyze_expression_let(expected, *span, decls, expr)
             }
-            Expr::Record(span, entries) => {
-                self.analyze_expression_record(expected, *span, entries)
+            Expr::Record(_, entries) => {
+                self.analyze_expression_record(entries)
             }
-            Expr::RecordAccess(span, name) => {
-                self.analyze_expression_record_access(expected, *span, name)
+            Expr::RecordAccess(_, name) => {
+                self.analyze_expression_record_access(name)
             }
-            Expr::RecordField(span, expr, name) => {
-                self.analyze_expression_record_field(expected, *span, expr, name)
+            Expr::RecordField(_, expr, name) => {
+                self.analyze_expression_record_field(expected, expr, name)
             }
-            Expr::Tuple(span, items) => {
-                self.analyze_expression_tuple(expected, *span, items)
+            Expr::Tuple(_, items) => {
+                self.analyze_expression_tuple(items)
             }
             Expr::RecordUpdate(span, name, updates) => {
-                self.analyze_expression_record_update(expected, *span, name, updates)
+                self.analyze_expression_record_update(*span, name, updates)
             }
             Expr::Case(span, expr, branches) => {
                 self.analyze_expression_case(expected, *span, &*expr, branches)
@@ -304,25 +282,25 @@ pub fn type_of_value(value: &Value) -> Type {
             Type::Unit
         }
         Value::Number(_) => {
-            Type::Var("number".s())
+            Type::Var("number".to_string())
         }
         Value::Int(_) => {
-            Type::Tag("Int".s(), vec![])
+            Type::Tag("Int".to_string(), vec![])
         }
         Value::Float(_) => {
-            Type::Tag("Float".s(), vec![])
+            Type::Tag("Float".to_string(), vec![])
         }
         Value::String(_) => {
-            Type::Tag("String".s(), vec![])
+            Type::Tag("String".to_string(), vec![])
         }
         Value::Char(_) => {
-            Type::Tag("Char".s(), vec![])
+            Type::Tag("Char".to_string(), vec![])
         }
         Value::List(items) => {
             if items.is_empty() {
-                Type::Tag("List".s(), vec![Type::Var("a".s())])
+                Type::Tag("List".to_string(), vec![Type::Var("a".to_string())])
             } else {
-                Type::Tag("List".s(), vec![type_of_value(items.first().unwrap())])
+                Type::Tag("List".to_string(), vec![type_of_value(items.first().unwrap())])
             }
         }
         Value::Tuple(items) => {
@@ -368,6 +346,7 @@ mod tests {
     use constructors::*;
     use core::register_core;
     use test_utils::Test;
+    use util::StringConversion;
 
     use super::*;
 

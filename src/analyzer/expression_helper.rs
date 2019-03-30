@@ -110,7 +110,7 @@ impl Analyser {
         Ok(TypedExpr::Lambda(build_fun_type(&var), patterns.clone(), Box::new(typed_expr)))
     }
 
-    pub fn analyze_expression_list(&mut self, expected: Option<&Type>, span: Span, exprs: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression_list(&mut self, span: Span, exprs: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
         if exprs.is_empty() {
             return Ok(TypedExpr::List(Type::Tag("List".to_string(), vec![Type::Var(self.env.next_name())]), vec![]));
         }
@@ -192,7 +192,7 @@ impl Analyser {
         Ok(TypedExpr::Let(expr_type(&expr), entries, Box::new(expr)))
     }
 
-    pub fn analyze_expression_record(&mut self, expected: Option<&Type>, span: Span, entries: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression_record(&mut self, entries: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
         let types: Vec<(String, TypedExpr)> = entries.iter()
             .map(|(name, expr)| self.analyze_expression(None, expr).map(|ty| (name.clone(), ty)))
             .collect::<Result<_, _>>()?;
@@ -206,7 +206,7 @@ impl Analyser {
         Ok(TypedExpr::Record(own_type, types))
     }
 
-    pub fn analyze_expression_record_access(&mut self, expected: Option<&Type>, span: Span, name: &String) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression_record_access(&mut self, name: &String) -> Result<TypedExpr, TypeError> {
         let output = self.env.next_name();
         let input = self.env.next_name();
 
@@ -220,7 +220,7 @@ impl Analyser {
         Ok(TypedExpr::RecordAccess(own_type, name.clone()))
     }
 
-    pub fn analyze_expression_record_field(&mut self, expected: Option<&Type>, span: Span, expr: &Expr, name: &String) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression_record_field(&mut self, expected: Option<&Type>, expr: &Expr, name: &String) -> Result<TypedExpr, TypeError> {
         // Expected expr to be a record with field [name] and type [expected]
         let expected_expr_ty = Type::Record(vec![
             (name.clone(), expected.cloned().unwrap_or(Type::Var(self.env.next_name())))
@@ -242,7 +242,7 @@ impl Analyser {
         Ok(record)
     }
 
-    pub fn analyze_expression_tuple(&mut self, expected: Option<&Type>, span: Span, items: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression_tuple(&mut self, items: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
         let sub_items: Vec<TypedExpr> = items.iter()
             .map(|e| self.analyze_expression(None, e))
             .collect::<Result<_, _>>()?;
@@ -254,7 +254,7 @@ impl Analyser {
         Ok(TypedExpr::Tuple(own_type, sub_items))
     }
 
-    pub fn analyze_expression_record_update(&mut self, expected: Option<&Type>, span: Span, name: &String, updates: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression_record_update(&mut self, span: Span, name: &String, updates: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
         // { x = 0 } => { a | x = 2 } => { x = 2 }
         let mut update_types = vec![];
         for (name, expr) in updates {

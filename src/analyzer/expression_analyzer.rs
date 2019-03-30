@@ -2,25 +2,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use analyzer::Analyser;
-use analyzer::pattern_analyzer::analyze_pattern;
-use analyzer::pattern_analyzer::analyze_pattern_with_type;
-use analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
-use analyzer::type_helper::calculate_common_type;
-use analyzer::type_helper::get_common_type;
-use analyzer::type_helper::is_assignable;
 use analyzer::type_of_value;
 use ast::*;
-use errors::TypeError::*;
 use errors::TypeError;
 use typed_ast::expr_type;
 use types::Adt;
 use types::Value;
-use util::build_fun_type;
 use util::expression_fold::create_expr_tree;
 use util::expression_fold::ExprTree;
 use util::qualified_name;
-use util::StringConversion;
 
 pub fn analyze_expression(env: &mut StaticEnv, expected: Option<&Type>, expr: &Expr) -> Result<Type, TypeError> {
     let expr = Analyser::from(env.clone()).analyze_expression(expected, expr)?;
@@ -319,6 +310,7 @@ mod tests {
     use constructors::type_char;
     use constructors::type_number;
     use test_utils::Test;
+    use util::StringConversion;
 
     use super::*;
 
@@ -387,7 +379,7 @@ mod tests {
         let mut env = StaticEnv::new();
 
         assert_eq!(analyze_expression(&mut env, None, &expr), Err(
-            ListNotHomogeneous(span(&expr), type_number(), type_char(), 2)
+            TypeError::ListNotHomogeneous(span(&expr), type_number(), type_char(), 2)
         ));
     }
 
@@ -471,6 +463,9 @@ mod tests {
         let expr = Test::expr("case 0 of\n 0 -> 1\n _ -> \"b\"");
         let mut env = StaticEnv::new();
 
-        assert_eq!(analyze_expression(&mut env, None, &expr), Err(CaseBranchDontMatchReturnType((24, 27), "".s())));
+        assert_eq!(
+            analyze_expression(&mut env, None, &expr),
+            Err(TypeError::CaseBranchDontMatchReturnType((24, 27), "".s()))
+        );
     }
 }

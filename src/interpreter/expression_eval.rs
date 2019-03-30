@@ -431,15 +431,17 @@ mod tests {
             Value::Fun { args, captures, fun, .. } => {
                 assert_eq!(args, vec![]);
                 assert_eq!(captures, HashMap::new());
-                assert_eq!(fun, Arc::new(Function::Expr(
-                    1,
-                    vec![Pattern::Var("x".s())],
-                    Expr::Literal((6, 7), Literal::Int(1)),
-                    Type::Fun(
-                        Box::new(Type::Var("a".s())),
-                        Box::new(Type::Var("number".s())),
-                    ),
-                )));
+                match fun.as_ref() {
+                    Function::Expr(_, pat, expr, ty) => {
+                        assert_eq!(pat, &vec![Pattern::Var("x".s())]);
+                        assert_eq!(expr, &Expr::Literal((6, 7), Literal::Int(1)));
+                        assert_eq!(ty, &Type::Fun(
+                            Box::new(Type::Var("a".s())),
+                            Box::new(Type::Var("number".s())),
+                        ));
+                    }
+                    _ => panic!("Not a function?")
+                }
             }
             _ => panic!("Not a function: {}", value)
         }

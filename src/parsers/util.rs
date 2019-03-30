@@ -1,12 +1,7 @@
-use std::fmt::Debug;
-
 use ast::Int;
-use errors::ElmError;
 use errors::ParseError;
 use parsers::input::Input;
-use source::SourceCode;
 use tokenizer::Token;
-use tokenizer::Tokenizer;
 
 pub fn many0<T, F>(func: &F, mut input: Input) -> Result<(Vec<T>, Input), ParseError>
     where F: Fn(Input) -> Result<(T, Input), ParseError> {
@@ -255,6 +250,12 @@ pub fn complete<T, F>(func: &F, input: Input) -> Result<T, ParseError>
 
 #[cfg(test)]
 pub mod test_utils {
+    use std::fmt::Debug;
+
+    use errors::ElmError;
+    use source::SourceCode;
+    use tokenizer::Tokenizer;
+
     use super::*;
 
     fn from(c: &str) -> Input {

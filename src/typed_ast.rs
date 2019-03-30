@@ -1,5 +1,4 @@
 use analyzer::type_of_value;
-use ast::LetDeclaration;
 use ast::Pattern;
 use ast::Type;
 use types::Value;

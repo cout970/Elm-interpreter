@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -9,7 +8,6 @@ use errors::print_code_location;
 use source::SourceCode;
 use tokenizer::Token;
 use tokenizer::TokenInfo;
-use tokenizer::Tokenizer;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Input {

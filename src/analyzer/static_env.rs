@@ -9,39 +9,6 @@ use types::Adt;
 use types::AdtVariant;
 use util::name_sequence::NameSequence;
 
-#[derive(Clone)]
-struct EnvBlock {
-    previous: Option<Arc<EnvBlock>>,
-    functions: HashMap<String, Type>,
-}
-
-impl EnvBlock {
-    pub fn new() -> Self {
-        EnvBlock {
-            previous: None,
-            functions: HashMap::new(),
-        }
-    }
-
-    pub fn find_definition(&self, name: &str) -> Option<Type> {
-        match self.functions.get(name) {
-            Some(it) => Some(it.clone()),
-            None => self.previous.as_ref().and_then(|prev| prev.find_definition(name))
-        }
-    }
-
-    pub fn enter(self) -> Self {
-        EnvBlock {
-            previous: Some(Arc::new(self)),
-            functions: HashMap::new(),
-        }
-    }
-}
-
-fn test(env: &mut EnvBlock) {
-    let new_level = env.clone().enter();
-}
-
 #[derive(Clone, PartialEq)]
 pub struct StaticEnv {
     blocks: Vec<Block>,
