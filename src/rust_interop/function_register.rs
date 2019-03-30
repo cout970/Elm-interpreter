@@ -9,7 +9,7 @@ use std::any::TypeId;
 use errors::ElmError;
 use errors::interop_err;
 use errors::InteropError;
-use Interpreter;
+use Runtime;
 use rust_interop::FnAny;
 
 pub trait FunctionRegister {

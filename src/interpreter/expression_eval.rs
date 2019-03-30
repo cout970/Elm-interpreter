@@ -5,10 +5,10 @@ use ast::*;
 use constructors::type_unit;
 use errors::*;
 use errors::RuntimeError::*;
-use Interpreter;
 use interpreter::builtins::builtin_record_access;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::statement_eval::extract_captures;
+use Runtime;
 use rust_interop::call_function;
 use types::FunCall;
 use types::Function;
@@ -195,11 +195,11 @@ fn exec_fun(env: &mut DynamicEnv, fun: &Function, captures: &HashMap<String, Val
     }
     let res = match fun {
         Function::External(_, func, _) => {
-            (func.fun)(&mut Interpreter::wrap(env), args)
+            (func.fun)(&mut Runtime::wrap(env), args)
                 .map_err(|_| RuntimeError::BuiltinFunctionError)
         }
         Function::Wrapper(_, func, _) => {
-            call_function(func, &mut Interpreter::wrap(env), args)
+            call_function(func, &mut Runtime::wrap(env), args)
                 .map_err(|_| RuntimeError::BuiltinFunctionError)
         }
         Function::Expr(_, ref patterns, ref expr, _) => {

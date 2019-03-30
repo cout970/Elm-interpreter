@@ -13,6 +13,7 @@ mod expression_eval;
 mod statement_eval;
 mod module_eval;
 
+pub struct Interpreter {}
 
 pub fn eval_statement(env: &mut DynamicEnv, stm: &Statement) -> Result<Option<Value>, ElmError> {
     eval_stm(env, &stm).map_err(|e| ElmError::Interpreter { info: e })

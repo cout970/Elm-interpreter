@@ -46,20 +46,20 @@ pub mod source;
 #[cfg(test)]
 pub mod test_utils;
 
-pub struct Interpreter {
+pub struct Runtime {
     env: DynamicEnv,
 }
 
-impl Interpreter {
+impl Runtime {
     /// Creates a new Interpreter
-    pub fn new() -> Interpreter {
-        Interpreter {
+    pub fn new() -> Runtime {
+        Runtime {
             env: DynamicEnv::default_lang_env(),
         }
     }
 
-    fn wrap(env: &DynamicEnv) -> Interpreter {
-        Interpreter {
+    fn wrap(env: &DynamicEnv) -> Runtime {
+        Runtime {
             env: env.clone(),
         }
     }
@@ -148,13 +148,13 @@ mod test {
 
     #[test]
     fn test_eval_expr() {
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
         i.eval_expr("1 + 2 / 3").expect("Expect expression to execute correctly");
     }
 
     #[test]
     fn test_eval_stm() {
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
         i.eval_statement("x = 2").expect("Expect x to be defined as 2");
         i.eval_expr("1 + x / 3").expect("Expect expression to execute correctly");
     }
@@ -162,7 +162,7 @@ mod test {
     #[test]
     #[ignore]
     fn test_eval_module() {
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
         let module = r#"
         sum x y = x + y
         div x y = x / y
@@ -178,7 +178,7 @@ mod test {
     fn test_register_fn() {
         use rust_interop::function_register::RegisterFn;
 
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
 
         fn sum(x: Int, y: Int) -> Int { x + y }
 
@@ -189,7 +189,7 @@ mod test {
 
     #[test]
     fn test_closure() {
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
         i.eval_statement("genClosure x = \\y -> x + y").expect("1\n");
         i.eval_statement("addFive = genClosure 5").expect("2\n");
         i.eval_statement("result = addFive 3").expect("3\n");

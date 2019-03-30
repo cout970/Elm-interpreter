@@ -8,7 +8,7 @@ use ast::Int;
 use ast::Type;
 use errors::*;
 use errors::ElmError;
-use Interpreter;
+use Runtime;
 use rust_interop::conversions::convert_from_rust;
 use rust_interop::conversions::convert_to_rust;
 use rust_interop::function_register::FunctionRegister;
@@ -23,13 +23,13 @@ pub mod function_register;
 pub mod function_call;
 
 
-pub type FnAny = Fn(&mut Interpreter, Vec<&mut Any>) -> Result<Box<Any>, ElmError> + Sync + Send;
+pub type FnAny = Fn(&mut Runtime, Vec<&mut Any>) -> Result<Box<Any>, ElmError> + Sync + Send;
 
 struct FnWrapper {
     fun: Box<FnAny>
 }
 
-pub fn call_function(this: &WrapperFunc, i: &mut Interpreter, args: &Vec<Value>) -> Result<Value, ElmError> {
+pub fn call_function(this: &WrapperFunc, i: &mut Runtime, args: &Vec<Value>) -> Result<Value, ElmError> {
     let mut rust_values = vec![];
 
     for arg in args {
@@ -55,7 +55,7 @@ pub fn call_function(this: &WrapperFunc, i: &mut Interpreter, args: &Vec<Value>)
     }
 }
 
-impl FunctionRegister for Interpreter {
+impl FunctionRegister for Runtime {
     fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), ElmError> {
         let len = args.len() as u32;
         let ty = type_from_ids(args, ret)
@@ -141,13 +141,13 @@ mod tests {
 
     #[test]
     fn test_register_function() {
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
         i.register_fn("test_function", test_function).unwrap();
     }
 
     #[test]
     fn test_register_invalid_function() {
-        let mut i = Interpreter::new();
+        let mut i = Runtime::new();
         let result = i.register_fn("test_function2", test_function2);
         assert_eq!(result, Err(ElmError::Interop { info: InteropError::FunRegistrationUnknownTypeArg(0) }));
     }

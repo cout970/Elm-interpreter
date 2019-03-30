@@ -5,7 +5,7 @@ use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
 
-use elm_interpreter::Interpreter;
+use elm_interpreter::Runtime;
 
 /*
 fib num = case num of \
@@ -23,7 +23,7 @@ fn main() {
 }
 
 fn repl() {
-    let mut engine = Interpreter::new();
+    let mut engine = Runtime::new();
     loop {
         // Read
         let line = read_terminal_line().unwrap_or(String::from(""));

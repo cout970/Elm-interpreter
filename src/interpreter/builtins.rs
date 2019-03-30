@@ -1,6 +1,6 @@
 use errors::*;
-use Interpreter;
 use interpreter::RuntimeError::*;
+use Runtime;
 use types::ExternalFunc;
 use types::Value;
 
@@ -60,27 +60,27 @@ pub fn builtin_adt_constructor() -> ExternalFunc {
 
 // Aridmetic operators
 
-pub fn builtin_add(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+pub fn builtin_add(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     number_op(&args[0], &args[1], |a, b| a + b)
 }
 
-pub fn builtin_sub(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+pub fn builtin_sub(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     number_op(&args[0], &args[1], |a, b| a - b)
 }
 
-pub fn builtin_times(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+pub fn builtin_times(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     number_op(&args[0], &args[1], |a, b| a * b)
 }
 
-pub fn builtin_float_div(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+pub fn builtin_float_div(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     Ok(Value::Float(float_of(&args[0])? / float_of(&args[1])?))
 }
 
-pub fn builtin_int_div(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+pub fn builtin_int_div(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     Ok(Value::Int(int_of(&args[0])? / int_of(&args[1])?))
 }
 
-pub fn builtin_string_append(_: &mut Interpreter, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+pub fn builtin_string_append(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
     Ok(Value::String(format!("{}{}", string_of(&args[0])?, string_of(&args[1])?)))
 }
 

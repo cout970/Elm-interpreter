@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering;
 use analyzer::type_of_value;
 use ast::*;
 use errors::*;
-use Interpreter;
+use Runtime;
 use rust_interop::FnAny;
 use util::transmute_float_to_int;
 
@@ -67,7 +67,7 @@ pub fn next_fun_id() -> FunId {
 
 pub struct ExternalFunc {
     pub name: String,
-    pub fun: fn(&mut Interpreter, &Vec<Value>) -> Result<Value, RuntimeError>,
+    pub fun: fn(&mut Runtime, &Vec<Value>) -> Result<Value, RuntimeError>,
 }
 
 pub struct WrapperFunc {
