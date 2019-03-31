@@ -12,6 +12,7 @@ use core::register_core;
 use errors::ElmError;
 use errors::err_list;
 use errors::LoaderError;
+use interpreter::dynamic_env::DynamicEnv;
 use parsers::Parser;
 use source::SourceCode;
 use tokenizer::Tokenizer;
@@ -37,6 +38,11 @@ pub struct LoadedModule {
     pub declarations: Vec<Declaration>,
     pub dependencies: Vec<String>,
 }
+
+//pub struct RuntimeModule {
+//    pub name: String,
+//    pub definitions: HashMap<String, Value>
+//}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Declaration {
@@ -177,8 +183,6 @@ fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, Error
 mod test {
     use ast::Expr;
     use interpreter::dynamic_env::DynamicEnv;
-    use interpreter::eval_expression;
-    use interpreter::eval_module;
     use util::test_resource;
 
     use super::*;
@@ -188,12 +192,12 @@ mod test {
         let mut loader = ModuleLoader::new();
         loader.include_folder(&test_resource("sample_project")).unwrap();
 
-        let mut env = DynamicEnv::default_lang_env();
-        eval_module(&mut env, &loader, "SubModule1").unwrap();
-        eval_module(&mut env, &loader, "Mod.SubModule2").unwrap();
-        eval_module(&mut env, &loader, "Main").unwrap();
+//        let mut env = DynamicEnv::default_lang_env();
+//        eval_module(&mut env, &loader, "SubModule1").unwrap();
+//        eval_module(&mut env, &loader, "Mod.SubModule2").unwrap();
+//        eval_module(&mut env, &loader, "Main").unwrap();
 
-        let result = eval_expression(&mut env, &Expr::Ref((0, 0), "sayHello".to_string())).unwrap();
-        println!("{}", result);
+//        let result = eval_expression(&mut env, &Expr::Ref((0, 0), "sayHello".to_string())).unwrap();
+//        println!("{}", result);
     }
 }

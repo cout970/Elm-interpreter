@@ -1,8 +1,5 @@
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::sync::Arc;
 
-use analyzer::dependency_sorter::sort_statements;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::pattern_analyzer::is_exhaustive;
@@ -19,9 +16,7 @@ use source::SourceCode;
 use typed_ast::expr_type;
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
-use types::Adt;
-use types::Function;
-use types::Value;
+use types::*;
 use util::build_fun_type;
 use util::create_vec_inv;
 use util::qualified_name;
@@ -368,12 +363,7 @@ pub fn type_of_value(value: &Value) -> Type {
             Type::Tag(adt.name.clone(), final_types)
         }
         Value::Fun { fun, args, .. } => {
-            let fun_ty = match fun.deref() {
-                Function::External(_, _, ty) => ty,
-                Function::Wrapper(_, _, ty) => ty,
-                Function::Expr(_, _, _, ty) => ty,
-            };
-            strip_fun_args(args.len(), &fun_ty).clone()
+            strip_fun_args(args.len(), &fun.get_type()).clone()
         }
     }
 }

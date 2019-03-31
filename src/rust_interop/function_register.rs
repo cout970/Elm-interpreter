@@ -43,7 +43,7 @@ macro_rules! def_register {
         {
             #[allow(non_snake_case, dead_code, unused_mut, unused)]
             fn register_fn(&mut self, name: &str, f: FN) -> Result<(), ElmError> {
-                let fun = move |_: &mut Interpreter, mut args: Vec<&mut Any>| {
+                let fun = move |_: &mut Runtime, mut args: Vec<&mut Any>| {
                     // Check for length at the beginning to avoid
                     // per-element bound checks.
                     if args.len() != count_args!($($par)*) {

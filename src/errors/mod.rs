@@ -81,9 +81,9 @@ pub enum ParseError {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
     MissingModule(Vec<String>),
-    MissingDefinition(String, DynamicEnv),
+    MissingDefinition(String),
     IncorrectDefType(TypeError),
-    RecordUpdateOnNonRecord(String, Value),
+    RecordUpdateOnNonRecord(TypedExpr, Value),
     InvalidIfCondition(Value),
     InvalidExpressionChain(ExprTreeError),
     RecordFieldNotFound(String, Value),
@@ -297,7 +297,7 @@ pub fn format_type_error(code: &str, error: &TypeError) -> String {
 pub fn format_runtime_error(error: &RuntimeError) -> String {
     let mut msg = String::new();
     match error {
-        RuntimeError::MissingDefinition(name, _env) => {
+        RuntimeError::MissingDefinition(name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "I cannot find a `{}` variable:\n", name).unwrap();
             write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();

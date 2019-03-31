@@ -70,11 +70,11 @@ impl FunctionRegister for Runtime {
         let value = Value::Fun {
             arg_count: len,
             args: vec![],
-            captures: HashMap::new(),
             fun: function,
         };
 
-        self.env.add(&name, value, ty);
+        // TODO
+//        self.env.add(&name, value, ty);
         Ok(())
     }
 }

@@ -15,9 +15,9 @@ use std::sync::Arc;
 use analyzer::Analyzer;
 use ast::Type;
 use errors::ElmError;
-use interpreter::dynamic_env::DynamicEnv;
-use interpreter::eval_expression;
-use interpreter::eval_statement;
+use interpreter::dynamic_env::RuntimeStack;
+use interpreter::Interpreter;
+use loader::ModuleLoader;
 use parsers::Parser;
 use source::SourceCode;
 use tokenizer::Tokenizer;
@@ -47,20 +47,16 @@ pub mod source;
 pub mod test_utils;
 
 pub struct Runtime {
-    env: DynamicEnv,
+    stack: RuntimeStack,
+    loader: ModuleLoader,
 }
 
 impl Runtime {
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
         Runtime {
-            env: DynamicEnv::default_lang_env(),
-        }
-    }
-
-    fn wrap(env: &DynamicEnv) -> Runtime {
-        Runtime {
-            env: env.clone(),
+            stack: RuntimeStack::new(),
+            loader: ModuleLoader::new(),
         }
     }
 
@@ -68,8 +64,9 @@ impl Runtime {
     pub fn eval_expr(&mut self, expr: &str) -> Result<Value, ElmError> {
         let code = SourceCode::from_str(expr);
         let tokenizer = Tokenizer::new(&code);
-        let mut parser = Parser::new(tokenizer);
-        eval_expression(&mut self.env, &parser.parse_expression()?)
+        let parser = Parser::new(tokenizer);
+        unimplemented!()
+//        eval_expression(&mut self.env, &parser.parse_expression()?)
     }
 
     /// Evaluates an statement, for example:
@@ -84,7 +81,8 @@ impl Runtime {
         let stm = parser.parse_statement()?;
         let mut analyser = Analyzer::new(code.clone());
         let declarations = analyser.analyze_statement(&stm).expect("Analysis error");
-        eval_statement(&mut self.env, &stm)
+        unimplemented!()
+//        eval_statement(&mut self.env, &stm)
     }
 
     /// Evaluates a module, for example:
@@ -126,17 +124,17 @@ impl Runtime {
         let function_value = Value::Fun {
             arg_count,
             args: vec![],
-            captures: HashMap::new(),
             fun: function,
         };
 
-        self.env.add(name, function_value, function_type);
+        // TODO
         Ok(())
     }
 
     /// Clear the state of the interpreter, erasing all the types, modules and definitions
     fn reset(&mut self) {
-        self.env = DynamicEnv::default_lang_env();
+        self.stack = RuntimeStack::new();
+        self.loader = ModuleLoader::new();
     }
 }
 

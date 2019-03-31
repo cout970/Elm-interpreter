@@ -1,5 +1,5 @@
 use errors::*;
-use interpreter::RuntimeError::*;
+use errors::RuntimeError::*;
 use Runtime;
 use types::ExternalFunc;
 use types::Value;

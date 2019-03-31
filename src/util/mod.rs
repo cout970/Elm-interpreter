@@ -86,7 +86,6 @@ pub fn builtin_fun_of(func: ExternalFunc, ty: Type) -> Value {
     Value::Fun {
         args: vec![],
         arg_count: arg_count(&ty),
-        captures: HashMap::new(),
         fun: Arc::new(Function::External(next_fun_id(), func, ty)),
     }
 }

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -11,6 +10,7 @@ use ast::*;
 use errors::*;
 use Runtime;
 use rust_interop::FnAny;
+use typed_ast::TypedExpr;
 use util::transmute_float_to_int;
 
 // Represents the final value after the evaluation of an expression tree
@@ -40,7 +40,6 @@ pub enum Value {
     Fun {
         arg_count: u32,
         args: Vec<Value>,
-        captures: HashMap<String, Value>,
         fun: Arc<Function>,
     },
 }
@@ -80,7 +79,13 @@ pub struct WrapperFunc {
 pub enum Function {
     External(FunId, ExternalFunc, Type),
     Wrapper(FunId, WrapperFunc, Type),
-    Expr(FunId, Vec<Pattern>, Expr, Type),
+    Definition {
+        id: FunId,
+        patterns: Vec<Pattern>,
+        expression: TypedExpr,
+        function_type: Type,
+        captures: HashMap<String, Value>,
+    },
 }
 
 /// Represents an Adt type with all the information about the variants
@@ -103,19 +108,7 @@ impl Eq for Function {}
 
 impl PartialEq for Function {
     fn eq(&self, other: &Function) -> bool {
-        let self_id = match self {
-            Function::External(id, _, _) => { *id }
-            Function::Wrapper(id, _, _) => { *id }
-            Function::Expr(id, _, _, _) => { *id }
-        };
-
-        let other_id = match other {
-            Function::External(id, _, _) => { *id }
-            Function::Wrapper(id, _, _) => { *id }
-            Function::Expr(id, _, _, _) => { *id }
-        };
-
-        self_id == other_id
+        self.get_id() == other.get_id()
     }
 }
 
@@ -144,12 +137,26 @@ impl Hash for Value {
                 state.write_u32(*arg_count);
                 args.hash(state);
 
-                match fun.deref() {
-                    Function::External(id, _, _) => { state.write_usize(*id) }
-                    Function::Wrapper(id, _, _) => { state.write_usize(*id) }
-                    Function::Expr(id, _, _, _) => { state.write_usize(*id) }
-                }
+                state.write_usize(fun.get_id());
             }
+        }
+    }
+}
+
+impl Function {
+    fn get_id(&self) -> FunId {
+        match self {
+            Function::External(id, ..) => *id,
+            Function::Wrapper(id, ..) => *id,
+            Function::Definition { id, .. } => *id,
+        }
+    }
+
+    pub fn get_type(&self) -> Type {
+        match self {
+            Function::External(_, _, ty, ..) => ty.clone(),
+            Function::Wrapper(_, _, ty, ..) => ty.clone(),
+            Function::Definition { function_type, .. } => function_type.clone(),
         }
     }
 }
