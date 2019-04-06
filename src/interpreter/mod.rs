@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::*;
+use constructors::type_bool;
+use core::builtin_record_access;
 use errors::*;
-use interpreter::builtins::builtin_record_access;
 use interpreter::dynamic_env::RuntimeStack;
 use interpreter::expression_eval::eval_expr;
 use interpreter::statement_eval::eval_stm;
@@ -24,14 +25,14 @@ use types::Value;
 use util::VecExt;
 
 pub mod dynamic_env;
-mod builtins;
+//mod builtins;
 mod expression_eval;
 mod statement_eval;
 mod closure_helper;
 
 #[derive(Clone, Debug)]
 pub struct Interpreter {
-    stack: RuntimeStack,
+    pub stack: RuntimeStack,
 }
 
 impl Interpreter {
@@ -39,6 +40,14 @@ impl Interpreter {
         Interpreter {
             stack: RuntimeStack::new()
         }
+    }
+
+    pub fn true_value(&mut self) -> Value {
+        self.eval_expr(&TypedExpr::Ref(type_bool(), "True".to_string())).unwrap()
+    }
+
+    pub fn false_value(&mut self) -> Value {
+        self.eval_expr(&TypedExpr::Ref(type_bool(), "False".to_string())).unwrap()
     }
 
     pub fn eval_constants(&mut self, run: &mut Runtime, module: RuntimeModule) -> Result<RuntimeModule, ElmError> {

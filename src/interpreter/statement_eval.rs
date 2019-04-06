@@ -5,7 +5,6 @@ use ast::*;
 use ast::Definition;
 use constructors::type_unit;
 use errors::*;
-use interpreter::builtins::builtin_adt_constructor;
 use interpreter::dynamic_env::DynamicEnv;
 use interpreter::expression_eval::eval_expr;
 use types::Adt;

@@ -49,6 +49,7 @@ pub enum PatternMatchingError {
     ExpectedLiteral(String, Type),
 }
 
+#[derive(Debug)]
 pub struct Analyzer {
     env: StaticEnv,
     source: SourceCode,
@@ -304,7 +305,16 @@ impl Analyzer {
 
     pub fn analyze_module(&mut self, modules: &HashMap<String, AnalyzedModule>, module: &LoadedModule)
                           -> Result<AnalyzedModule, ElmError> {
-        let imports = self.analyze_module_imports(modules, &module.ast.imports)?;
+        let imports = if ["Basics"].contains(&module.src.name.as_str()) {
+            self.analyze_module_imports(modules, &module.ast.imports)?
+        } else {
+            let mut imports = self.analyze_module_imports(modules, &module.ast.imports)?;
+            imports.extend(self.get_default_imports(modules)?);
+            imports
+        };
+
+        eprintln!("{:#?}", self.env);
+
         let (declarations, definitions) = self.analyze_module_declarations(&module.ast.statements)
             .map_err(|list| {
                 err_list(&self.source, list, |code, info| ElmError::Analyser { code, info })

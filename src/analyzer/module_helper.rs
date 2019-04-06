@@ -19,10 +19,10 @@ use loader::ModuleImport;
 use typed_ast::TypedDefinition;
 
 impl Analyzer {
-    pub fn analyze_module_imports(&mut self, modules: &HashMap<String, AnalyzedModule>, imports: &Vec<Import>) -> Result<Vec<ModuleImport>, ElmError> {
+    pub fn get_default_imports(&mut self, modules: &HashMap<String, AnalyzedModule>) -> Result<Vec<ModuleImport>, ElmError> {
         let mut module_imports = vec![];
 
-//        let basic = Import { path: vec!["Basics".to_string()], alias: None, exposing: Some(ModuleExposing::All) };
+        let basic = Import { path: vec!["Basics".to_string()], alias: None, exposing: Some(ModuleExposing::All) };
 //        let list = Import { path: vec!["List".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("List".to_string(), AdtExposing::All)])) };
 //        let maybe = Import { path: vec!["Maybe".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Maybe".to_string(), AdtExposing::All)])) };
 //        let result = Import { path: vec!["Result".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Result".to_string(), AdtExposing::All)])) };
@@ -30,18 +30,23 @@ impl Analyzer {
 //        let char_ = Import { path: vec!["Char".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("Char".to_string())])) };
 //        let tuple = Import { path: vec!["Tuple".to_string()], alias: None, exposing: None };
 //        let debug = Import { path: vec!["Debug".to_string()], alias: None, exposing: None };
-//
-//        self.analyze_import(modules, &mut module_imports, &basic);
-//        self.analyze_import(modules, &mut module_imports, &list);
-//        self.analyze_import(modules, &mut module_imports, &maybe);
-//        self.analyze_import(modules, &mut module_imports, &result);
-//        self.analyze_import(modules, &mut module_imports, &string);
-//        self.analyze_import(modules, &mut module_imports, &char_);
-//        self.analyze_import(modules, &mut module_imports, &tuple);
-//        self.analyze_import(modules, &mut module_imports, &debug);
+
+        self.analyze_import(modules, &mut module_imports, &basic)?;
+//        self.analyze_import(modules, &mut module_imports, &list)?;
+//        self.analyze_import(modules, &mut module_imports, &maybe)?;
+//        self.analyze_import(modules, &mut module_imports, &result)?;
+//        self.analyze_import(modules, &mut module_imports, &string)?;
+//        self.analyze_import(modules, &mut module_imports, &char_)?;
+//        self.analyze_import(modules, &mut module_imports, &tuple)?;
+//        self.analyze_import(modules, &mut module_imports, &debug)?;
+
+        Ok(module_imports)
+    }
+    pub fn analyze_module_imports(&mut self, modules: &HashMap<String, AnalyzedModule>, imports: &Vec<Import>) -> Result<Vec<ModuleImport>, ElmError> {
+        let mut module_imports = vec![];
 
         for import in imports {
-            self.analyze_import(modules, &mut module_imports, import);
+            self.analyze_import(modules, &mut module_imports, import)?;
         }
 
         Ok(module_imports)
@@ -54,13 +59,36 @@ impl Analyzer {
 
         let decls = match (&import.alias, &import.exposing) {
             (None, Some(me)) => {
-                match me {
+                let decls = match me {
                     ModuleExposing::Just(exp) => {
                         Self::get_exposed_decls(&module.all_declarations, exp)
                             .map_err(|e| ElmError::Interpreter { info: e })?
                     }
                     ModuleExposing::All => {
                         module.all_declarations.clone()
+                    }
+                };
+
+                for decl in &decls {
+                    match decl {
+                        Declaration::Port(name, ty) => {
+                            module_imports.push(ModuleImport {
+                                source: module_name.clone(),
+                                source_name: name.clone(),
+                                destine_name: name.clone(),
+                            });
+                            self.env.add_definition(name, ty.clone())
+                        }
+                        Declaration::Definition(name, def) => {
+                            module_imports.push(ModuleImport {
+                                source: module_name.clone(),
+                                source_name: name.clone(),
+                                destine_name: name.clone(),
+                            });
+                            self.env.add_definition(name, def.header.clone())
+                        }
+                        Declaration::Alias(name, ty) => self.env.add_alias(name, ty.clone()),
+                        Declaration::Adt(name, adt) => self.env.add_adt(name, adt.clone()),
                     }
                 }
             }
@@ -69,33 +97,54 @@ impl Analyzer {
                 // @HERE@
                 unimplemented!()
             }
+            (None, None) => {
+                for decl in &module.all_declarations {
+                    match decl {
+                        Declaration::Port(name, ty) => {
+                            let aliased_name = format!("{}.{}", module.name, name);
+                            module_imports.push(ModuleImport {
+                                source: module_name.clone(),
+                                source_name: name.clone(),
+                                destine_name: aliased_name.clone(),
+                            });
+                            self.env.add_definition(&aliased_name, ty.clone());
+                            module_imports.push(ModuleImport {
+                                source: module_name.clone(),
+                                source_name: name.clone(),
+                                destine_name: name.clone(),
+                            });
+                            self.env.add_definition(name, ty.clone());
+                        }
+                        Declaration::Definition(name, def) => {
+                            let aliased_name = format!("{}.{}", module.name, name);
+                            module_imports.push(ModuleImport {
+                                source: module_name.clone(),
+                                source_name: name.clone(),
+                                destine_name: aliased_name.clone(),
+                            });
+                            self.env.add_definition(&aliased_name, def.header.clone());
+                            module_imports.push(ModuleImport {
+                                source: module_name.clone(),
+                                source_name: name.clone(),
+                                destine_name: name.clone(),
+                            });
+                            self.env.add_definition(name, def.header.clone());
+                        }
+                        Declaration::Alias(name, ty) => {
+                            let aliased_name = format!("{}.{}", module.name, name);
+                            self.env.add_alias(&aliased_name, ty.clone())
+                        }
+                        Declaration::Adt(name, adt) => {
+                            let aliased_name = format!("{}.{}", module.name, name);
+                            self.env.add_adt(&aliased_name, adt.clone())
+                        }
+                    }
+                }
+            }
             _ => {
                 panic!("Invalid combination of alias and exposing for import: {:?}", import)
             }
         };
-
-        for decl in &decls {
-            match decl {
-                Declaration::Port(name, ty) => {
-                    module_imports.push(ModuleImport {
-                        source: module_name.clone(),
-                        source_name: name.clone(),
-                        destine_name: name.clone(),
-                    });
-                    self.env.add_definition(name, ty.clone())
-                }
-                Declaration::Definition(name, def) => {
-                    module_imports.push(ModuleImport {
-                        source: module_name.clone(),
-                        source_name: name.clone(),
-                        destine_name: name.clone(),
-                    });
-                    self.env.add_definition(name, def.header.clone())
-                }
-                Declaration::Alias(name, ty) => self.env.add_alias(name, ty.clone()),
-                Declaration::Adt(name, adt) => self.env.add_adt(name, adt.clone()),
-            }
-        }
 
         Ok(())
     }

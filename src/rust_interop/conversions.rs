@@ -3,7 +3,47 @@ use std::collections::HashMap;
 
 use ast::Float;
 use ast::Int;
+use errors::ElmError;
+use errors::RuntimeError;
 use types::Value;
+
+pub fn float_of(value: &Value) -> Result<f32, ElmError> {
+    match value {
+        Value::Number(a) => Ok(*a as f32),
+        Value::Float(a) => Ok(*a),
+        _ => {
+            Err(ElmError::Interpreter { info: RuntimeError::ExpectedFloat(value.clone()) })
+        }
+    }
+}
+
+pub fn int_of(value: &Value) -> Result<i32, ElmError> {
+    match value {
+        Value::Number(a) => Ok(*a),
+        Value::Int(a) => Ok(*a),
+        _ => {
+            Err(ElmError::Interpreter { info: RuntimeError::ExpectedInt(value.clone()) })
+        }
+    }
+}
+
+pub fn string_of(value: &Value) -> Result<String, ElmError> {
+    match value {
+        Value::String(string) => Ok(string.clone()),
+        _ => {
+            Err(ElmError::Interpreter { info: RuntimeError::ExpectedString(value.clone()) })
+        }
+    }
+}
+
+pub fn bool_of(value: &Value) -> Result<bool, ElmError> {
+    match value {
+        Value::Adt(name, _, _) => Ok(name == "True"),
+        _ => {
+            Err(ElmError::Interpreter { info: RuntimeError::ExpectedBoolean(value.clone()) })
+        }
+    }
+}
 
 pub fn convert_to_rust(value: &Value) -> Option<Box<Any>> {
     match value {
@@ -155,6 +195,95 @@ pub fn convert_from_rust(val: &Any) -> Option<Value> {
     None
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum NumberState {
+    Number,
+    Int,
+    Float,
+}
+
+pub fn number_op<F: FnOnce(f32, f32) -> f32>(val_a: &Value, val_b: &Value, op: F) -> Result<Value, ElmError> {
+    let mut strong_type: NumberState;
+
+    let a = match val_a {
+        Value::Number(a) => {
+            strong_type = NumberState::Number;
+            *a as f32
+        }
+        Value::Int(a) => {
+            strong_type = NumberState::Int;
+            *a as f32
+        }
+        Value::Float(a) => {
+            strong_type = NumberState::Float;
+            *a
+        }
+        _ => {
+            return Err(ElmError::Interpreter { info: RuntimeError::ExpectedNumber(val_a.clone()) });
+        }
+    };
+
+    let b = match val_b {
+        Value::Number(a) => {
+            strong_type = merge(strong_type, NumberState::Number, val_b)?;
+            *a as f32
+        }
+        Value::Int(a) => {
+            strong_type = merge(strong_type, NumberState::Int, val_b)?;
+            *a as f32
+        }
+        Value::Float(a) => {
+            strong_type = merge(strong_type, NumberState::Float, val_b)?;
+            *a
+        }
+        _ => {
+            return Err(ElmError::Interpreter { info: RuntimeError::ExpectedNumber(val_a.clone()) });
+        }
+    };
+
+    let result = op(a, b);
+
+    Ok(match strong_type {
+        NumberState::Number => Value::Number(result as i32),
+        NumberState::Int => Value::Int(result as i32),
+        NumberState::Float => Value::Float(result),
+    })
+}
+
+/*
+Truth table of number for:
+(+) : number, number -> number
+
+Float, Float -> Float
+number, Float -> Float
+Float, number -> Float
+
+Int, Int -> Int
+number, Int -> Int
+Int, number -> Int
+
+Int, Float -> error
+Float, Int -> error
+*/
+fn merge(a: NumberState, b: NumberState, value: &Value) -> Result<NumberState, ElmError> {
+    match a {
+        NumberState::Number => Ok(b),
+        NumberState::Int => {
+            if b == NumberState::Int || b == NumberState::Number {
+                Ok(a)
+            } else {
+                Err(ElmError::Interpreter { info: RuntimeError::ExpectedInt(value.clone()) })
+            }
+        }
+        NumberState::Float => {
+            if b == NumberState::Float || b == NumberState::Number {
+                Ok(a)
+            } else {
+                Err(ElmError::Interpreter { info: RuntimeError::ExpectedFloat(value.clone()) })
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -177,5 +306,4 @@ mod tests {
         let result = convert_to_rust(&convert_from_rust(&String::from("Hello world")).unwrap()).unwrap();
         assert_eq!(&*result.downcast::<String>().unwrap(), "Hello world");
     }
-
 }

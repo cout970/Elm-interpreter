@@ -65,9 +65,11 @@ pub fn next_fun_id() -> FunId {
     FUN_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
+pub type ElmFn = fn(&mut Interpreter, &[Value]) -> Result<Value, ElmError>;
+
 pub struct ExternalFunc {
     pub name: String,
-    pub fun: fn(&mut Interpreter, &Vec<Value>) -> Result<Value, RuntimeError>,
+    pub fun: ElmFn,
 }
 
 pub struct WrapperFunc {

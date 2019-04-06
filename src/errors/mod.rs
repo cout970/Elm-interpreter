@@ -97,6 +97,7 @@ pub enum RuntimeError {
     ExpectedFloat(Value),
     ExpectedInt(Value),
     ExpectedString(Value),
+    ExpectedBoolean(Value),
     ExpectedNumber(Value),
     ExpectedNonEmptyList(Value),
     UnknownOperatorPattern(String),
@@ -173,9 +174,8 @@ pub fn format_error(error: &ElmError) -> String {
         ElmError::Analyser { code, info } => { format_type_error(code.as_str(), info) }
         ElmError::Interpreter { info } => { format_runtime_error(info) }
         ElmError::Interop { info } => { format_interop_error(info) }
-        ElmError::Loader { .. } => {
-            // TODO
-            String::from("TODO")
+        ElmError::Loader { info, .. } => {
+            format!("{:?}", info)
         }
         ElmError::List(list) => {
             list.iter()

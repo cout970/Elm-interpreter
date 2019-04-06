@@ -5,7 +5,6 @@ use std::fmt::Formatter;
 
 use analyzer::static_env::StaticEnv;
 use ast::Type;
-use interpreter::builtins::*;
 use Runtime;
 use types::ExternalFunc;
 use types::FunCall;

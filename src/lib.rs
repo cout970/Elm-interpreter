@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use analyzer::Analyzer;
 use ast::Type;
+use core::get_core_kernel_modules;
 use errors::ElmError;
 use errors::LoaderError;
 use errors::TypeError::InternalError;
@@ -51,8 +52,8 @@ pub mod source;
 #[cfg(test)]
 pub mod test_utils;
 
+#[derive(Debug)]
 pub struct Runtime {
-    stack: RuntimeStack,
     interpreter: Interpreter,
     analyzer: Analyzer,
     loaded_modules: HashMap<String, LoadedModule>,
@@ -60,11 +61,19 @@ pub struct Runtime {
     runtime_modules: HashMap<String, RuntimeModule>,
 }
 
+macro_rules! cast {
+    ($value: expr, $ty: ident :: $name: ident) => {
+        match $value {
+            $ty::$name(x) => Some(x),
+            _ => None
+        }
+    };
+}
+
 impl Runtime {
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
         let mut run = Runtime {
-            stack: RuntimeStack::new(),
             interpreter: Interpreter::new(),
             analyzer: Analyzer::new(SourceCode::from_str("")),
             loaded_modules: HashMap::new(),
@@ -72,7 +81,14 @@ impl Runtime {
             runtime_modules: HashMap::new(),
         };
 
-//        run.analyzed_modules.in
+        for (name, analyzed, runtime) in get_core_kernel_modules() {
+            run.analyzed_modules.insert(name.to_string(), analyzed);
+            run.runtime_modules.insert(name.to_string(), runtime);
+        }
+
+        run.include_file("/Data/Dev/Elm/core-master/src/Basics.elm").unwrap();
+        run.load_analyzed_module("Basics").unwrap();
+        run.load_runtime_module("Basics").unwrap();
 //        run.include_files("/Data/Dev/Elm/core-master/src/").unwrap();
         run
     }
@@ -149,7 +165,7 @@ impl Runtime {
         for (def_name, val) in &module.definitions {
             eprintln!("Running: {} = {} : {}", def_name, val, val.get_type());
             self.analyzer.add_definition(&format!("{}.{}", alias, def_name), val.get_type());
-            self.stack.add(&format!("{}.{}", alias, def_name), val.clone());
+            self.interpreter.stack.add(&format!("{}.{}", alias, def_name), val.clone());
         }
 
         Ok(())
@@ -242,7 +258,8 @@ mod test {
         runtime.include_files(&test_resource("sample_project")).unwrap();
         runtime.import_module("Main").unwrap();
 
-        let value = runtime.eval_expr("Main.sayHello 1").expect("Expected correct execution, but failed");
+        let value = runtime.eval_expr("Main.sayHello 1")
+            .expect("Expected correct execution, but failed");
 
         assert_eq!(Value::String("hello world".to_string()), value);
     }

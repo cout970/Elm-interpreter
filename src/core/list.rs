@@ -27,14 +27,7 @@ fn get_list_type_aux() -> Vec<(&'static str, &'static str)> {
     //@formatter:on
 }
 
-macro_rules! cast {
-    ($value: expr, $ty: ident :: $name: ident) => {
-        match $value {
-            $ty::$name(x) => Some(x),
-            _ => None
-        }
-    };
-}
+
 
 //fn test(val: &Value) -> Result<(), ElmError> {
 //    let y = cast!(val, Value::Number);
@@ -46,11 +39,11 @@ macro_rules! cast {
 //    Ok(())
 //}
 
-fn cons(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    let list: &Vec<Value> = cast!(&args[0], Value::List).ok_or(RuntimeError::InternalError)?;
-    let mut result = vec![args[0].clone()];
-    for val in list {
-        result.push(val.clone());
-    }
-    Ok(Value::List(result))
-}
+//fn cons(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
+//    let list: &Vec<Value> = cast!(&args[0], Value::List).ok_or(RuntimeError::InternalError)?;
+//    let mut result = vec![args[0].clone()];
+//    for val in list {
+//        result.push(val.clone());
+//    }
+//    Ok(Value::List(result))
+//}
