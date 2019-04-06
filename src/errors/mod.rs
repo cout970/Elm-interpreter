@@ -126,6 +126,7 @@ pub enum LoaderError {
     MissingDependencies { dependencies: Vec<String> },
     CyclicDependency { cycle: Vec<String> },
     MissingImport { name: String },
+    MissingModule { module: String },
 }
 
 pub fn lexical_err<T>(code: &SourceCode, info: LexicalError) -> Result<T, ElmError> {
@@ -491,6 +492,9 @@ impl PartialEq for LoaderError {
             },
             LoaderError::MissingImport { name: this, .. } => {
                 if let LoaderError::MissingImport { name: other } = other { this == other } else { false }
+            },
+            LoaderError::MissingModule { module: this, .. } => {
+                if let LoaderError::MissingModule { module: other } = other { this == other } else { false }
             },
         }
     }

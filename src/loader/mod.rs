@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::io::Error;
 use std::path::Path;
@@ -14,53 +15,65 @@ use errors::err_list;
 use errors::LoaderError;
 use interpreter::dynamic_env::DynamicEnv;
 use parsers::Parser;
+use Runtime;
 use source::SourceCode;
 use tokenizer::Tokenizer;
+use typed_ast::TypedDefinition;
 use types::Adt;
+use types::Value;
 use util::sort::sort_dependencies;
 
 #[derive(Clone, Debug)]
-pub struct ModuleLoader {
-    loaded_modules: HashMap<String, LoadedModule>
-}
+pub struct ModuleLoader {}
 
 #[derive(Clone, Debug)]
 pub struct SourceFile {
-    name: String,
-    path: String,
-    source: SourceCode,
+    pub name: String,
+    pub path: String,
+    pub source: SourceCode,
 }
 
 #[derive(Clone, Debug)]
 pub struct LoadedModule {
     pub src: SourceFile,
     pub ast: Module,
-    pub declarations: Vec<Declaration>,
     pub dependencies: Vec<String>,
 }
 
-//pub struct RuntimeModule {
-//    pub name: String,
-//    pub definitions: HashMap<String, Value>
-//}
+#[derive(Clone, Debug)]
+pub struct AnalyzedModule {
+    pub name: String,
+    pub dependencies: Vec<String>,
+    pub all_declarations: Vec<Declaration>,
+
+    pub definitions: Vec<TypedDefinition>,
+    pub imports: Vec<ModuleImport>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RuntimeModule {
+    pub name: String,
+    pub definitions: HashMap<String, Value>,
+    pub imports: Vec<ModuleImport>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleImport {
+    pub source: String,
+    pub source_name: String,
+    pub destine_name: String,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Declaration {
-    Def(String, Type),
+    Port(String, Type),
+    Definition(String, TypedDefinition),
     Alias(String, Type),
     Adt(String, Arc<Adt>),
 }
 
 impl ModuleLoader {
-    pub fn new() -> Self {
-        ModuleLoader { loaded_modules: HashMap::new() }
-    }
-
-    pub fn get_module(&self, name: &str) -> Option<&LoadedModule> {
-        self.loaded_modules.get(name)
-    }
-
-    pub fn include_folder(&mut self, path: &str) -> Result<(), ElmError> {
+    pub fn include_folder(run: &mut Runtime, path: &str) -> Result<(), ElmError> {
         let mut sources = vec![];
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         let mut data: HashMap<String, (SourceFile, Module)> = HashMap::new();
@@ -73,28 +86,34 @@ impl ModuleLoader {
             data.insert(src.name.to_string(), (src, ast));
         }
 
+        let keys = graph.keys().cloned().collect::<HashSet<_>>();
+
+        for (_, value) in graph.iter_mut() {
+            *value = value.iter().filter(|dep| keys.contains(*dep)).cloned().collect();
+        }
+
         let sorted = sort_dependencies(graph)
             .map_err(|e| ElmError::Loader { info: LoaderError::CyclicDependency { cycle: e } })?;
 
         for name in sorted {
             let (source, ast) = data.remove(&name).unwrap();
-            self.include_module(source, ast)?;
+            Self::include_module(run, source, ast)?;
         }
         Ok(())
     }
 
-    pub fn include_file(&mut self, inner_path: &str, path: &str) -> Result<(), ElmError> {
+    pub fn include_file(run: &mut Runtime, inner_path: &str, path: &str) -> Result<(), ElmError> {
         let source = get_source_file(inner_path, path).map_err(io_error)?;
         let ast = load_source_file(&source)?;
-        self.include_module(source, ast)
+        Self::include_module(run, source, ast)
     }
 
-    fn include_module(&mut self, src: SourceFile, ast: Module) -> Result<(), ElmError> {
+    fn include_module(run: &mut Runtime, src: SourceFile, ast: Module) -> Result<(), ElmError> {
         let name = src.name.clone();
         let deps = get_module_dependencies(&ast);
 
         let missing_deps = deps.iter()
-            .filter(|dep| !self.loaded_modules.contains_key(*dep))
+            .filter(|dep| !run.loaded_modules.contains_key(*dep) && !run.analyzed_modules.contains_key(*dep))
             .cloned()
             .collect::<Vec<String>>();
 
@@ -102,19 +121,17 @@ impl ModuleLoader {
             return Err(ElmError::Loader { info: LoaderError::MissingDependencies { dependencies: missing_deps } });
         }
 
-        let mut analyzer = Analyzer::new(src.source.clone());
-        let declarations = analyzer.analyze_module(&self.loaded_modules, &ast.imports, &ast.statements)?;
+        let module = LoadedModule { src, ast, dependencies: deps };
 
-        let module = LoadedModule { src, ast, declarations, dependencies: deps };
-
-        self.loaded_modules.insert(name, module);
+        run.loaded_modules.insert(name, module);
         Ok(())
     }
 }
 
 pub fn declaration_name(decl: &Declaration) -> &str {
     match decl {
-        Declaration::Def(name, _) => name,
+        Declaration::Port(name, _) => name,
+        Declaration::Definition(name, _) => name,
         Declaration::Alias(name, _) => name,
         Declaration::Adt(name, _) => name,
     }
@@ -189,8 +206,8 @@ mod test {
 
     #[test]
     fn test_include_folder() {
-        let mut loader = ModuleLoader::new();
-        loader.include_folder(&test_resource("sample_project")).unwrap();
+//        let mut loader = ModuleLoader::new();
+//        loader.include_folder(&test_resource("sample_project")).unwrap();
 
 //        let mut env = DynamicEnv::default_lang_env();
 //        eval_module(&mut env, &loader, "SubModule1").unwrap();

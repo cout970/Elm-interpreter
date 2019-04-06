@@ -291,7 +291,7 @@ mod tests {
     use super::*;
 
     fn analyze_expression(analyzer: &mut Analyzer, expr: &Expr) -> Result<Type, TypeError> {
-        let expr = analyzer.analyze_expression(None, expr)?;
+        let expr = analyzer.analyze_expression_helper(None, expr)?;
         Ok(expr_type(&expr))
     }
 

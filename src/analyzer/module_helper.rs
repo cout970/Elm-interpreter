@@ -12,53 +12,100 @@ use errors::ElmError;
 use errors::LoaderError;
 use errors::RuntimeError;
 use errors::TypeError;
+use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::LoadedModule;
+use loader::ModuleImport;
+use typed_ast::TypedDefinition;
 
 impl Analyzer {
-    pub fn analyze_module_imports(&mut self, modules: &HashMap<String, LoadedModule>, imports: &Vec<Import>) -> Result<(), ElmError> {
+    pub fn analyze_module_imports(&mut self, modules: &HashMap<String, AnalyzedModule>, imports: &Vec<Import>) -> Result<Vec<ModuleImport>, ElmError> {
+        let mut module_imports = vec![];
+
+//        let basic = Import { path: vec!["Basics".to_string()], alias: None, exposing: Some(ModuleExposing::All) };
+//        let list = Import { path: vec!["List".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("List".to_string(), AdtExposing::All)])) };
+//        let maybe = Import { path: vec!["Maybe".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Maybe".to_string(), AdtExposing::All)])) };
+//        let result = Import { path: vec!["Result".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Result".to_string(), AdtExposing::All)])) };
+//        let string = Import { path: vec!["String".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("String".to_string())])) };
+//        let char_ = Import { path: vec!["Char".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("Char".to_string())])) };
+//        let tuple = Import { path: vec!["Tuple".to_string()], alias: None, exposing: None };
+//        let debug = Import { path: vec!["Debug".to_string()], alias: None, exposing: None };
+//
+//        self.analyze_import(modules, &mut module_imports, &basic);
+//        self.analyze_import(modules, &mut module_imports, &list);
+//        self.analyze_import(modules, &mut module_imports, &maybe);
+//        self.analyze_import(modules, &mut module_imports, &result);
+//        self.analyze_import(modules, &mut module_imports, &string);
+//        self.analyze_import(modules, &mut module_imports, &char_);
+//        self.analyze_import(modules, &mut module_imports, &tuple);
+//        self.analyze_import(modules, &mut module_imports, &debug);
+
         for import in imports {
-            let name = import.path.join(".");
-            let module = modules.get(&name)
-                .ok_or(ElmError::Loader { info: LoaderError::MissingImport { name } })?;
+            self.analyze_import(modules, &mut module_imports, import);
+        }
 
-            match (&import.alias, &import.exposing) {
-                (None, Some(me)) => {
-                    let decls = match me {
-                        ModuleExposing::Just(exp) => {
-                            Self::get_exposed_decls(&module.declarations, exp)
-                                .map_err(|e| ElmError::Interpreter { info: e })?
-                        }
-                        ModuleExposing::All => {
-                            module.declarations.clone()
-                        }
-                    };
+        Ok(module_imports)
+    }
 
-                    for decl in &decls {
-                        match decl {
-                            Declaration::Def(name, ty) => self.env.add_definition(name, ty.clone()),
-                            Declaration::Alias(name, ty) => self.env.add_alias(name, ty.clone()),
-                            Declaration::Adt(name, adt) => self.env.add_adt(name, adt.clone()),
-                        }
+    fn analyze_import(&mut self, modules: &HashMap<String, AnalyzedModule>, module_imports: &mut Vec<ModuleImport>, import: &Import) -> Result<(), ElmError> {
+        let module_name = import.path.join(".");
+        let module = modules.get(&module_name)
+            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingImport { name: module_name.clone() } })?;
+
+        let decls = match (&import.alias, &import.exposing) {
+            (None, Some(me)) => {
+                match me {
+                    ModuleExposing::Just(exp) => {
+                        Self::get_exposed_decls(&module.all_declarations, exp)
+                            .map_err(|e| ElmError::Interpreter { info: e })?
+                    }
+                    ModuleExposing::All => {
+                        module.all_declarations.clone()
                     }
                 }
-                (Some(_), None) => {
-                    // TODO alias import
-                    unimplemented!()
+            }
+            (Some(_), None) => {
+                // TODO alias import
+                // @HERE@
+                unimplemented!()
+            }
+            _ => {
+                panic!("Invalid combination of alias and exposing for import: {:?}", import)
+            }
+        };
+
+        for decl in &decls {
+            match decl {
+                Declaration::Port(name, ty) => {
+                    module_imports.push(ModuleImport {
+                        source: module_name.clone(),
+                        source_name: name.clone(),
+                        destine_name: name.clone(),
+                    });
+                    self.env.add_definition(name, ty.clone())
                 }
-                _ => {
-                    panic!("Invalid combination of alias and exposing for import: {:?}", import)
+                Declaration::Definition(name, def) => {
+                    module_imports.push(ModuleImport {
+                        source: module_name.clone(),
+                        source_name: name.clone(),
+                        destine_name: name.clone(),
+                    });
+                    self.env.add_definition(name, def.header.clone())
                 }
+                Declaration::Alias(name, ty) => self.env.add_alias(name, ty.clone()),
+                Declaration::Adt(name, adt) => self.env.add_adt(name, adt.clone()),
             }
         }
+
         Ok(())
     }
 
-    pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<TypeError>> {
+    pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<(Vec<Declaration>, Vec<TypedDefinition>), Vec<TypeError>> {
         let statements = sort_statements(statements)
             .map_err(|e| vec![TypeError::CyclicStatementDependency(e)])?;
 
         let mut declarations = vec![];
+        let mut definitions = vec![];
         let mut errors = vec![];
 
         for stm in statements {
@@ -67,7 +114,11 @@ impl Analyzer {
                     for decl in decls.into_iter() {
                         declarations.push(decl.clone());
                         match decl {
-                            Declaration::Def(name, ty) => {
+                            Declaration::Definition(name, def) => {
+                                self.env.add_definition(&name, def.header.clone());
+                                definitions.push(def);
+                            }
+                            Declaration::Port(name, ty) => {
                                 self.env.add_definition(&name, ty);
                             }
                             Declaration::Alias(name, ty) => {
@@ -86,7 +137,7 @@ impl Analyzer {
         }
 
         if errors.is_empty() {
-            Ok(declarations)
+            Ok((declarations, definitions))
         } else {
             Err(errors)
         }
@@ -101,12 +152,15 @@ impl Analyzer {
                     match adt_exp {
                         AdtExposing::Variants(variants) => {
                             for it in all_decls.iter() {
-                                if let Declaration::Def(variant_name, ty) = it {
-                                    if variants.contains(variant_name) {
-                                        if let Type::Tag(tag_name, _) = Self::get_fun_return(ty) {
-                                            if &tag_name == name {
-                                                exposed_decls.push(it.clone());
-                                            }
+                                let (variant_name, ty) = match it {
+                                    Declaration::Definition(variant_name, def) => (variant_name, &def.header),
+                                    Declaration::Port(variant_name, ty) => (variant_name, ty),
+                                    _ => continue
+                                };
+                                if variants.contains(variant_name) {
+                                    if let Type::Tag(tag_name, _) = Self::get_fun_return(ty) {
+                                        if &tag_name == name {
+                                            exposed_decls.push(it.clone());
                                         }
                                     }
                                 }
@@ -114,11 +168,14 @@ impl Analyzer {
                         }
                         AdtExposing::All => {
                             for it in all_decls.iter() {
-                                if let Declaration::Def(_, ty) = it {
-                                    if let Type::Tag(tag_name, _) = Self::get_fun_return(ty) {
-                                        if &tag_name == name {
-                                            exposed_decls.push(it.clone());
-                                        }
+                                let ty = match it {
+                                    Declaration::Definition(_, def) => &def.header,
+                                    Declaration::Port(_, ty) => ty,
+                                    _ => continue
+                                };
+                                if let Type::Tag(tag_name, _) = Self::get_fun_return(ty) {
+                                    if &tag_name == name {
+                                        exposed_decls.push(it.clone());
                                     }
                                 }
                             }
@@ -157,7 +214,7 @@ impl Analyzer {
                 Exposing::BinaryOperator(name) => {
                     let decl = all_decls.iter()
                         .find(|decl| {
-                            if let Declaration::Def(def_name, _) = decl {
+                            if let Declaration::Definition(def_name, _) = decl {
                                 def_name == name
                             } else {
                                 false
@@ -172,7 +229,7 @@ impl Analyzer {
                 Exposing::Definition(name) => {
                     let decl = all_decls.iter()
                         .find(|decl| {
-                            if let Declaration::Def(def_name, _) = decl {
+                            if let Declaration::Definition(def_name, _) = decl {
                                 def_name == name
                             } else {
                                 false

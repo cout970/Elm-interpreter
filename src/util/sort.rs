@@ -76,6 +76,7 @@ pub fn sort_dependencies(graph: HashMap<String, Vec<String>>) -> Result<Vec<Stri
                 cycle.push(current.clone());
 
                 loop {
+                    eprintln!("{:?}", current);
                     let next = graph[&current].first().unwrap().clone();
                     if cycle.contains(&next) {
                         cycle.push(next);

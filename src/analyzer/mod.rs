@@ -10,8 +10,11 @@ use ast::Definition;
 use ast::Expr;
 use core::register_core;
 use errors::*;
+use interpreter::dynamic_env::RuntimeStack;
+use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::LoadedModule;
+use loader::ModuleImport;
 use source::SourceCode;
 use typed_ast::expr_type;
 use typed_ast::TypedDefinition;
@@ -58,8 +61,12 @@ impl Analyzer {
         Analyzer { env, source }
     }
 
-    pub fn from(env: StaticEnv) -> Self {
-        panic!("Replace me!")
+    pub fn with(&self, source: SourceCode) -> Self {
+        Analyzer { env: self.env.clone(), source }
+    }
+
+    pub fn add_definition(&mut self, name: &str, var: Type) {
+        self.env.add_definition(name, var)
     }
 
     pub fn analyze_definition(&mut self, fun: &Definition) -> Result<TypedDefinition, TypeError> {
@@ -87,7 +94,7 @@ impl Analyzer {
             let return_type = fn_types.last().expect("Expected last value to exist");
 
             // Analyse function body
-            self.analyze_expression(Some(return_type), &fun.expr)
+            self.analyze_expression_helper(Some(return_type), &fun.expr)
         } else {
 
             // Create a self function type with a variable as output type, we don't know
@@ -97,7 +104,7 @@ impl Analyzer {
             self.env.add_definition(&fun.name, build_fun_type(&self_type));
 
             // Analyse function body
-            self.analyze_expression(None, &fun.expr)
+            self.analyze_expression_helper(None, &fun.expr)
         };
 
         // If the expression analysis failed, we return the error
@@ -207,7 +214,12 @@ impl Analyzer {
         Ok((arguments, argument_vars))
     }
 
-    pub fn analyze_expression(&mut self, expected: Option<&Type>, expr: &Expr) -> Result<TypedExpr, TypeError> {
+    pub fn analyze_expression(&mut self, expr: &Expr) -> Result<TypedExpr, ElmError> {
+        self.analyze_expression_helper(None, expr)
+            .map_err(|e| ElmError::Analyser { code: self.source.clone(), info: e })
+    }
+
+    pub fn analyze_expression_helper(&mut self, expected: Option<&Type>, expr: &Expr) -> Result<TypedExpr, TypeError> {
         match expr {
             Expr::Application(_, fun, arg) => {
                 self.analyze_application(&**fun, &**arg, expr)
@@ -275,17 +287,14 @@ impl Analyzer {
             Statement::Infix(_, _, name, def) => {
                 println!("ignore infix operator: {}", name);
 
-                match self.env.find_definition(name) {
-                    None => {
-                        let func = self.env.find_definition(def);
-                        match func {
-                            Some(ty) => {
-                                vec![Declaration::Def(name.clone(), ty)]
-                            }
-                            _ => vec![]
-                        }
+                if let Some(ty) = self.env.find_definition(name) {
+                    if let Some(ty) = self.env.find_definition(def) {
+                        vec![Declaration::Port(name.clone(), ty)]
+                    } else {
+                        vec![]
                     }
-                    _ => vec![]
+                } else {
+                    vec![]
                 }
             }
         };
@@ -293,10 +302,21 @@ impl Analyzer {
         Ok(decls)
     }
 
-    pub fn analyze_module(&mut self, modules: &HashMap<String, LoadedModule>, imports: &Vec<Import>, statements: &Vec<Statement>) -> Result<Vec<Declaration>, ElmError> {
-        self.analyze_module_imports(modules, imports)?;
-        self.analyze_module_declarations(statements)
-            .map_err(|list| err_list(&self.source, list, |code, info| ElmError::Analyser { code, info }))
+    pub fn analyze_module(&mut self, modules: &HashMap<String, AnalyzedModule>, module: &LoadedModule)
+                          -> Result<AnalyzedModule, ElmError> {
+        let imports = self.analyze_module_imports(modules, &module.ast.imports)?;
+        let (declarations, definitions) = self.analyze_module_declarations(&module.ast.statements)
+            .map_err(|list| {
+                err_list(&self.source, list, |code, info| ElmError::Analyser { code, info })
+            })?;
+
+        Ok(AnalyzedModule {
+            name: module.src.name.to_string(),
+            dependencies: module.dependencies.clone(),
+            all_declarations: declarations,
+            definitions,
+            imports,
+        })
     }
 }
 

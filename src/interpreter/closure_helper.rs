@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ast::Pattern;
 use ast::Type;
 use interpreter::dynamic_env::DynamicEnv;
+use interpreter::dynamic_env::RuntimeStack;
 use interpreter::Interpreter;
 use Runtime;
 use typed_ast::LetEntry;
@@ -14,7 +15,7 @@ use types::next_fun_id;
 use types::Value;
 
 impl Interpreter {
-    pub fn create_lambda_closure(env: &mut Runtime, ty: &Type, patterns: &Vec<Pattern>, expr: &TypedExpr) -> Value {
+    pub fn create_lambda_closure(env: &mut RuntimeStack, ty: &Type, patterns: &Vec<Pattern>, expr: &TypedExpr) -> Value {
         let function = Arc::new(Function::Definition {
             id: next_fun_id(),
             patterns: patterns.clone(),
@@ -30,7 +31,7 @@ impl Interpreter {
         }
     }
 
-    pub fn create_function_closure(env: &mut Runtime, def: &TypedDefinition) -> Value {
+    pub fn create_function_closure(env: &mut RuntimeStack, def: &TypedDefinition) -> Value {
         let function = Arc::new(Function::Definition {
             id: next_fun_id(),
             patterns: def.patterns.clone(),
@@ -46,17 +47,17 @@ impl Interpreter {
         }
     }
 
-    pub fn extract_captures(env: &mut Runtime, expr: &TypedExpr) -> HashMap<String, Value> {
+    pub fn extract_captures(env: &mut RuntimeStack, expr: &TypedExpr) -> HashMap<String, Value> {
         let mut map = HashMap::new();
         Self::traverse_expr(&mut map, env, expr);
-        dbg!(map)
+        map
     }
 
-    fn traverse_expr(result: &mut HashMap<String, Value>, env: &mut Runtime, expr: &TypedExpr) {
+    fn traverse_expr(result: &mut HashMap<String, Value>, env: &mut RuntimeStack, expr: &TypedExpr) {
         // TODO avoid capturing internal definitions
         match expr {
             TypedExpr::Ref(_, name) => {
-                if let Some(value) = env.stack.find(name) {
+                if let Some(value) = env.find(name) {
                     result.insert(name.to_string(), value);
                 }
             }

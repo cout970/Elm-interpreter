@@ -53,7 +53,7 @@ impl Analyzer {
 
             args.push(ty.clone());
 
-            decls.push(Declaration::Def(name.to_owned(), build_fun_type(&args)))
+            decls.push(Declaration::Port(name.to_owned(), build_fun_type(&args)))
         }
 
         Ok(decls)
@@ -85,18 +85,18 @@ impl Analyzer {
         for (variant_name, params) in variants {
             let variant_type = build_fun_type(&create_vec_inv(params, adt_type.clone()));
 
-            decls.push(Declaration::Def(variant_name.clone(), variant_type));
+            decls.push(Declaration::Port(variant_name.clone(), variant_type));
         }
 
         Ok(decls)
     }
 
     pub fn analyze_statement_port(&mut self, name: &String, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
-        Ok(vec![Declaration::Def(name.to_owned(), ty.clone())])
+        Ok(vec![Declaration::Port(name.to_owned(), ty.clone())])
     }
 
     pub fn analyze_statement_definition(&mut self, def: &Definition) -> Result<Vec<Declaration>, TypeError> {
-        Ok(vec![Declaration::Def(def.name.clone(), self.analyze_definition(def)?.header)])
+        Ok(vec![Declaration::Definition(def.name.clone(), self.analyze_definition(def)?)])
     }
 }
 

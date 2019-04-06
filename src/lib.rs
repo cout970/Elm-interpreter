@@ -15,9 +15,14 @@ use std::sync::Arc;
 use analyzer::Analyzer;
 use ast::Type;
 use errors::ElmError;
+use errors::LoaderError;
+use errors::TypeError::InternalError;
 use interpreter::dynamic_env::RuntimeStack;
 use interpreter::Interpreter;
+use loader::AnalyzedModule;
+use loader::LoadedModule;
 use loader::ModuleLoader;
+use loader::RuntimeModule;
 use parsers::Parser;
 use source::SourceCode;
 use tokenizer::Tokenizer;
@@ -48,25 +53,39 @@ pub mod test_utils;
 
 pub struct Runtime {
     stack: RuntimeStack,
-    loader: ModuleLoader,
+    interpreter: Interpreter,
+    analyzer: Analyzer,
+    loaded_modules: HashMap<String, LoadedModule>,
+    analyzed_modules: HashMap<String, AnalyzedModule>,
+    runtime_modules: HashMap<String, RuntimeModule>,
 }
 
 impl Runtime {
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
-        Runtime {
+        let mut run = Runtime {
             stack: RuntimeStack::new(),
-            loader: ModuleLoader::new(),
-        }
+            interpreter: Interpreter::new(),
+            analyzer: Analyzer::new(SourceCode::from_str("")),
+            loaded_modules: HashMap::new(),
+            analyzed_modules: HashMap::new(),
+            runtime_modules: HashMap::new(),
+        };
+
+//        run.analyzed_modules.in
+//        run.include_files("/Data/Dev/Elm/core-master/src/").unwrap();
+        run
     }
 
     /// Evaluates an expression like `1 + 2`
     pub fn eval_expr(&mut self, expr: &str) -> Result<Value, ElmError> {
         let code = SourceCode::from_str(expr);
         let tokenizer = Tokenizer::new(&code);
-        let parser = Parser::new(tokenizer);
-        unimplemented!()
-//        eval_expression(&mut self.env, &parser.parse_expression()?)
+        let mut parser = Parser::new(tokenizer);
+        let expr = parser.parse_expression()?;
+        let typed_expr = self.analyzer.with(code).analyze_expression(&expr)?;
+        let value = self.interpreter.eval_expr(&typed_expr)?;
+        Ok(value)
     }
 
     /// Evaluates an statement, for example:
@@ -102,11 +121,89 @@ impl Runtime {
         unimplemented!()
     }
 
-    /// Evaluates a module and it's dependencies in a project
-    /// folder is the path to the project containing all the source files
-    /// main_file is the name of the first file to load without the .elm extension
-    pub fn eval_files(&mut self, _folder: &str) -> Result<(), ElmError> {
-        unimplemented!()
+    pub fn include_files(&mut self, folder_path: &str) -> Result<(), ElmError> {
+        ModuleLoader::include_folder(self, folder_path)
+    }
+
+    pub fn include_file(&mut self, file_path: &str) -> Result<(), ElmError> {
+        ModuleLoader::include_file(self, "", file_path)
+    }
+
+    pub fn import_module(&mut self, module_name: &str) -> Result<(), ElmError> {
+        self.import_module_as(module_name, module_name)
+    }
+
+    pub fn import_module_as(&mut self, module_name: &str, alias: &str) -> Result<(), ElmError> {
+        if !self.runtime_modules.contains_key(module_name) {
+            self.load_analyzed_module(module_name)?;
+        }
+
+        self.load_runtime_module(module_name)?;
+        self.import_module_definitions(module_name, alias)?;
+        Ok(())
+    }
+
+    fn import_module_definitions(&mut self, name: &str, alias: &str) -> Result<(), ElmError> {
+        let module = self.runtime_modules.get(name).expect("Expected module to be already loaded");
+
+        for (def_name, val) in &module.definitions {
+            eprintln!("Running: {} = {} : {}", def_name, val, val.get_type());
+            self.analyzer.add_definition(&format!("{}.{}", alias, def_name), val.get_type());
+            self.stack.add(&format!("{}.{}", alias, def_name), val.clone());
+        }
+
+        Ok(())
+    }
+
+    fn load_analyzed_module(&mut self, module_name: &str) -> Result<(), ElmError> {
+        eprintln!("Analyzing {}", module_name);
+        let dependencies = self.loaded_modules.get(module_name)
+            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?
+            .dependencies.clone();
+
+        // Load dependencies
+        for dep in &dependencies {
+            if !self.analyzed_modules.contains_key(dep) {
+                self.load_analyzed_module(dep)?;
+            }
+        }
+
+        let module = self.loaded_modules.get(module_name)
+            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?;
+
+
+        // Analyze module
+        let mut analyzer = Analyzer::new(module.src.source.clone());
+        let analyzed_module = analyzer.analyze_module(&self.analyzed_modules, module)?;
+
+        self.analyzed_modules.insert(module_name.to_string(), analyzed_module);
+        Ok(())
+    }
+
+    fn load_runtime_module(&mut self, module_name: &str) -> Result<(), ElmError> {
+        eprintln!("Evaluating {}", module_name);
+        let dependencies = self.analyzed_modules.get(module_name)
+            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?
+            .dependencies.clone();
+
+        // Load dependencies
+        for dep in &dependencies {
+            if !self.runtime_modules.contains_key(dep) {
+                self.load_runtime_module(dep)?;
+            }
+        }
+
+        let mut interpreter = Interpreter::new();
+        let runtime_module = {
+            let module = self.analyzed_modules.get(module_name)
+                .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?;
+
+            interpreter.eval_module(&self.runtime_modules, module)?
+        };
+        let runtime_module = interpreter.eval_constants(self, runtime_module)?;
+
+        self.runtime_modules.insert(module_name.to_string(), runtime_module);
+        Ok(())
     }
 
     /// Registers a function that can be called in elm,
@@ -130,19 +227,25 @@ impl Runtime {
         // TODO
         Ok(())
     }
-
-    /// Clear the state of the interpreter, erasing all the types, modules and definitions
-    fn reset(&mut self) {
-        self.stack = RuntimeStack::new();
-        self.loader = ModuleLoader::new();
-    }
 }
 
 #[cfg(test)]
 mod test {
     use ast::Int;
+    use util::test_resource;
 
     use super::*;
+
+    #[test]
+    fn run_hello_world_project() {
+        let mut runtime = Runtime::new();
+        runtime.include_files(&test_resource("sample_project")).unwrap();
+        runtime.import_module("Main").unwrap();
+
+        let value = runtime.eval_expr("Main.sayHello 1").expect("Expected correct execution, but failed");
+
+        assert_eq!(Value::String("hello world".to_string()), value);
+    }
 
     #[test]
     fn test_eval_expr() {

@@ -8,6 +8,7 @@ use ast::Int;
 use ast::Type;
 use errors::*;
 use errors::ElmError;
+use interpreter::Interpreter;
 use Runtime;
 use rust_interop::conversions::convert_from_rust;
 use rust_interop::conversions::convert_to_rust;
@@ -23,13 +24,13 @@ pub mod function_register;
 pub mod function_call;
 
 
-pub type FnAny = Fn(&mut Runtime, Vec<&mut Any>) -> Result<Box<Any>, ElmError> + Sync + Send;
+pub type FnAny = Fn(&mut Interpreter, Vec<&mut Any>) -> Result<Box<Any>, ElmError> + Sync + Send;
 
 struct FnWrapper {
     fun: Box<FnAny>
 }
 
-pub fn call_function(this: &WrapperFunc, i: &mut Runtime, args: &Vec<Value>) -> Result<Value, ElmError> {
+pub fn call_function(this: &WrapperFunc, i: &mut Interpreter, args: &Vec<Value>) -> Result<Value, ElmError> {
     let mut rust_values = vec![];
 
     for arg in args {

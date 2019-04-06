@@ -29,7 +29,7 @@ impl Analyzer {
         // example of variable type inference:
         // sum = (+) 1.5
 
-        let function = self.analyze_expression(None, fun)?;
+        let function = self.analyze_expression_helper(None, fun)?;
         // (+) : number -> number -> number
 
 
@@ -37,7 +37,7 @@ impl Analyzer {
             // argument: number
             // result: number -> number
 
-            let input = self.analyze_expression(Some(&argument), arg)?;
+            let input = self.analyze_expression_helper(Some(&argument), arg)?;
             // Float
 
             if !is_assignable(&argument, &expr_type(&input)) {
@@ -99,7 +99,7 @@ impl Analyzer {
             self.env.add_definition(name, value.clone());
         }
 
-        let result = self.analyze_expression(expected, expr);
+        let result = self.analyze_expression_helper(expected, expr);
         self.env.exit_block();
 
         let typed_expr = result?;
@@ -115,12 +115,12 @@ impl Analyzer {
             return Ok(TypedExpr::List(Type::Tag("List".to_string(), vec![Type::Var(self.env.next_name())]), vec![]));
         }
 
-        let first = self.analyze_expression(None, &exprs[0])?;
+        let first = self.analyze_expression_helper(None, &exprs[0])?;
         let mut list_type = expr_type(&first);
         let mut children = vec![first];
 
         for i in 1..exprs.len() {
-            let elem = self.analyze_expression(Some(&list_type), &exprs[i])?;
+            let elem = self.analyze_expression_helper(Some(&list_type), &exprs[i])?;
             let elem_type = expr_type(&elem);
 
             if !is_assignable(&list_type, &elem_type) {
@@ -163,7 +163,7 @@ impl Analyzer {
                         }
                     };
 
-                    let typed_expr = match self.analyze_expression(Some(&pat_ty), expr) {
+                    let typed_expr = match self.analyze_expression_helper(Some(&pat_ty), expr) {
                         Ok(ty) => ty,
                         Err(e) => {
                             self.env.exit_block();
@@ -185,7 +185,7 @@ impl Analyzer {
             }
         }
 
-        let res = self.analyze_expression(expected, expr);
+        let res = self.analyze_expression_helper(expected, expr);
         self.env.exit_block();
         let expr = res?;
 
@@ -194,7 +194,7 @@ impl Analyzer {
 
     pub fn analyze_expression_record(&mut self, entries: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
         let types: Vec<(String, TypedExpr)> = entries.iter()
-            .map(|(name, expr)| self.analyze_expression(None, expr).map(|ty| (name.clone(), ty)))
+            .map(|(name, expr)| self.analyze_expression_helper(None, expr).map(|ty| (name.clone(), ty)))
             .collect::<Result<_, _>>()?;
 
         let own_type = Type::Record(
@@ -226,7 +226,7 @@ impl Analyzer {
             (name.clone(), expected.cloned().unwrap_or(Type::Var(self.env.next_name())))
         ]);
 
-        let record = self.analyze_expression(Some(&expected_expr_ty), expr)?;
+        let record = self.analyze_expression_helper(Some(&expected_expr_ty), expr)?;
 
         match &record {
             TypedExpr::Record(_, fields) => {
@@ -244,7 +244,7 @@ impl Analyzer {
 
     pub fn analyze_expression_tuple(&mut self, items: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
         let sub_items: Vec<TypedExpr> = items.iter()
-            .map(|e| self.analyze_expression(None, e))
+            .map(|e| self.analyze_expression_helper(None, e))
             .collect::<Result<_, _>>()?;
 
         let own_type = Type::Tuple(
@@ -258,7 +258,7 @@ impl Analyzer {
         // { x = 0 } => { a | x = 2 } => { x = 2 }
         let mut update_types = vec![];
         for (name, expr) in updates {
-            update_types.push((name.clone(), self.analyze_expression(None, expr)?));
+            update_types.push((name.clone(), self.analyze_expression_helper(None, expr)?));
         }
         let own_type = Type::RecExt(
             name.clone(),
@@ -269,7 +269,7 @@ impl Analyzer {
         );
 
         // Record to update
-        let ref_expr = self.analyze_expression(Some(&rec_type), &Expr::Ref(span, name.to_owned()))?;
+        let ref_expr = self.analyze_expression_helper(Some(&rec_type), &Expr::Ref(span, name.to_owned()))?;
 
         match expr_type(&ref_expr) {
             Type::Record(fields) => {
@@ -314,7 +314,7 @@ impl Analyzer {
             }
         }
 
-        let cond_type = self.analyze_expression(Some(patterns_type), expr)?;
+        let cond_type = self.analyze_expression_helper(Some(patterns_type), expr)?;
 
         let mut iter = branches.iter();
         let mut branches = vec![];
@@ -332,7 +332,7 @@ impl Analyzer {
                 self.env.add_definition(name, ty.clone());
             }
 
-            let result = self.analyze_expression(expected, first_expr);
+            let result = self.analyze_expression_helper(expected, first_expr);
 
             // reset environment
             self.env.exit_block();
@@ -356,7 +356,7 @@ impl Analyzer {
                 self.env.add_definition(name, ty.clone());
             }
 
-            let result = self.analyze_expression(Some(&first_type), expression);
+            let result = self.analyze_expression_helper(Some(&first_type), expression);
 
             // reset environment
             self.env.exit_block();
@@ -374,9 +374,9 @@ impl Analyzer {
     }
 
     pub fn analyze_expression_if(&mut self, expected: Option<&Type>, span: Span, cond: &Expr, a: &Expr, b: &Expr) -> Result<TypedExpr, TypeError> {
-        let cond = self.analyze_expression(Some(&type_bool()), cond)?;
-        let true_branch = self.analyze_expression(expected, a)?;
-        let false_branch = self.analyze_expression(expected, b)?;
+        let cond = self.analyze_expression_helper(Some(&type_bool()), cond)?;
+        let true_branch = self.analyze_expression_helper(expected, a)?;
+        let false_branch = self.analyze_expression_helper(expected, b)?;
 
         if !is_assignable(&type_bool(), &expr_type(&cond)) {
             return Err(TypeError::IfWithNonBoolCondition(span, format!("Expected Bool expression but found {}", cond)));
@@ -392,7 +392,7 @@ impl Analyzer {
 
     pub fn analyze_expression_chain(&mut self, expected: Option<&Type>, span: Span, exprs: &Vec<Expr>, ops: &Vec<String>) -> Result<TypedExpr, TypeError> {
         match create_expr_tree(exprs, ops) {
-            Ok(tree) => self.analyze_expression(expected, &expr_tree_to_expr(tree)),
+            Ok(tree) => self.analyze_expression_helper(expected, &expr_tree_to_expr(tree)),
             Err(e) => {
                 let msg = match e {
                     ExprTreeError::InvalidInput => format!("Invalid input"),
@@ -440,7 +440,7 @@ mod tests {
     use super::*;
 
     fn analyze_expression(analyzer: &mut Analyzer, expr: &Expr) -> Result<Type, TypeError> {
-        let expr = analyzer.analyze_expression(None, expr)?;
+        let expr = analyzer.analyze_expression_helper(None, expr)?;
         Ok(expr_type(&expr))
     }
 
