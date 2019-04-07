@@ -78,10 +78,13 @@ impl Interpreter {
 
         for import in &module.imports {
             let module = modules.get(&import.source)
-                .ok_or_else(|| ElmError::Interpreter { info: RuntimeError::InternalError })?;
+                .ok_or_else(|| ElmError::Interpreter { info: RuntimeError::MissingModule(vec![import.source.to_string()]) })?;
 
             let value = module.definitions.get(&import.source_name)
-                .ok_or_else(|| ElmError::Interpreter { info: RuntimeError::InternalError })?;
+                .ok_or_else(|| {
+                    eprintln!("Failed to find {} in {} {:#?}", import.source_name, import.source, module.definitions.keys().collect::<Vec<_>>());
+                    ElmError::Interpreter { info: RuntimeError::MissingDefinition(import.source_name.to_string()) }
+                })?;
 
             self.stack.add(&import.destine_name, value.clone());
         };

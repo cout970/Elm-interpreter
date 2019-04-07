@@ -26,6 +26,7 @@ use types::ExternalFunc;
 use types::Function;
 use types::next_fun_id;
 use types::Value;
+use util::arg_count;
 
 mod basics;
 mod debug;
@@ -91,7 +92,7 @@ fn func_of(name: &'static str, ty: &'static str, fun: ElmFn) -> (&'static str, T
     let func_type = type_of(ty);
     let external = ExternalFunc { name: name.to_string(), fun };
     let func = Value::Fun {
-        arg_count: 0,
+        arg_count: arg_count(&func_type),
         args: vec![],
         fun: Arc::new(Function::External(next_fun_id(), external, func_type.clone())),
     };

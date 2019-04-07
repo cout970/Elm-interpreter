@@ -70,6 +70,7 @@ pub enum Declaration {
     Definition(String, TypedDefinition),
     Alias(String, Type),
     Adt(String, Arc<Adt>),
+    Infix(String, String),
 }
 
 impl ModuleLoader {
@@ -134,6 +135,7 @@ pub fn declaration_name(decl: &Declaration) -> &str {
         Declaration::Definition(name, _) => name,
         Declaration::Alias(name, _) => name,
         Declaration::Adt(name, _) => name,
+        Declaration::Infix(name, _) => name,
     }
 }
 

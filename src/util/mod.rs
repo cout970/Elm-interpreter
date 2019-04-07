@@ -90,7 +90,7 @@ pub fn builtin_fun_of(func: ExternalFunc, ty: Type) -> Value {
     }
 }
 
-fn arg_count(ty: &Type) -> u32 {
+pub fn arg_count(ty: &Type) -> u32 {
     match ty {
         Type::Fun(_, ref out) => {
             1 + arg_count(out)

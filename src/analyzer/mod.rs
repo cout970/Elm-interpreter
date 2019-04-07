@@ -286,15 +286,16 @@ impl Analyzer {
                 self.analyze_statement_definition(def)?
             }
             Statement::Infix(_, _, name, def) => {
-                println!("ignore infix operator: {}", name);
+                eprintln!("[Analyzer::mod.rs] Infix: name: {}, def: {}", name, def);
 
                 if let Some(ty) = self.env.find_definition(name) {
                     if let Some(ty) = self.env.find_definition(def) {
-                        vec![Declaration::Port(name.clone(), ty)]
+                        vec![Declaration::Port(name.clone(), ty), Declaration::Infix(name.clone(), def.clone())]
                     } else {
-                        vec![]
+                        vec![Declaration::Port(name.clone(), ty), Declaration::Infix(name.clone(), def.clone())]
                     }
                 } else {
+                    println!("ignore infix operator: {}", name);
                     vec![]
                 }
             }
@@ -305,15 +306,14 @@ impl Analyzer {
 
     pub fn analyze_module(&mut self, modules: &HashMap<String, AnalyzedModule>, module: &LoadedModule)
                           -> Result<AnalyzedModule, ElmError> {
+
         let imports = if ["Basics"].contains(&module.src.name.as_str()) {
             self.analyze_module_imports(modules, &module.ast.imports)?
         } else {
-            let mut imports = self.analyze_module_imports(modules, &module.ast.imports)?;
-            imports.extend(self.get_default_imports(modules)?);
+            let mut imports = self.get_default_imports(modules)?;
+            imports.extend(self.analyze_module_imports(modules, &module.ast.imports)?);
             imports
         };
-
-        eprintln!("{:#?}", self.env);
 
         let (declarations, definitions) = self.analyze_module_declarations(&module.ast.statements)
             .map_err(|list| {

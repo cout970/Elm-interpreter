@@ -172,7 +172,6 @@ impl Runtime {
     }
 
     fn load_analyzed_module(&mut self, module_name: &str) -> Result<(), ElmError> {
-        eprintln!("Analyzing {}", module_name);
         let dependencies = self.loaded_modules.get(module_name)
             .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?
             .dependencies.clone();
@@ -184,6 +183,7 @@ impl Runtime {
             }
         }
 
+        eprintln!("Analyzing {}", module_name);
         let module = self.loaded_modules.get(module_name)
             .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?;
 
@@ -197,7 +197,6 @@ impl Runtime {
     }
 
     fn load_runtime_module(&mut self, module_name: &str) -> Result<(), ElmError> {
-        eprintln!("Evaluating {}", module_name);
         let dependencies = self.analyzed_modules.get(module_name)
             .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?
             .dependencies.clone();
@@ -209,6 +208,7 @@ impl Runtime {
             }
         }
 
+        eprintln!("Evaluating {}", module_name);
         let mut interpreter = Interpreter::new();
         let runtime_module = {
             let module = self.analyzed_modules.get(module_name)
@@ -258,7 +258,7 @@ mod test {
         runtime.include_files(&test_resource("sample_project")).unwrap();
         runtime.import_module("Main").unwrap();
 
-        let value = runtime.eval_expr("Main.sayHello 1")
+        let value = runtime.eval_expr("Main.sayHello")
             .expect("Expected correct execution, but failed");
 
         assert_eq!(Value::String("hello world".to_string()), value);

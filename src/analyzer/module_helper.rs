@@ -14,6 +14,7 @@ use errors::RuntimeError;
 use errors::TypeError;
 use loader::AnalyzedModule;
 use loader::Declaration;
+use loader::declaration_name;
 use loader::LoadedModule;
 use loader::ModuleImport;
 use typed_ast::TypedDefinition;
@@ -57,6 +58,8 @@ impl Analyzer {
         let module = modules.get(&module_name)
             .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingImport { name: module_name.clone() } })?;
 
+//        eprintln!("Module: {}, {:#?}", module_name, module.all_declarations.iter().map(|it| declaration_name(it)).collect::<Vec<_>>());
+
         let decls = match (&import.alias, &import.exposing) {
             (None, Some(me)) => {
                 let decls = match me {
@@ -89,6 +92,7 @@ impl Analyzer {
                         }
                         Declaration::Alias(name, ty) => self.env.add_alias(name, ty.clone()),
                         Declaration::Adt(name, adt) => self.env.add_adt(name, adt.clone()),
+                        Declaration::Infix(_, _) => {}
                     }
                 }
             }
@@ -138,6 +142,7 @@ impl Analyzer {
                             let aliased_name = format!("{}.{}", module.name, name);
                             self.env.add_adt(&aliased_name, adt.clone())
                         }
+                        Declaration::Infix(_, _) => {}
                     }
                 }
             }
@@ -157,9 +162,13 @@ impl Analyzer {
         let mut definitions = vec![];
         let mut errors = vec![];
 
+        let mut internal_declarations = vec![];
+
         for stm in statements {
             match self.analyze_statement(stm) {
                 Ok(decls) => {
+                    internal_declarations.extend(decls.clone());
+
                     for decl in decls.into_iter() {
                         declarations.push(decl.clone());
                         match decl {
@@ -176,11 +185,20 @@ impl Analyzer {
                             Declaration::Adt(name, adt) => {
                                 self.env.add_adt(&name, adt);
                             }
+                            Declaration::Infix(_, _) => {}
                         }
                     }
                 }
                 Err(e) => {
                     errors.push(e);
+                }
+            }
+        }
+        for decl in internal_declarations {
+            if let Declaration::Infix(name, def) = decl {
+                if let Some(mut def) = definitions.iter().find(|it| it.name == def).cloned() {
+                    def.name = name.to_string();
+                    definitions.push(def);
                 }
             }
         }
