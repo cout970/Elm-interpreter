@@ -61,15 +61,6 @@ pub struct Runtime {
     runtime_modules: HashMap<String, RuntimeModule>,
 }
 
-macro_rules! cast {
-    ($value: expr, $ty: ident :: $name: ident) => {
-        match $value {
-            $ty::$name(x) => Some(x),
-            _ => None
-        }
-    };
-}
-
 impl Runtime {
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
@@ -86,10 +77,10 @@ impl Runtime {
             run.runtime_modules.insert(name.to_string(), runtime);
         }
 
+//        run.include_files("/Data/Dev/Elm/core-master/src/").unwrap();
         run.include_file("/Data/Dev/Elm/core-master/src/Basics.elm").unwrap();
         run.load_analyzed_module("Basics").unwrap();
         run.load_runtime_module("Basics").unwrap();
-//        run.include_files("/Data/Dev/Elm/core-master/src/").unwrap();
         run
     }
 

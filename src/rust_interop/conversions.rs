@@ -27,11 +27,29 @@ pub fn int_of(value: &Value) -> Result<i32, ElmError> {
     }
 }
 
+pub fn char_of(value: &Value) -> Result<char, ElmError> {
+    match value {
+        Value::Char(a) => Ok(*a),
+        _ => {
+            Err(ElmError::Interpreter { info: RuntimeError::ExpectedInt(value.clone()) })
+        }
+    }
+}
+
 pub fn string_of(value: &Value) -> Result<String, ElmError> {
     match value {
         Value::String(string) => Ok(string.clone()),
         _ => {
             Err(ElmError::Interpreter { info: RuntimeError::ExpectedString(value.clone()) })
+        }
+    }
+}
+
+pub fn list_of(value: &Value) -> Result<&[Value], ElmError> {
+    match value {
+        Value::List(vec) => Ok(vec.as_slice()),
+        _ => {
+            Err(ElmError::Interpreter { info: RuntimeError::ExpectedList(value.clone()) })
         }
     }
 }

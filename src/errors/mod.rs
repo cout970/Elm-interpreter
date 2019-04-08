@@ -109,6 +109,7 @@ pub enum RuntimeError {
     MissingSourceFile,
     CyclicModuleDependency(Vec<Vec<String>>),
     MissingExposing(String, Vec<Declaration>),
+    FunctionTODO(String),
     InternalError,
 }
 

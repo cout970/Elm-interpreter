@@ -229,6 +229,16 @@ impl Interpreter {
         }
     }
 
+    pub fn apply_function(&mut self, function: Value, arguments: &[Value]) -> Result<Value, ElmError> {
+        let mut value = function;
+
+        for arg in arguments {
+            value = self.application(value, arg.clone())?;
+        }
+
+        Ok(value)
+    }
+
     fn application(&mut self, fun_value: Value, input: Value) -> Result<Value, ElmError> {
         // Get from cache
 //      let fun_call = FunCall { function: fun_value.clone(), argument: input.clone() };

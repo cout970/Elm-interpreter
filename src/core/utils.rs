@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use ast::Type;
 use constructors::*;
 use core::func_of;
+use core::ignore;
 use errors::ElmError;
 use interpreter::Interpreter;
 use rust_interop::conversions::string_of;
@@ -24,22 +25,11 @@ pub fn get_utils_funs() -> Vec<(&'static str, Type, Value)> {
         func_of("ge", "a -> a -> Bool", ge),
         func_of(">=", "a -> a -> Bool", ge),
         func_of("append", "String -> String -> String", append),
-        func_of("<|", "(a -> b) -> a -> b", pipe_back),
-        func_of("|>", "a -> (a -> b) -> b", pipe_front),
-        func_of("<<", "(b -> c) -> (a -> b) -> (a -> c)", compose_back),
-        func_of(">>", "(a -> b) -> (b -> c) -> (a -> c)", compose_front),
+        func_of("<|", "(a -> b) -> a -> b", ignore), // Defined in Basics.elm
+        func_of("|>", "a -> (a -> b) -> b", ignore), // Defined in Basics.elm
+        func_of("<<", "(b -> c) -> (a -> b) -> (a -> c)", ignore), // Defined in Basics.elm
+        func_of(">>", "(a -> b) -> (b -> c) -> (a -> c)", ignore), // Defined in Basics.elm
     ]
-}
-
-fn get_utils_type_aux() -> Vec<(&'static str, &'static str)> {
-    //@formatter:off
-    vec![
-        ("<|",          "(a -> b) -> a -> b"),
-        ("|>",          "a -> (a -> b) -> b"),
-        ("<<",          "(b -> c) -> (a -> b) -> (a -> c)"),
-        (">>",          "(a -> b) -> (b -> c) -> (a -> c)"),
-    ]
-    //@formatter:on
 }
 
 fn equal(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
@@ -105,24 +95,7 @@ fn append(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::String(format!("{}{}", a, b)))
 }
 
-fn pipe_back(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-    unimplemented!()
-}
-
-fn pipe_front(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-    unimplemented!()
-}
-
-fn compose_back(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-    unimplemented!()
-}
-
-fn compose_front(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-    unimplemented!()
-}
-
-
-fn compare_values(a: &Value, b: &Value) -> Ordering {
+pub fn compare_values(a: &Value, b: &Value) -> Ordering {
     if b == a { return Ordering::Equal }
     match a {
         Value::Number(na) => {

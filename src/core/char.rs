@@ -1,21 +1,55 @@
 use ast::Type;
 use constructors::*;
+use core::func_of;
+use errors::ElmError;
+use interpreter::Interpreter;
+use rust_interop::conversions::char_of;
+use rust_interop::conversions::int_of;
+use types::Value;
 
-pub fn get_char_types() -> Vec<(&'static str, Type)> {
-    get_char_type_aux().into_iter()
-        .map(|(a, b)| (a, type_of(b)))
-        .collect()
+pub fn get_char_funs() -> Vec<(&'static str, Type, Value)> {
+    vec![
+        func_of("toCode", "Char -> Int", to_code),
+        func_of("fromCode", "Int -> Char", from_code),
+        func_of("toUpper", "Char -> Char", to_upper),
+        func_of("toLower", "Char -> Char", to_lower),
+        func_of("toLocaleUpper", "Char -> Char", to_locale_upper),
+        func_of("toLocaleLower", "Char -> Char", to_locale_lower),
+    ]
 }
 
-fn get_char_type_aux() -> Vec<(&'static str, &'static str)> {
-    //@formatter:off
-    vec![
-        ("toCode",          "Char -> Int"),
-        ("fromCode",        "Int -> Char"),
-        ("toUpper",         "Char -> Char"),
-        ("toLower",         "Char -> Char"),
-        ("toLocaleUpper",   "Char -> Char"),
-        ("toLocaleLower",   "Char -> Char"),
-    ]
-    //@formatter:on
+fn to_code(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = char_of(&args[0])?;
+
+    Ok(Value::Int(a as i32))
+}
+
+fn from_code(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = int_of(&args[0])?;
+
+    Ok(Value::Char((a as u8) as char))
+}
+
+fn to_upper(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = char_of(&args[0])?;
+
+    Ok(Value::Char(a.to_ascii_uppercase()))
+}
+
+fn to_lower(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = char_of(&args[0])?;
+
+    Ok(Value::Char(a.to_ascii_lowercase()))
+}
+
+fn to_locale_upper(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = char_of(&args[0])?;
+
+    Ok(Value::Char(a.to_uppercase().to_string().chars().next().unwrap()))
+}
+
+fn to_locale_lower(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = char_of(&args[0])?;
+
+    Ok(Value::Char(a.to_ascii_lowercase().to_string().chars().next().unwrap()))
 }

@@ -1,49 +1,172 @@
+use std::cmp::Ordering;
+
 use ast::Type;
 use constructors::type_of;
+use core::func_of;
+use core::utils::compare_values;
 use errors::*;
+use interpreter::Interpreter;
 use Runtime;
+use rust_interop::conversions::list_of;
 use types::Value;
 
-pub fn get_list_types() -> Vec<(&'static str, Type)> {
-    get_list_type_aux().into_iter()
-        .map(|(a, b)| (a, type_of(b)))
-        .collect()
-}
-
-fn get_list_type_aux() -> Vec<(&'static str, &'static str)> {
-    //@formatter:off
+pub fn get_list_funs() -> Vec<(&'static str, Type, Value)> {
     vec![
-        ("cons",      "a -> List a -> List a"),
-        ("::",        "a -> List a -> List a"),
-        ("map2",      "(a -> b -> result) -> List a -> List b -> List result"),
-        ("map3",      "(a -> b -> c -> result) -> List a -> List b -> List c -> List result"),
-        ("map4",      "(a -> b -> c -> d -> result) -> List a -> List b -> List c -> List d -> List result"),
-        ("map5",      "(a -> b -> c -> d -> e -> result) -> List a -> List b -> List c -> List d -> List e -> List"),
-        ("fromArray", "Array a -> List a"),
-        ("toArray",   "List a -> Array a"),
-        ("sortBy",    "(a -> comparable) ->  List a -> List a"),
-        ("sortWith",  "(a -> a -> Order) ->  List a -> List a"),
+        func_of("cons", "a -> List a -> List a", cons),
+        func_of("::", "a -> List a -> List a", cons),
+        func_of("map2", "(a -> b -> result) -> List a -> List b -> List result", map2),
+        func_of("map3", "(a -> b -> c -> result) -> List a -> List b -> List c -> List result", map3),
+        func_of("map4", "(a -> b -> c -> d -> result) -> List a -> List b -> List c -> List d -> List result", map4),
+        func_of("map5", "(a -> b -> c -> d -> e -> result) -> List a -> List b -> List c -> List d -> List e -> List", map5),
+//        func_of("fromArray", "Array a -> List a", func),
+//        func_of("toArray", "List a -> Array a", func),
+//        func_of("sortBy", "(a -> comparable) ->  List a -> List a", sort_by),
+//        func_of("sortWith", "(a -> a -> Order) ->  List a -> List a", sort_with),
     ]
-    //@formatter:on
+}
+
+fn cons(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let mut result = vec![args[0].clone()];
+    let list = list_of(&args[1])?;
+
+    for val in list {
+        result.push(val.clone());
+    }
+
+    Ok(Value::List(result))
+}
+
+fn map2(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let mut result = vec![];
+    let func = &args[0];
+    let list_a = list_of(&args[1])?;
+    let list_b = list_of(&args[2])?;
+    let len = list_a.len().min(list_b.len());
+
+    for index in 0..len {
+        let res = i.apply_function(func.clone(), &[
+            list_a[index].clone(),
+            list_b[index].clone(),
+        ])?;
+
+        result.push(res);
+    }
+
+    Ok(Value::List(result))
+}
+
+fn map3(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let mut result = vec![];
+    let func = &args[0];
+    let list_a = list_of(&args[1])?;
+    let list_b = list_of(&args[2])?;
+    let list_c = list_of(&args[3])?;
+    let len = list_a.len().min(list_b.len()).min(list_c.len());
+
+    for index in 0..len {
+        let res = i.apply_function(func.clone(), &[
+            list_a[index].clone(),
+            list_b[index].clone(),
+            list_c[index].clone(),
+        ])?;
+
+        result.push(res);
+    }
+
+    Ok(Value::List(result))
+}
+
+fn map4(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let mut result = vec![];
+    let func = &args[0];
+    let list_a = list_of(&args[1])?;
+    let list_b = list_of(&args[2])?;
+    let list_c = list_of(&args[3])?;
+    let list_d = list_of(&args[4])?;
+    let len = list_a.len().min(list_b.len()).min(list_c.len()).min(list_d.len());
+
+    for index in 0..len {
+        let res = i.apply_function(func.clone(), &[
+            list_a[index].clone(),
+            list_b[index].clone(),
+            list_c[index].clone(),
+            list_d[index].clone(),
+        ])?;
+
+        result.push(res);
+    }
+
+    Ok(Value::List(result))
+}
+
+fn map5(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let mut result = vec![];
+    let func = &args[0];
+    let list_a = list_of(&args[1])?;
+    let list_b = list_of(&args[2])?;
+    let list_c = list_of(&args[3])?;
+    let list_d = list_of(&args[4])?;
+    let list_e = list_of(&args[5])?;
+    let len = list_a.len().min(list_b.len()).min(list_c.len()).min(list_d.len()).min(list_e.len());
+
+    for index in 0..len {
+        let res = i.apply_function(func.clone(), &[
+            list_a[index].clone(),
+            list_b[index].clone(),
+            list_c[index].clone(),
+            list_d[index].clone(),
+            list_e[index].clone(),
+        ])?;
+
+        result.push(res);
+    }
+
+    Ok(Value::List(result))
 }
 
 
-
-//fn test(val: &Value) -> Result<(), ElmError> {
-//    let y = cast!(val, Value::Number);
+//fn from_array(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+//    let mut result = vec![];
+//    let func = &args[0];
 //
-//    ExternalFunc {
-//        name: "cons".to_string(),
-//        fun: cons,
-//    };
-//    Ok(())
+//    Ok(Value::List(result))
 //}
 
-//fn cons(_: &mut Runtime, args: &Vec<Value>) -> Result<Value, RuntimeError> {
-//    let list: &Vec<Value> = cast!(&args[0], Value::List).ok_or(RuntimeError::InternalError)?;
-//    let mut result = vec![args[0].clone()];
-//    for val in list {
-//        result.push(val.clone());
-//    }
-//    Ok(Value::List(result))
+//fn sort_by(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+//    let func = &args[0];
+//    let mut list = list_of(&args[0])?.to_vec();
+//
+//    list.sort_by(|a, b| {
+//        let cmp_a = i.apply_function(func.clone(), &[a.clone()])?;
+//        let cmp_b = i.apply_function(func.clone(), &[b.clone()])?;
+//
+//        compare_values(a, b)
+//    });
+//
+//    Ok(Value::List(list))
+//}
+//
+//fn sort_with(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+//    let func = &args[0];
+//    let mut list = list_of(&args[0])?.to_vec();
+//    // (a -> a -> Order) ->  List a -> List a
+//
+//    list.sort_by(|a, b| {
+//        let order = i.apply_function(func.clone(), &[a.clone(), b.clone()])?;
+//
+//        if let Value::Adt(name) = &order {
+//            match name.as_str() {
+//                "GT" => Ordering::Greater,
+//                "LT" => Ordering::Less,
+//                "EQ" => Ordering::Equal,
+//                _ => {
+//                    return Err(ElmError::Interpreter { info: RuntimeError::ExpectedAdt(order.clone()) });
+//                }
+//            }
+//        } else {
+//            return Err(ElmError::Interpreter { info: RuntimeError::ExpectedAdt(order.clone()) });
+//        }
+//    });
+//
+//    Ok(Value::List(list))
 //}
