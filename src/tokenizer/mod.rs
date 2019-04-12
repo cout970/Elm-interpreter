@@ -153,7 +153,7 @@ impl Tokenizer {
                             // TODO remove nom verbose errors, we already handle errors in a custom way
                             Context::List(vec) => vec[0].0.clone()
                         };
-                        let new_pos = self.code.len() - input.len();
+                        let new_pos = self.code.as_str().len() - input.len();
 
                         lexical_err(&self.code, LexicalError::UnableToTokenize {
                             span: (start as u32, new_pos as u32)
