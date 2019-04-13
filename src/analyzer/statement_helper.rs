@@ -80,7 +80,7 @@ impl Analyzer {
         });
 
         let adt_type = Type::Tag(name.to_owned(), vars);
-        let mut decls = vec![Declaration::Adt(name.to_owned(), adt.clone())];
+        let decls = vec![Declaration::Adt(name.to_owned(), adt.clone())];
 
         // TODO
 //        for (variant_name, params) in variants {

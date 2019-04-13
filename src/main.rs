@@ -5,6 +5,7 @@ use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
 
+use elm_interpreter::errors::ElmError;
 use elm_interpreter::Runtime;
 
 /*
@@ -31,27 +32,30 @@ fn repl() {
         if line.is_empty() { continue; }
 
         // Eval
-        let result = engine.eval_expr(&line);
+        let result = engine.eval_statement(&line);
 
         // Print
         match result {
-            Ok(value) => {
-                println!("{} : {}", value, value.get_type());
+            Ok(opt) => {
+                if let Some(value) = opt {
+                    println!("{} : {}", value, value.get_type());
+                }
             }
-            Err(_) => {
-                // Invalid statement, try expression
-                let result = engine.eval_statement(&line);
+            Err(e) => {
+                if let ElmError::Parser { .. } = e {
+                    let result = engine.eval_expr(&line);
 
-                match result {
-                    Ok(opt) => {
-                        if let Some(value) = opt {
+                    match result {
+                        Ok(value) => {
                             println!("{} : {}", value, value.get_type());
                         }
+                        Err(error) => {
+                            println!("{}", error);
+                        }
                     }
-                    Err(error) => {
-                        println!("{}", error);
-                    }
+                    continue;
                 }
+                println!("{}", e);
             }
         }
 

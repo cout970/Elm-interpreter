@@ -109,7 +109,7 @@ impl ModuleLoader {
         Self::include_module(run, source, ast)
     }
 
-    fn include_module(run: &mut Runtime, src: SourceFile, ast: Module) -> Result<(), ElmError> {
+    pub fn include_module(run: &mut Runtime, src: SourceFile, ast: Module) -> Result<(), ElmError> {
         let name = src.name.clone();
         let deps = get_module_dependencies(&ast);
 
@@ -196,27 +196,4 @@ fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, Error
     };
 
     Ok(loaded_module)
-}
-
-#[cfg(test)]
-mod test {
-    use ast::Expr;
-    use interpreter::dynamic_env::DynamicEnv;
-    use util::test_resource;
-
-    use super::*;
-
-    #[test]
-    fn test_include_folder() {
-//        let mut loader = ModuleLoader::new();
-//        loader.include_folder(&test_resource("sample_project")).unwrap();
-
-//        let mut env = DynamicEnv::default_lang_env();
-//        eval_module(&mut env, &loader, "SubModule1").unwrap();
-//        eval_module(&mut env, &loader, "Mod.SubModule2").unwrap();
-//        eval_module(&mut env, &loader, "Main").unwrap();
-
-//        let result = eval_expression(&mut env, &Expr::Ref((0, 0), "sayHello".to_string())).unwrap();
-//        println!("{}", result);
-    }
 }

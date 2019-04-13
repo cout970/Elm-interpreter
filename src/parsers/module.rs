@@ -276,34 +276,34 @@ mod tests {
         \n\nx = 0\nfunc x = x\n");
     }
 
-    #[test]
-    fn complex_module_test() {
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/AI.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Defs.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Element.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Map.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Util.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Vec.elm"));
-    }
-
-    #[test]
-    fn elm_core_module_test() {
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Array.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Debug.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/List.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Platform.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Result.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/String.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Tuple.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Basics.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Char.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Dict.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Maybe.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Process.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Set.elm"));
-        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Task.elm"));
-    }
+//    #[test]
+//    fn complex_module_test() {
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/AI.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Defs.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Element.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Map.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Util.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/AI/src/Vec.elm"));
+//    }
+//
+//    #[test]
+//    fn elm_core_module_test() {
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Array.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Bitwise.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Debug.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/List.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Platform.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Result.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/String.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Tuple.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Basics.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Char.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Dict.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Maybe.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Process.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Set.elm"));
+//        test_parser(parse_module, include_str!("/Data/Dev/Elm/core-master/src/Task.elm"));
+//    }
 
     #[test]
     fn check_empty_module() {

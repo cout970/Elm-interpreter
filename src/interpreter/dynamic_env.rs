@@ -104,57 +104,7 @@ impl DynamicEnv {
     }
 
     pub fn default_lang_env() -> DynamicEnv {
-        let mut env = DynamicEnv::new();
-
-//        let num_ty = build_fun_type(&vec![
-//            Type::Var("number".s()), Type::Var("number".s()), Type::Var("number".s())
-//        ]);
-//        let int_ty = build_fun_type(&vec![
-//            Type::Tag("Int".s(), vec![]), Type::Tag("Int".s(), vec![]), Type::Tag("Int".s(), vec![])
-//        ]);
-//        let float_ty = build_fun_type(&vec![
-//            Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![]), Type::Tag("Float".s(), vec![])
-//        ]);
-//        let string_ty = build_fun_type(&vec![
-//            Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![]), Type::Tag("String".s(), vec![])
-//        ]);
-
-//        let fun = builtin_fun_of(ExternalFunc {
-//            name: "builtin_add".to_string(),
-//            fun: builtin_add,
-//        }, num_ty.clone());
-//        env.add("+", fun, num_ty.clone());
-//
-//        let fun = builtin_fun_of(ExternalFunc {
-//            name: "builtin_sub".to_string(),
-//            fun: builtin_sub,
-//        }, num_ty.clone());
-//        env.add("-", fun, num_ty.clone());
-//
-//        let fun = builtin_fun_of(ExternalFunc {
-//            name: "builtin_times".to_string(),
-//            fun: builtin_times,
-//        }, num_ty.clone());
-//        env.add("*", fun, num_ty.clone());
-//
-//        let fun = builtin_fun_of(ExternalFunc {
-//            name: "builtin_float_div".to_string(),
-//            fun: builtin_float_div,
-//        }, float_ty.clone());
-//        env.add("/", fun, float_ty.clone());
-//
-//        let fun = builtin_fun_of(ExternalFunc {
-//            name: "builtin_int_div".to_string(),
-//            fun: builtin_int_div,
-//        }, int_ty.clone());
-//        env.add("//", fun, int_ty.clone());
-//
-//        let fun = builtin_fun_of(ExternalFunc {
-//            name: "builtin_string_append".to_string(),
-//            fun: builtin_string_append,
-//        }, string_ty.clone());
-//        env.add("++", fun, string_ty.clone());
-
+        let env = DynamicEnv::new();
         env
     }
 }

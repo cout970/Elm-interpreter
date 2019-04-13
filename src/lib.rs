@@ -24,6 +24,7 @@ use loader::AnalyzedModule;
 use loader::LoadedModule;
 use loader::ModuleLoader;
 use loader::RuntimeModule;
+use loader::SourceFile;
 use parsers::Parser;
 use source::SourceCode;
 use tokenizer::Tokenizer;
@@ -77,10 +78,8 @@ impl Runtime {
             run.runtime_modules.insert(name.to_string(), runtime);
         }
 
-//        run.include_files("/Data/Dev/Elm/core-master/src/").unwrap();
         run.include_file("/Data/Dev/Elm/core-master/src/Basics.elm").unwrap();
-        run.load_analyzed_module("Basics").unwrap();
-        run.load_runtime_module("Basics").unwrap();
+        run.import_module_as("Basics", "").unwrap();
         run
     }
 
@@ -120,12 +119,23 @@ impl Runtime {
     /// toRecord : (a, b) -> { x: a, y: b }
     /// toRecord (a, b) = { x = a, y = b }
     /// ```
-    pub fn eval_module(&mut self, _module: &str) -> Result<(), ElmError> {
-//        let code = SourceCode::from_str(_module);
-//        let tokenizer = Tokenizer::new(&code);
-//        let mut parser = Parser::new(tokenizer);
-//        eval_module(&mut self.env, &mut loader, parser.parse_module()?)
-        unimplemented!()
+    pub fn eval_module(&mut self, module: &str, name: &str) -> Result<(), ElmError> {
+        let code = SourceCode::from_str(module);
+        let tokenizer = Tokenizer::new(&code);
+        let mut parser = Parser::new(tokenizer);
+        let module = parser.parse_module()?;
+
+        ModuleLoader::include_module(
+            self,
+            SourceFile {
+                name: name.to_string(),
+                path: name.to_string(),
+                source: code,
+            },
+            module,
+        )?;
+
+        self.import_module(name)
     }
 
     pub fn include_files(&mut self, folder_path: &str) -> Result<(), ElmError> {
@@ -155,8 +165,14 @@ impl Runtime {
 
         for (def_name, val) in &module.definitions {
             eprintln!("Running: {} = {} : {}", def_name, val, val.get_type());
-            self.analyzer.add_definition(&format!("{}.{}", alias, def_name), val.get_type());
-            self.interpreter.stack.add(&format!("{}.{}", alias, def_name), val.clone());
+            let name = if alias.is_empty() {
+                def_name.clone()
+            } else {
+                format!("{}.{}", alias, def_name)
+            };
+
+            self.analyzer.add_definition(&name, val.get_type());
+            self.interpreter.stack.add(&name, val.clone());
         }
 
         Ok(())
@@ -278,7 +294,7 @@ mod test {
         result = sum 1 (div 2 3)
         "#;
 
-        i.eval_module(module).expect("Expect x to be defined as 2");
+        i.eval_module(module, "Main").expect("Expect x to be defined as 2");
         i.eval_expr("result").expect("Expect expression to execute correctly");
     }
 
