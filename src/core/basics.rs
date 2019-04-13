@@ -105,10 +105,7 @@ fn idiv(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
 }
 
 fn pow(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-    let a = int_of(&args[0])?;
-    let b = int_of(&args[1])?;
-
-    Ok(Value::Int(a.pow(b as u32)))
+    number_op(&args[0], &args[1], |a, b| a.powf(b))
 }
 
 fn remainder_by(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {

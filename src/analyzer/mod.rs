@@ -286,8 +286,6 @@ impl Analyzer {
                 self.analyze_statement_definition(def)?
             }
             Statement::Infix(_, _, name, def) => {
-                eprintln!("[Analyzer::mod.rs] Infix: name: {}, def: {}", name, def);
-
                 if let Some(ty) = self.env.find_definition(name) {
                     if let Some(ty) = self.env.find_definition(def) {
                         vec![Declaration::Port(name.clone(), ty), Declaration::Infix(name.clone(), def.clone())]
@@ -295,7 +293,7 @@ impl Analyzer {
                         vec![Declaration::Port(name.clone(), ty), Declaration::Infix(name.clone(), def.clone())]
                     }
                 } else {
-                    println!("ignore infix operator: {}", name);
+                    eprintln!("Ignoring infix operator: {}", name);
                     vec![]
                 }
             }
