@@ -150,3 +150,93 @@ fn create_module(name: &str, types: Vec<(&str, Type)>) -> Module {
 fn ignore(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     unimplemented!()
 }
+
+
+// Combinators
+
+// Identity
+// a -> a
+pub fn builtin_id(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    Ok(args[0].clone())
+}
+
+// self application
+// f = f f
+// Has recursive type
+pub fn builtin_mockingbird(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    i.apply_function(args[0].clone(), &[args[0].clone()])
+}
+
+// True, first, const
+// a -> b -> a
+pub fn builtin_kestrel(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    Ok(args[0].clone())
+}
+
+// False, second
+// a -> b -> b
+pub fn builtin_kite(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    Ok(args[1].clone())
+}
+
+// Invert order, flip
+// (a -> b -> c) -> b -> a -> c
+pub fn builtin_cardinal(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let abc = &args[0];
+    let b = &args[1];
+    let a = &args[2];
+
+    i.apply_function(abc.clone(), &[a.clone(), b.clone()])
+}
+
+// Composition
+// (b -> c) -> (a -> b) -> a -> c
+pub fn builtin_bluebird(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let bc = &args[0];
+    let ab = &args[1];
+    let a = &args[2];
+    let b = i.apply_function(ab.clone(), &[a.clone()])?;
+
+    i.apply_function(bc.clone(), &[b])
+}
+
+// hold an argument
+// a -> (a -> b) -> b
+pub fn builtin_thrush(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = &args[0];
+    let ab = &args[1];
+
+    i.apply_function(ab.clone(), &[a.clone()])
+}
+
+// Hold 2 arguments
+// a -> b -> (a -> b -> c) -> c
+pub fn builtin_vireo(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let a = &args[0];
+    let b = &args[1];
+    let abc = &args[2];
+
+    i.apply_function(abc.clone(), &[a.clone(), b.clone()])
+}
+
+// Double composition
+// (c -> d) -> (a -> b -> c) -> a -> b -> d
+pub fn builtin_blackbird(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let cd = &args[0];
+    let abc = &args[1];
+    let a = &args[2];
+    let b = &args[2];
+    let c = i.apply_function(abc.clone(), &[a.clone(), b.clone()])?;
+
+    i.apply_function(cd.clone(), &[c])
+}
+
+// (a -> b -> c) -> (a -> b) -> a -> c
+pub fn builtin_starling(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let abc = &args[0];
+    let ab = &args[1];
+    let a = &args[2];
+    let b = i.apply_function(ab.clone(), &[a.clone()])?;
+
+    i.apply_function(abc.clone(), &[a.clone(), b])
+}

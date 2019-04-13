@@ -13,7 +13,6 @@ use core::register_core;
 use errors::ElmError;
 use errors::err_list;
 use errors::LoaderError;
-use interpreter::dynamic_env::DynamicEnv;
 use parsers::Parser;
 use Runtime;
 use source::SourceCode;

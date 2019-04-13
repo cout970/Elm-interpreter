@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use ast::Pattern;
 use ast::Type;
-use interpreter::dynamic_env::DynamicEnv;
 use interpreter::dynamic_env::RuntimeStack;
 use interpreter::Interpreter;
 use Runtime;

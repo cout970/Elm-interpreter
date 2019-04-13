@@ -84,44 +84,6 @@ pub fn builtin_string_append(_: &mut Runtime, args: &Vec<Value>) -> Result<Value
     Ok(Value::String(format!("{}{}", string_of(&args[0])?, string_of(&args[1])?)))
 }
 
-// Combinators
-
-pub fn builtin_id(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    Ok(args[0].clone())
-}
-
-pub fn builtin_mockingbird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    apply(args[0].clone(), args[0].clone())
-}
-
-pub fn builtin_kestrel(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    Ok(args[0].clone())
-}
-
-pub fn builtin_kite(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    Ok(args[1].clone())
-}
-
-pub fn builtin_cardinal(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    apply(apply(args[0].clone(), args[2].clone())?, args[1].clone())
-}
-
-pub fn builtin_bluebird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    apply(args[0].clone(), apply(args[1].clone(), args[2].clone())?)
-}
-
-pub fn builtin_thrush(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    apply(args[1].clone(), args[0].clone())
-}
-
-pub fn builtin_vireo(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    apply(apply(args[2].clone(), args[0].clone())?, args[1].clone())
-}
-
-pub fn builtin_blackbird(args: &Vec<Value>) -> Result<Value, RuntimeError> {
-    apply(args[0].clone(), apply(apply(args[1].clone(), args[2].clone())?, args[3].clone())?)
-}
-
 // (<<) << (<<)
 
 // Utility functions

@@ -9,7 +9,6 @@ use analyzer::PatternMatchingError;
 use ast::Pattern;
 use ast::Span;
 use ast::Type;
-use interpreter::dynamic_env::DynamicEnv;
 use loader::Declaration;
 use loader::declaration_name;
 use source::SourceCode;

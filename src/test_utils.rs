@@ -6,6 +6,7 @@ use parsers::Parser;
 use source::SourceCode;
 use tokenizer::TokenInfo;
 use tokenizer::Tokenizer;
+use typed_ast::TypedExpr;
 
 #[cfg(test)]
 pub struct Test;
@@ -14,6 +15,22 @@ pub struct Test;
 impl Test {
     pub fn tokens(code: &str) -> Vec<TokenInfo> {
         Tokenizer::new(&SourceCode::from_str(code)).tokenize().unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn typed_expr(code: &str) -> TypedExpr {
+        let src = SourceCode::from_str(code);
+        let expr = Self::expr(code);
+        let mut analyzer = Analyzer::new(src);
+        let res = analyzer.analyze_expression(&expr);
+
+        match res {
+            Ok(res) => res,
+            Err(error) => {
+                println!("Error: {}\n", error);
+                panic!();
+            }
+        }
     }
 
     #[cfg(test)]

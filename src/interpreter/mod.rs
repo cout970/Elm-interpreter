@@ -7,8 +7,6 @@ use constructors::type_bool;
 use core::builtin_record_access;
 use errors::*;
 use interpreter::dynamic_env::RuntimeStack;
-use interpreter::expression_eval::eval_expr;
-use interpreter::statement_eval::eval_stm;
 use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::LoadedModule;
@@ -26,8 +24,6 @@ use util::VecExt;
 
 pub mod dynamic_env;
 //mod builtins;
-mod expression_eval;
-mod statement_eval;
 mod closure_helper;
 
 #[derive(Clone, Debug)]
@@ -457,3 +453,171 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use ast::Type;
+    use interpreter::Interpreter;
+    use test_utils::Test;
+    use types::Value;
+
+    use super::*;
+
+    #[test]
+    fn check_unit() {
+        let expr = Test::typed_expr("()");
+        let mut env = Interpreter::new();
+
+        assert_eq!(env.eval_expr(&expr), Ok(Value::Unit));
+    }
+
+    #[test]
+    fn check_list() {
+        let expr = Test::typed_expr("[1, 2, 3]");
+        let mut env = Interpreter::new();
+
+        assert_eq!(env.eval_expr(&expr), Ok(Value::List(vec![
+            Value::Number(1),
+            Value::Number(2),
+            Value::Number(3),
+        ])));
+    }
+
+    #[test]
+    fn check_lambda() {
+        let expr = Test::typed_expr("\\x -> 1");
+        let mut env = Interpreter::new();
+
+        let value = env.eval_expr(&expr).unwrap();
+        match value {
+            Value::Fun { args, fun, .. } => {
+                assert_eq!(args, vec![]);
+                // TODO
+            }
+            _ => panic!("Not a function: {}", value)
+        }
+    }
+
+    #[test]
+    fn check_record() {
+        let expr = Test::typed_expr("{ a = 0 }.a");
+        let mut env = Interpreter::new();
+
+        assert_eq!(env.eval_expr(&expr), Ok(Value::Number(0)));
+    }
+
+//    #[test]
+//    fn check_number() {
+//        let expr = Test::typed_expr("1 / 3");
+//        let mut env = Interpreter::new();
+//
+//        assert_eq!(env.eval_expr(&expr), Ok(Value::Float(0.3333333333333333)));
+//    }
+//
+//    #[test]
+//    fn check_number2() {
+//        let expr = Test::typed_expr("4 // 3");
+//        let mut env = Interpreter::new();
+//
+//        assert_eq!(env.eval_expr(&expr), Ok(Value::Int(1)));
+//    }
+//
+//    #[test]
+//    fn check_number3() {
+//        let expr = Test::typed_expr("4 + 3");
+//        let mut env = Interpreter::new();
+//
+//        assert_eq!(env.eval_expr(&expr), Ok(Value::Number(7)));
+//    }
+}
+
+// TODO
+//#[cfg(test)]
+//mod tests {
+//    use test_utils::Test;
+//    use util::StringConversion;
+//
+//    use super::*;
+//
+//    fn formatted(env: &mut DynamicEnv, stm: &Statement) -> String {
+//        let result = eval_stm(env, stm);
+//        let option = result.unwrap();
+//        let value = option.unwrap();
+//        let ty = value.get_type();
+//
+//        format!("{} : {}", value, ty)
+//    }
+//
+//    fn formatted_expr(env: &mut DynamicEnv, expr: &Expr) -> String {
+//        unimplemented!()
+////        let result = eval_expr(env, expr);
+////        let value = result.unwrap();
+////        let ty = value.get_type();
+////
+////        format!("{} : {}", value, ty)
+//    }
+//
+//    #[test]
+//    fn check_constant() {
+//        let stm = Test::statement("x = 1");
+//        let mut env = DynamicEnv::new();
+//
+//        assert_eq!(formatted(&mut env, &stm), "1 : number".s());
+//    }
+//
+//    #[test]
+//    fn check_identity() {
+//        let stm = Test::statement("id value = value");
+//        let mut env = DynamicEnv::new();
+//
+//        assert_eq!(formatted(&mut env, &stm), "<function> : a -> a".s());
+//    }
+//
+//    #[test]
+//    fn check_recursivity() {
+//        let stm = Test::statement("fib num = case num of \n 0 -> 0\n 1 -> 1\n _ -> fib (num - 1) + fib (num - 2)");
+//        let mut env = DynamicEnv::default_lang_env();
+//
+//        assert_eq!(formatted(&mut env, &stm), "<function> : Int -> number".s());
+//    }
+//
+//    #[test]
+//    fn check_adt() {
+//        let decl = Test::statement("type Adt = A | B");
+//        let mut env = DynamicEnv::default_lang_env();
+//
+//        eval_stm(&mut env, &decl).unwrap();
+//
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("A")), "A : Adt".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("B")), "B : Adt".s());
+//    }
+//
+//    #[test]
+//    fn check_adt2() {
+//        let decl = Test::statement("type Adt a = A a | B Int");
+//        let mut env = DynamicEnv::default_lang_env();
+//
+//        eval_stm(&mut env, &decl).unwrap();
+//
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("A")), "<function> : a -> Adt a".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("B")), "<function> : Int -> Adt a".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("A 1")), "A 1 : Adt number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("B 1")), "B 1 : Adt a".s());
+//    }
+//
+//    #[test]
+//    fn check_fib() {
+//        let decl = Test::statement("fib num = case num of \n0 -> 0 \n1 -> 1 \n_ -> fib (num - 1) + fib (num - 2)");
+//        let mut env = DynamicEnv::default_lang_env();
+//
+//        eval_stm(&mut env, &decl).unwrap();
+//
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib")), "<function> : Int -> number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 0")), "0 : number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 1")), "1 : number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 2")), "1 : number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 3")), "2 : number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 4")), "3 : number".s());
+//        assert_eq!(formatted_expr(&mut env, &Test::expr("fib 5")), "5 : number".s());
+//    }
+//}
