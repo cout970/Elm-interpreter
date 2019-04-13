@@ -1,6 +1,6 @@
 use ast::Type;
+use builtin::func_of;
 use constructors::*;
-use core::func_of;
 use errors::ElmError;
 use interpreter::Interpreter;
 use rust_interop::conversions::int_of;

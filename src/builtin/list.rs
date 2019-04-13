@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
 use ast::Type;
+use builtin::func_of;
+use builtin::utils::compare_values;
 use constructors::type_of;
-use core::func_of;
-use core::utils::compare_values;
 use errors::*;
 use interpreter::Interpreter;
 use Runtime;

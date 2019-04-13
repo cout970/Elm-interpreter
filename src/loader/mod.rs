@@ -9,7 +9,6 @@ use analyzer::Analyzer;
 use analyzer::static_env::StaticEnv;
 use ast::Module;
 use ast::Type;
-use core::register_core;
 use errors::ElmError;
 use errors::err_list;
 use errors::LoaderError;

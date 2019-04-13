@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
 use ast::Type;
+use builtin::func_of;
+use builtin::ignore;
 use constructors::*;
-use core::func_of;
-use core::ignore;
 use errors::ElmError;
 use interpreter::Interpreter;
 use rust_interop::conversions::string_of;

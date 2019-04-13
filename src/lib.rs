@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use analyzer::Analyzer;
 use ast::Type;
-use core::get_core_kernel_modules;
+use builtin::get_core_kernel_modules;
 use errors::ElmError;
 use errors::LoaderError;
 use errors::TypeError::InternalError;
@@ -44,7 +44,7 @@ pub mod tokenizer;
 pub mod parsers;
 pub mod analyzer;
 pub mod constructors;
-pub mod core;
+pub mod builtin;
 pub mod interpreter;
 pub mod errors;
 pub mod rust_interop;

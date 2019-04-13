@@ -7,15 +7,14 @@ use ast::ModuleExposing;
 use ast::ModuleHeader;
 use ast::Statement;
 use ast::Type;
+use builtin::basics::get_basics_funs;
+use builtin::bitwise::get_bitwise_funs;
+use builtin::char::get_char_funs;
+use builtin::debug::get_debug_funs;
+use builtin::list::get_list_funs;
+use builtin::string::get_string_funs;
+use builtin::utils::get_utils_funs;
 use constructors::type_of;
-use core::basics::get_basics_funs;
-use core::bitwise::get_bitwise_funs;
-use core::char::get_char_funs;
-use core::debug::get_debug_funs;
-use core::list::get_list_funs;
-use core::operators::get_operators_types;
-use core::string::get_string_types;
-use core::utils::get_utils_funs;
 use errors::ElmError;
 use errors::RuntimeError;
 use interpreter::Interpreter;
@@ -36,8 +35,9 @@ mod string;
 mod list;
 mod bitwise;
 mod utils;
-mod operators;
 
+/// Returns a list of the Elm Core kernel modules, adding the basic building blocks of the language
+/// The elm core needs to be loaded to expose and expand the definitions to all the other elm source files
 pub fn get_core_kernel_modules() -> Vec<(&'static str, AnalyzedModule, RuntimeModule)> {
     vec![
         core_kernel_module("Elm.Kernel.Basics", get_basics_funs),
@@ -46,11 +46,37 @@ pub fn get_core_kernel_modules() -> Vec<(&'static str, AnalyzedModule, RuntimeMo
         core_kernel_module("Elm.Kernel.Debug", get_debug_funs),
         core_kernel_module("Elm.Kernel.Char", get_char_funs),
         core_kernel_module("Elm.Kernel.List", get_list_funs),
+        core_kernel_module("Elm.Kernel.String", get_string_funs),
     ]
 }
 
-pub fn register_core(env: &mut StaticEnv) {}
+fn core_kernel_module(name: &'static str, func: fn() -> Vec<(&'static str, Type, Value)>) -> (&'static str, AnalyzedModule, RuntimeModule) {
+    let mut all_declarations = vec![];
+    let mut definitions = HashMap::new();
 
+    for (name, ty, val) in func() {
+        all_declarations.push(Declaration::Port(name.to_string(), ty));
+        definitions.insert(name.to_string(), val);
+    }
+
+    (
+        name,
+        AnalyzedModule {
+            name: name.to_string(),
+            dependencies: vec![],
+            all_declarations,
+            definitions: vec![],
+            imports: vec![],
+        },
+        RuntimeModule {
+            name: name.to_string(),
+            definitions,
+            imports: vec![],
+        }
+    )
+}
+
+// { a = 0 } .a
 pub fn builtin_record_access() -> ExternalFunc {
     let fun: ElmFn = |_, args| {
         match &args[0] {
@@ -83,6 +109,7 @@ pub fn builtin_record_access() -> ExternalFunc {
     ExternalFunc { name: "record access".to_string(), fun }
 }
 
+/// Create a function value from a function name, the function type in string format and a rust function reference
 fn func_of(name: &'static str, ty: &'static str, fun: ElmFn) -> (&'static str, Type, Value) {
     let func_type = type_of(ty);
     let external = ExternalFunc { name: name.to_string(), fun };
@@ -95,62 +122,9 @@ fn func_of(name: &'static str, ty: &'static str, fun: ElmFn) -> (&'static str, T
     (name, func_type, func)
 }
 
-fn core_kernel_module(name: &'static str, func: fn() -> Vec<(&'static str, Type, Value)>) -> (&'static str, AnalyzedModule, RuntimeModule) {
-    let mut all_declarations = vec![];
-    let mut definitions = HashMap::new();
-
-    for (name, ty, val) in func() {
-        all_declarations.push(Declaration::Port(name.to_string(), ty));
-        definitions.insert(name.to_string(), val);
-    }
-
-    (
-        name,
-        AnalyzedModule {
-            name: name.to_string(),
-            dependencies: vec![],
-            all_declarations,
-            definitions: vec![],
-            imports: vec![],
-        },
-        RuntimeModule {
-            name: name.to_string(),
-            definitions,
-            imports: vec![],
-        }
-    )
-}
-
-pub fn get_core_module_by_path(path: &Vec<String>) -> Option<Module> {
-    let slices: Vec<_> = path.iter().map(|x| x.as_str()).collect();
-
-    match slices[..] {
-        ["Elm", "Kernel", "String"] => {
-            Some(create_module("Elm.Kernel.String", get_string_types()))
-        }
-        _ => None
-    }
-}
-
-fn create_module(name: &str, types: Vec<(&str, Type)>) -> Module {
-    let header = ModuleHeader {
-        name: String::from(name),
-        exposing: ModuleExposing::All,
-    };
-
-    let mut statements = vec![];
-
-    for (def, ty) in types {
-        statements.push(Statement::Port(String::from(def), ty));
-    }
-
-    Module { header: Some(header), imports: vec![], statements }
-}
-
 fn ignore(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-    unimplemented!()
+    unreachable!()
 }
-
 
 // Combinators
 

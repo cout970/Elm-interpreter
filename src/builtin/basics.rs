@@ -6,8 +6,8 @@ use std::ops::Sub;
 use std::sync::Arc;
 
 use ast::Type;
+use builtin::func_of;
 use constructors::*;
-use core::func_of;
 use errors::ElmError;
 use errors::RuntimeError;
 use interpreter::Interpreter;

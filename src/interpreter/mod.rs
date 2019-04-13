@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::*;
+use builtin::builtin_record_access;
 use constructors::type_bool;
-use core::builtin_record_access;
 use errors::*;
 use interpreter::dynamic_env::RuntimeStack;
 use loader::AnalyzedModule;

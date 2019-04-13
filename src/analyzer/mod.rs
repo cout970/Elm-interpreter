@@ -8,7 +8,6 @@ use analyzer::type_inference::type_inference_find_var_replacements;
 use ast::*;
 use ast::Definition;
 use ast::Expr;
-use core::register_core;
 use errors::*;
 use interpreter::dynamic_env::RuntimeStack;
 use loader::AnalyzedModule;
@@ -58,7 +57,6 @@ pub struct Analyzer {
 impl Analyzer {
     pub fn new(source: SourceCode) -> Self {
         let mut env = StaticEnv::new();
-        register_core(&mut env);
         Analyzer { env, source }
     }
 
@@ -412,7 +410,6 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 mod tests {
     use ast::Statement;
     use constructors::*;
-    use core::register_core;
     use test_utils::Test;
     use util::StringConversion;
 
@@ -613,7 +610,6 @@ mod tests {
 
     fn analyze_pattern_test(ty: Type, pattern: Pattern, type_str: &str, vars_str: &str) {
         let mut env = StaticEnv::new();
-        register_core(&mut env);
 
         let (res_ty, vars) = analyze_pattern_with_type(&mut env, &pattern, ty)
             .expect("Error");
