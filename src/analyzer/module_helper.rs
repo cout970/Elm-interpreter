@@ -9,9 +9,10 @@ use ast::ModuleExposing;
 use ast::Statement;
 use ast::Type;
 use errors::ElmError;
+use errors::InterpreterError;
 use errors::LoaderError;
-use errors::RuntimeError;
 use errors::TypeError;
+use errors::Wrappable;
 use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::declaration_name;
@@ -56,16 +57,14 @@ impl Analyzer {
     fn analyze_import(&mut self, modules: &HashMap<String, AnalyzedModule>, module_imports: &mut Vec<ModuleImport>, import: &Import) -> Result<(), ElmError> {
         let module_name = import.path.join(".");
         let module = modules.get(&module_name)
-            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingImport { name: module_name.clone() } })?;
-
-//        eprintln!("Module: {}, {:#?}", module_name, module.all_declarations.iter().map(|it| declaration_name(it)).collect::<Vec<_>>());
+            .ok_or_else(|| LoaderError::MissingImport { name: module_name.clone() }.wrap())?;
 
         let decls = match (&import.alias, &import.exposing) {
             (None, Some(me)) => {
                 let decls = match me {
                     ModuleExposing::Just(exp) => {
                         Self::get_exposed_decls(&module.all_declarations, exp)
-                            .map_err(|e| ElmError::Interpreter { info: e })?
+                            .map_err(|e| e.wrap())?
                     }
                     ModuleExposing::All => {
                         module.all_declarations.clone()
@@ -210,7 +209,7 @@ impl Analyzer {
         }
     }
 
-    fn get_exposed_decls(all_decls: &Vec<Declaration>, exposed: &Vec<Exposing>) -> Result<Vec<Declaration>, RuntimeError> {
+    fn get_exposed_decls(all_decls: &Vec<Declaration>, exposed: &Vec<Exposing>) -> Result<Vec<Declaration>, InterpreterError> {
         let mut exposed_decls = Vec::new();
 
         for exp in exposed.iter() {
@@ -258,7 +257,7 @@ impl Analyzer {
                             }
                         })
                         .map(|decl| decl.clone())
-                        .ok_or_else(|| RuntimeError::MissingExposing(name.clone(), all_decls.clone()))?;
+                        .ok_or_else(|| InterpreterError::MissingExposing(name.clone(), all_decls.clone()))?;
 
                     exposed_decls.push(decl);
                 }
@@ -274,7 +273,7 @@ impl Analyzer {
                             }
                         })
                         .map(|decl| decl.clone())
-                        .ok_or_else(|| RuntimeError::MissingExposing(name.clone(), all_decls.clone()))?;
+                        .ok_or_else(|| InterpreterError::MissingExposing(name.clone(), all_decls.clone()))?;
 
                     exposed_decls.push(decl);
                 }
@@ -303,7 +302,7 @@ impl Analyzer {
                             }
                         })
                         .map(|decl| decl.clone())
-                        .ok_or_else(|| RuntimeError::MissingExposing(name.clone(), all_decls.clone()))?;
+                        .ok_or_else(|| InterpreterError::MissingExposing(name.clone(), all_decls.clone()))?;
 
                     exposed_decls.push(decl);
                 }

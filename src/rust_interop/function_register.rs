@@ -7,8 +7,8 @@ use std::any::Any;
 use std::any::TypeId;
 
 use errors::ElmError;
-use errors::interop_err;
 use errors::InteropError;
+use errors::Wrappable;
 use interpreter::Interpreter;
 use rust_interop::FnAny;
 
@@ -47,14 +47,14 @@ macro_rules! def_register {
                     // Check for length at the beginning to avoid
                     // per-element bound checks.
                     if args.len() != count_args!($($par)*) {
-                        return interop_err(InteropError::FunctionArgMismatch);
+                        return Err(InteropError::FunctionArgMismatch.wrap());
                     }
 
                     let mut drain = args.drain(..);
                     $(
                     // Downcast every element, return in case of a type mismatch
                     let $par = ((*drain.next().unwrap()).downcast_mut() as Option<&mut $par>)
-                        .ok_or(ElmError::Interop{ info: InteropError::FunctionArgMismatch })?;
+                        .ok_or(InteropError::FunctionArgMismatch.wrap())?;
                     )*
 
                     // Call the user-supplied function using ($clone) to

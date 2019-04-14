@@ -74,12 +74,12 @@ impl Interpreter {
 
         for import in &module.imports {
             let module = modules.get(&import.source)
-                .ok_or_else(|| ElmError::Interpreter { info: RuntimeError::MissingModule(vec![import.source.to_string()]) })?;
+                .ok_or_else(|| InterpreterError::MissingModule(vec![import.source.to_string()]).wrap())?;
 
             let value = module.definitions.get(&import.source_name)
                 .ok_or_else(|| {
                     eprintln!("Failed to find {} in {} {:#?}", import.source_name, import.source, module.definitions.keys().collect::<Vec<_>>());
-                    ElmError::Interpreter { info: RuntimeError::MissingDefinition(import.source_name.to_string()) }
+                    InterpreterError::MissingDefinition(import.source_name.to_string()).wrap()
                 })?;
 
             self.stack.add(&import.destine_name, value.clone());
@@ -107,9 +107,7 @@ impl Interpreter {
                 match opt {
                     Some(val) => Ok(val),
                     None => {
-                        Err(ElmError::Interpreter {
-                            info: RuntimeError::MissingDefinition(name.clone())
-                        })
+                        Err(InterpreterError::MissingDefinition(name.clone()).wrap())
                     }
                 }
             }
@@ -152,9 +150,7 @@ impl Interpreter {
 
                     Ok(Value::Record(entries))
                 } else {
-                    Err(ElmError::Interpreter {
-                        info: RuntimeError::RecordUpdateOnNonRecord(name.as_ref().clone(), val.clone())
-                    })
+                    Err(InterpreterError::RecordUpdateOnNonRecord(name.as_ref().clone(), val.clone()).wrap())
                 }
             }
             TypedExpr::If(_, cond, a, b) => {
@@ -167,15 +163,11 @@ impl Interpreter {
                         } else if name == "False" && vals.is_empty() {
                             self.eval_expr(b)
                         } else {
-                            Err(ElmError::Interpreter {
-                                info: RuntimeError::InvalidIfCondition(cond.clone())
-                            })
+                            Err(InterpreterError::InvalidIfCondition(cond.clone()).wrap())
                         }
                     }
                     _ => {
-                        Err(ElmError::Interpreter {
-                            info: RuntimeError::InvalidIfCondition(cond.clone())
-                        })
+                        Err(InterpreterError::InvalidIfCondition(cond.clone()).wrap())
                     }
                 }
             }
@@ -188,13 +180,11 @@ impl Interpreter {
                 if let Value::Record(entries) = &rec {
                     let (_, value) = entries.iter()
                         .find(|(name, _)| name == field)
-                        .ok_or(ElmError::Interpreter { info: RuntimeError::RecordFieldNotFound(field.to_owned(), rec.clone()) })?;
+                        .ok_or(InterpreterError::RecordFieldNotFound(field.to_owned(), rec.clone()).wrap())?;
 
                     Ok(value.clone())
                 } else {
-                    Err(ElmError::Interpreter {
-                        info: RuntimeError::ExpectedRecord(rec.clone())
-                    })
+                    Err(InterpreterError::ExpectedRecord(rec.clone()).wrap())
                 }
             }
             TypedExpr::RecordAccess(ty, field) => {
@@ -212,9 +202,7 @@ impl Interpreter {
                     }
                 }
 
-                return Err(ElmError::Interpreter {
-                    info: RuntimeError::CaseExpressionNonExhaustive(cond_val, branches.map(|(p, _)| p.clone()))
-                });
+                return Err(InterpreterError::CaseExpressionNonExhaustive(cond_val, branches.map(|(p, _)| p.clone())).wrap());
             }
             TypedExpr::Let(..) => Ok(Value::Unit), // TODO
             TypedExpr::Application(_, fun, input) => {
@@ -247,9 +235,7 @@ impl Interpreter {
             let argc = args.len() as u32 + 1;
 
             if *arg_count < argc {
-                return Err(ElmError::Interpreter {
-                    info: RuntimeError::FunArgumentSizeMismatch(*arg_count, argc)
-                });
+                return Err(InterpreterError::FunArgumentSizeMismatch(*arg_count, argc).wrap());
             }
 
             let mut arg_vec = args.clone();
@@ -265,9 +251,7 @@ impl Interpreter {
 //            self.add_to_cache(fun_call, value.clone());
             Ok(value)
         } else {
-            Err(ElmError::Interpreter {
-                info: RuntimeError::ExpectedFunction(fun_value.clone())
-            })
+            Err(InterpreterError::ExpectedFunction(fun_value.clone()).wrap())
         }
     }
 
@@ -276,11 +260,11 @@ impl Interpreter {
         let res = match fun {
             Function::External(_, func, _) => {
                 (func.fun)(self, &args)
-                    .map_err(|_| ElmError::Interpreter { info: RuntimeError::BuiltinFunctionError })
+                    .map_err(|_| InterpreterError::BuiltinFunctionError.wrap())
             }
             Function::Wrapper(_, func, _) => {
                 call_function(func, self, &args)
-                    .map_err(|_| ElmError::Interpreter { info: RuntimeError::BuiltinFunctionError })
+                    .map_err(|_| InterpreterError::BuiltinFunctionError.wrap())
             }
             Function::Definition { patterns, expression, captures, .. } => {
                 assert_eq!(patterns.len(), args.len());
@@ -373,7 +357,7 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
     }
 }
 
-pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value) -> Result<(), RuntimeError> {
+pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value) -> Result<(), InterpreterError> {
     match pattern {
         Pattern::Var(n) => {
             env.stack.add(&n, value);
@@ -387,12 +371,12 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                 for patt in items {
                     let (name, val) = vars.iter()
                         .find(|(name, _)| name == patt)
-                        .ok_or(RuntimeError::RecordFieldNotFound(patt.clone(), value.clone()))?;
+                        .ok_or(InterpreterError::RecordFieldNotFound(patt.clone(), value.clone()))?;
 
                     env.stack.add(name, val.clone());
                 }
             } else {
-                return Err(RuntimeError::ExpectedRecord(value.clone()));
+                return Err(InterpreterError::ExpectedRecord(value.clone()));
             }
         }
         Pattern::Adt(_, ref items) => {
@@ -401,7 +385,7 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                     add_pattern_values(env, patt, val.clone())?;
                 }
             } else {
-                return Err(RuntimeError::ExpectedAdt(value.clone()));
+                return Err(InterpreterError::ExpectedAdt(value.clone()));
             }
         }
         Pattern::Tuple(ref items) => {
@@ -410,7 +394,7 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                     add_pattern_values(env, patt, val.clone())?;
                 }
             } else {
-                return Err(RuntimeError::ExpectedTuple(value.clone()));
+                return Err(InterpreterError::ExpectedTuple(value.clone()));
             }
         }
         Pattern::List(ref items) => {
@@ -419,7 +403,7 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                     add_pattern_values(env, patt, val.clone())?;
                 }
             } else {
-                return Err(RuntimeError::ExpectedList(value.clone()));
+                return Err(InterpreterError::ExpectedList(value.clone()));
             }
         }
         Pattern::LitInt(_) => {}
@@ -431,7 +415,7 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
             if op == "::" {
                 if let Value::List(ref vars) = &value {
                     if vars.len() == 0 {
-                        return Err(RuntimeError::ExpectedNonEmptyList(value.clone()));
+                        return Err(InterpreterError::ExpectedNonEmptyList(value.clone()));
                     }
 
                     let first = vars[0].clone();
@@ -443,10 +427,10 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                     add_pattern_values(env, a, first)?;
                     add_pattern_values(env, b, Value::List(rest))?;
                 } else {
-                    return Err(RuntimeError::ExpectedList(value.clone()));
+                    return Err(InterpreterError::ExpectedList(value.clone()));
                 }
             } else {
-                return Err(RuntimeError::UnknownOperatorPattern(op.clone()));
+                return Err(InterpreterError::UnknownOperatorPattern(op.clone()));
             }
         }
     }

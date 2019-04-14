@@ -12,6 +12,7 @@ use ast::Type;
 use errors::ElmError;
 use errors::err_list;
 use errors::LoaderError;
+use errors::Wrappable;
 use parsers::Parser;
 use Runtime;
 use source::SourceCode;
@@ -92,7 +93,7 @@ impl ModuleLoader {
         }
 
         let sorted = sort_dependencies(graph)
-            .map_err(|e| ElmError::Loader { info: LoaderError::CyclicDependency { cycle: e } })?;
+            .map_err(|e| LoaderError::CyclicDependency { cycle: e }.wrap())?;
 
         for name in sorted {
             let (source, ast) = data.remove(&name).unwrap();
@@ -117,7 +118,7 @@ impl ModuleLoader {
             .collect::<Vec<String>>();
 
         if !missing_deps.is_empty() {
-            return Err(ElmError::Loader { info: LoaderError::MissingDependencies { dependencies: missing_deps } });
+            return Err(LoaderError::MissingDependencies { dependencies: missing_deps }.wrap());
         }
 
         let module = LoadedModule { src, ast, dependencies: deps };
@@ -148,7 +149,7 @@ fn load_source_file(file: &SourceFile) -> Result<Module, ElmError> {
 }
 
 fn io_error(err: Error) -> ElmError {
-    ElmError::Loader { info: LoaderError::IO { error: Arc::new(err) } }
+    LoaderError::IO { error: Arc::new(err) }.wrap()
 }
 
 fn get_all_source_files(dst: &mut Vec<SourceFile>, inner_path: &str, path: &str) -> Result<(), Error> {

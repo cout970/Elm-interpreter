@@ -215,7 +215,7 @@ impl Analyzer {
 
     pub fn analyze_expression(&mut self, expr: &Expr) -> Result<TypedExpr, ElmError> {
         self.analyze_expression_helper(None, expr)
-            .map_err(|e| ElmError::Analyser { code: self.source.clone(), info: e })
+            .map_err(|e| ElmError::Analyser(self.source.clone(), e))
     }
 
     pub fn analyze_expression_helper(&mut self, expected: Option<&Type>, expr: &Expr) -> Result<TypedExpr, TypeError> {
@@ -302,7 +302,6 @@ impl Analyzer {
 
     pub fn analyze_module(&mut self, modules: &HashMap<String, AnalyzedModule>, module: &LoadedModule)
                           -> Result<AnalyzedModule, ElmError> {
-
         let imports = if ["Basics"].contains(&module.src.name.as_str()) {
             self.analyze_module_imports(modules, &module.ast.imports)?
         } else {
@@ -313,7 +312,7 @@ impl Analyzer {
 
         let (declarations, definitions) = self.analyze_module_declarations(&module.ast.statements)
             .map_err(|list| {
-                err_list(&self.source, list, |code, info| ElmError::Analyser { code, info })
+                err_list(&self.source, list, |code, info| ElmError::Analyser(code, info))
             })?;
 
         Ok(AnalyzedModule {

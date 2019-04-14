@@ -20,12 +20,12 @@ use util::format::print_vec;
 
 #[derive(PartialEq, Clone)]
 pub enum ElmError {
-    Tokenizer { code: SourceCode, info: LexicalError },
-    Parser { code: SourceCode, info: ParseError },
-    Analyser { code: SourceCode, info: TypeError },
-    Interpreter { info: RuntimeError },
-    Interop { info: InteropError },
-    Loader { info: LoaderError },
+    Tokenizer(SourceCode, LexicalError),
+    Parser(SourceCode, ParseError),
+    Analyser(SourceCode, TypeError),
+    Interpreter(InterpreterError),
+    Interop(InteropError),
+    Loader(LoaderError),
     List(Vec<ElmError>),
 }
 
@@ -78,7 +78,7 @@ pub enum ParseError {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum RuntimeError {
+pub enum InterpreterError {
     MissingModule(Vec<String>),
     MissingDefinition(String),
     IncorrectDefType(TypeError),
@@ -131,15 +131,11 @@ pub enum LoaderError {
 }
 
 pub fn lexical_err<T>(code: &SourceCode, info: LexicalError) -> Result<T, ElmError> {
-    Err(ElmError::Tokenizer { code: code.clone(), info })
+    Err(ElmError::Tokenizer(code.clone(), info))
 }
 
 pub fn parsing_err<T>(code: &SourceCode, info: ParseError) -> Result<T, ElmError> {
-    Err(ElmError::Parser { code: code.clone(), info })
-}
-
-pub fn type_err<T>(code: &SourceCode, info: TypeError) -> ElmError {
-    ElmError::Analyser { code: code.clone(), info }
+    Err(ElmError::Parser(code.clone(), info))
 }
 
 pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Vec<T>, func: F) -> ElmError {
@@ -155,26 +151,14 @@ pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Ve
     }
 }
 
-pub fn runtime_err(info: RuntimeError) -> ElmError {
-    ElmError::Interpreter { info }
-}
-
-pub fn interop_err<T>(info: InteropError) -> Result<T, ElmError> {
-    Err(ElmError::Interop { info })
-}
-
-pub fn loader_err<T>(info: LoaderError) -> Result<T, ElmError> {
-    Err(ElmError::Loader { info })
-}
-
 pub fn format_error(error: &ElmError) -> String {
     match error {
-        ElmError::Tokenizer { code, info } => { format_lexical_error(code, info) }
-        ElmError::Parser { code, info } => { format_parse_error(code.as_str(), info) }
-        ElmError::Analyser { code, info } => { format_type_error(code.as_str(), info) }
-        ElmError::Interpreter { info } => { format_runtime_error(info) }
-        ElmError::Interop { info } => { format_interop_error(info) }
-        ElmError::Loader { info, .. } => {
+        ElmError::Tokenizer(code, info) => { format_lexical_error(code, info) }
+        ElmError::Parser(code, info) => { format_parse_error(code.as_str(), info) }
+        ElmError::Analyser(code, info) => { format_type_error(code.as_str(), info) }
+        ElmError::Interpreter(info) => { format_runtime_error(info) }
+        ElmError::Interop(info) => { format_interop_error(info) }
+        ElmError::Loader(info) => {
             format!("{:?}", info)
         }
         ElmError::List(list) => {
@@ -295,36 +279,36 @@ pub fn format_type_error(code: &str, error: &TypeError) -> String {
     msg
 }
 
-pub fn format_runtime_error(error: &RuntimeError) -> String {
+pub fn format_runtime_error(error: &InterpreterError) -> String {
     let mut msg = String::new();
     match error {
-        RuntimeError::MissingDefinition(name) => {
+        InterpreterError::MissingDefinition(name) => {
             write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "I cannot find a `{}` variable:\n", name).unwrap();
             write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.").unwrap();
         }
-        RuntimeError::IncorrectDefType(_) => {
+        InterpreterError::IncorrectDefType(_) => {
             // TODO
 //            return format_type_error(e);
         }
-        RuntimeError::RecordUpdateOnNonRecord(field, value) => {
+        InterpreterError::RecordUpdateOnNonRecord(field, value) => {
             write!(&mut msg, "-- TYPE MISMATCH ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a record with the field `{}` but found:\n\n{}\n\n", field, value).unwrap();
             write!(&mut msg, "Maybe you forgot some code?").unwrap();
         }
-        RuntimeError::InvalidIfCondition(value) => {
+        InterpreterError::InvalidIfCondition(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "This `if` condition does not evaluate to a boolean value, True or False.\n\n").unwrap();
             write!(&mut msg, "It is a value of type:\n\n{}\n\nBut I need this `if` condition to be a Bool value.", value).unwrap();
             write!(&mut msg, "Hint: Elm does not have “truthiness” such that ints and strings and lists are \
                               automatically converted to booleans. Do that conversion explicitly!").unwrap();
         }
-        RuntimeError::RecordFieldNotFound(field, value) => {
+        InterpreterError::RecordFieldNotFound(field, value) => {
             write!(&mut msg, "-- TYPE MISMATCH ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "This record does not have a `{}` field:\n\n{}\n\n", field, value).unwrap();
             write!(&mut msg, "This is usually a typo.").unwrap();
         }
-        RuntimeError::CaseExpressionNonExhaustive(value, branches) => {
+        InterpreterError::CaseExpressionNonExhaustive(value, branches) => {
             write!(&mut msg, "-- MISSING PATTERNS -------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "This `case` does not have branches for all possibilities:\n\n{}\n\n", value).unwrap();
             write!(&mut msg, "Is not included in the existing branches:\n\n").unwrap();
@@ -333,49 +317,49 @@ pub fn format_runtime_error(error: &RuntimeError) -> String {
                               placeholder. Read <https://elm-lang.org/0.19.0/missing-patterns> for more \
                               guidance on this workflow.").unwrap();
         }
-        RuntimeError::ExpectedRecord(value) => {
+        InterpreterError::ExpectedRecord(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a record but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedFunction(value) => {
+        InterpreterError::ExpectedFunction(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a function but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedAdt(value) => {
+        InterpreterError::ExpectedAdt(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a adt but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedTuple(value) => {
+        InterpreterError::ExpectedTuple(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a tuple but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedList(value) => {
+        InterpreterError::ExpectedList(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a list but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedFloat(value) => {
+        InterpreterError::ExpectedFloat(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a float but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedInt(value) => {
+        InterpreterError::ExpectedInt(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a int but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::ExpectedNumber(value) => {
+        InterpreterError::ExpectedNumber(value) => {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a number but found:\n\n{}\n\n", value).unwrap();
         }
-        RuntimeError::FunArgumentSizeMismatch(expected, found) => {
+        InterpreterError::FunArgumentSizeMismatch(expected, found) => {
             write!(&mut msg, "-- TOO MANY ARGS ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "The `fun` function expects {} argument, but it got {} instead.\n", expected, found).unwrap();
             write!(&mut msg, "Are there any missing commas? Or missing parentheses?").unwrap();
         }
-        RuntimeError::ExpectedNonEmptyList(value) => {
+        InterpreterError::ExpectedNonEmptyList(value) => {
             write!(&mut msg, "-- PATTERN MATCHING ERROR -------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a non empty list, but found:\n\n{}\n\n", value).unwrap();
             write!(&mut msg, "Try adding a extra branch for []").unwrap();
         }
-        RuntimeError::UnknownOperatorPattern(name) => {
+        InterpreterError::UnknownOperatorPattern(name) => {
             write!(&mut msg, "-- PARSE ERROR ------------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I cannot use the `{}` operator\n\n", name).unwrap();
             write!(&mut msg, "I was expecting:\n\n\
@@ -383,7 +367,7 @@ pub fn format_runtime_error(error: &RuntimeError) -> String {
                               - an arrow (->) followed by an expression\n\
                               - the cons operator (::) followed by more list elements\n").unwrap();
         }
-        RuntimeError::MissingExposing(name, decls) => {
+        InterpreterError::MissingExposing(name, decls) => {
             let names = decls.iter().map(|a| declaration_name(a)).collect::<Vec<&str>>();
             write!(&mut msg, "-- RUNTIME ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "Unable to expose '{}', available names: \n\n{:?}\n\n", name, names).unwrap();
@@ -497,5 +481,35 @@ impl PartialEq for LoaderError {
                 if let LoaderError::MissingModule { module: other } = other { this == other } else { false }
             },
         }
+    }
+}
+
+pub trait Wrappable {
+    type Wrapper;
+
+    fn wrap(self) -> Self::Wrapper;
+}
+
+impl Wrappable for InterpreterError {
+    type Wrapper = ElmError;
+
+    fn wrap(self) -> ElmError {
+        ElmError::Interpreter(self)
+    }
+}
+
+impl Wrappable for InteropError {
+    type Wrapper = ElmError;
+
+    fn wrap(self) -> ElmError {
+        ElmError::Interop(self)
+    }
+}
+
+impl Wrappable for LoaderError {
+    type Wrapper = ElmError;
+
+    fn wrap(self) -> ElmError {
+        ElmError::Loader(self)
     }
 }

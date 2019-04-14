@@ -274,7 +274,7 @@ pub mod test_utils {
                 println!("Value: {:?}\n", res);
             }
             Err(error) => {
-                println!("Error: {}\n", ElmError::Parser { code: SourceCode::from_str(code), info: error });
+                println!("Error: {}\n", ElmError::Parser(SourceCode::from_str(code), error));
                 panic!();
             }
         }
@@ -290,7 +290,7 @@ pub mod test_utils {
                 assert_eq!(value, res);
             }
             Err(error) => {
-                println!("Error: {}\n", ElmError::Parser { code: SourceCode::from_str(code), info: error });
+                println!("Error: {}\n", ElmError::Parser(SourceCode::from_str(code), error));
                 panic!();
             }
         }
@@ -306,7 +306,7 @@ pub mod test_utils {
                 panic!();
             }
             Err(error) => {
-                println!("Error: {}\n", ElmError::Parser { code: SourceCode::from_str(code), info: error });
+                println!("Error: {}\n", ElmError::Parser(SourceCode::from_str(code), error));
             }
         }
     }

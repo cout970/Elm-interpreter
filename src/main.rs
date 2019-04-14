@@ -42,7 +42,7 @@ fn repl() {
                 }
             }
             Err(e) => {
-                if let ElmError::Parser { .. } = e {
+                if let ElmError::Parser(..) = e {
                     let result = engine.eval_expr(&line);
 
                     match result {

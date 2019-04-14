@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use ast::Float;
 use ast::Int;
 use errors::ElmError;
-use errors::RuntimeError;
+use errors::InterpreterError;
+use errors::Wrappable;
 use types::Value;
 
 pub fn float_of(value: &Value) -> Result<f32, ElmError> {
@@ -12,7 +13,7 @@ pub fn float_of(value: &Value) -> Result<f32, ElmError> {
         Value::Number(a) => Ok(*a as f32),
         Value::Float(a) => Ok(*a),
         _ => {
-            Err(ElmError::Interpreter { info: RuntimeError::ExpectedFloat(value.clone()) })
+            Err(InterpreterError::ExpectedFloat(value.clone()).wrap())
         }
     }
 }
@@ -22,7 +23,7 @@ pub fn int_of(value: &Value) -> Result<i32, ElmError> {
         Value::Number(a) => Ok(*a),
         Value::Int(a) => Ok(*a),
         _ => {
-            Err(ElmError::Interpreter { info: RuntimeError::ExpectedInt(value.clone()) })
+            Err(InterpreterError::ExpectedInt(value.clone()).wrap())
         }
     }
 }
@@ -31,7 +32,7 @@ pub fn char_of(value: &Value) -> Result<char, ElmError> {
     match value {
         Value::Char(a) => Ok(*a),
         _ => {
-            Err(ElmError::Interpreter { info: RuntimeError::ExpectedInt(value.clone()) })
+            Err(InterpreterError::ExpectedInt(value.clone()).wrap())
         }
     }
 }
@@ -40,7 +41,7 @@ pub fn string_of(value: &Value) -> Result<String, ElmError> {
     match value {
         Value::String(string) => Ok(string.clone()),
         _ => {
-            Err(ElmError::Interpreter { info: RuntimeError::ExpectedString(value.clone()) })
+            Err(InterpreterError::ExpectedString(value.clone()).wrap())
         }
     }
 }
@@ -49,7 +50,7 @@ pub fn list_of(value: &Value) -> Result<&[Value], ElmError> {
     match value {
         Value::List(vec) => Ok(vec.as_slice()),
         _ => {
-            Err(ElmError::Interpreter { info: RuntimeError::ExpectedList(value.clone()) })
+            Err(InterpreterError::ExpectedList(value.clone()).wrap())
         }
     }
 }
@@ -58,7 +59,7 @@ pub fn bool_of(value: &Value) -> Result<bool, ElmError> {
     match value {
         Value::Adt(name, _, _) => Ok(name == "True"),
         _ => {
-            Err(ElmError::Interpreter { info: RuntimeError::ExpectedBoolean(value.clone()) })
+            Err(InterpreterError::ExpectedBoolean(value.clone()).wrap())
         }
     }
 }
@@ -237,7 +238,7 @@ pub fn number_op<F: FnOnce(f32, f32) -> f32>(val_a: &Value, val_b: &Value, op: F
             *a
         }
         _ => {
-            return Err(ElmError::Interpreter { info: RuntimeError::ExpectedNumber(val_a.clone()) });
+            return Err(InterpreterError::ExpectedNumber(val_a.clone()).wrap());
         }
     };
 
@@ -255,7 +256,7 @@ pub fn number_op<F: FnOnce(f32, f32) -> f32>(val_a: &Value, val_b: &Value, op: F
             *a
         }
         _ => {
-            return Err(ElmError::Interpreter { info: RuntimeError::ExpectedNumber(val_a.clone()) });
+            return Err(InterpreterError::ExpectedNumber(val_a.clone()).wrap());
         }
     };
 
@@ -290,14 +291,14 @@ fn merge(a: NumberState, b: NumberState, value: &Value) -> Result<NumberState, E
             if b == NumberState::Int || b == NumberState::Number {
                 Ok(a)
             } else {
-                Err(ElmError::Interpreter { info: RuntimeError::ExpectedInt(value.clone()) })
+                Err(InterpreterError::ExpectedInt(value.clone()).wrap())
             }
         }
         NumberState::Float => {
             if b == NumberState::Float || b == NumberState::Number {
                 Ok(a)
             } else {
-                Err(ElmError::Interpreter { info: RuntimeError::ExpectedFloat(value.clone()) })
+                Err(InterpreterError::ExpectedFloat(value.clone()).wrap())
             }
         }
     }

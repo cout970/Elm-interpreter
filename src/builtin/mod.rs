@@ -16,7 +16,8 @@ use builtin::string::get_string_funs;
 use builtin::utils::get_utils_funs;
 use constructors::type_of;
 use errors::ElmError;
-use errors::RuntimeError;
+use errors::InterpreterError;
+use errors::Wrappable;
 use interpreter::Interpreter;
 use loader::AnalyzedModule;
 use loader::Declaration;
@@ -89,20 +90,14 @@ pub fn builtin_record_access() -> ExternalFunc {
                     match opt {
                         Some(val) => Ok(val.clone()),
                         None => {
-                            Err(ElmError::Interpreter {
-                                info: RuntimeError::RecordFieldNotFound(field.clone(), args[0].clone())
-                            })
+                            Err(InterpreterError::RecordFieldNotFound(field.clone(), args[0].clone()).wrap())
                         }
                     }
                 } else {
-                    Err(ElmError::Interpreter {
-                        info: RuntimeError::InternalErrorRecordAccess(args[1].clone())
-                    })
+                    Err(InterpreterError::InternalErrorRecordAccess(args[1].clone()).wrap())
                 }
             }
-            _ => Err(ElmError::Interpreter {
-                info: RuntimeError::ExpectedRecord(args[0].clone())
-            })
+            _ => Err(InterpreterError::ExpectedRecord(args[0].clone()).wrap())
         }
     };
 

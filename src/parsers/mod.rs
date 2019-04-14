@@ -28,7 +28,7 @@ impl Parser {
         let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&expression::parse_expr, input)
-            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+            .map_err(|e| ElmError::Parser(self.code.clone(), e))
     }
 
     /// Generates an abstract syntax tree from an elm statement
@@ -36,7 +36,7 @@ impl Parser {
         let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&statement::parse_statement, input)
-            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+            .map_err(|e| ElmError::Parser(self.code.clone(), e))
     }
 
     /// Generates an abstract syntax tree from an elm module
@@ -44,7 +44,7 @@ impl Parser {
         let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&module::parse_module, input)
-            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+            .map_err(|e| ElmError::Parser(self.code.clone(), e))
     }
 
     /// Generates an abstract syntax tree from an elm type definition
@@ -52,7 +52,7 @@ impl Parser {
         let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&types::parse_type, input)
-            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+            .map_err(|e| ElmError::Parser(self.code.clone(), e))
     }
 
     /// Generates an abstract syntax tree from an elm pattern
@@ -60,7 +60,7 @@ impl Parser {
         let input = Input::new(self.code.clone(), self.tokenizer.tokenize()?);
 
         complete(&pattern::parse_pattern, input)
-            .map_err(|e| ElmError::Parser { code: self.code.clone(), info: e })
+            .map_err(|e| ElmError::Parser(self.code.clone(), e))
     }
 }
 

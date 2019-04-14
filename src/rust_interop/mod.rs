@@ -35,7 +35,7 @@ pub fn call_function(this: &WrapperFunc, i: &mut Interpreter, args: &Vec<Value>)
 
     for arg in args {
         let value = convert_to_rust(arg)
-            .ok_or_else(|| runtime_err(RuntimeError::ImpossibleConversion))?;
+            .ok_or_else(|| InterpreterError::ImpossibleConversion.wrap())?;
 
         rust_values.push(value);
     }
@@ -50,7 +50,7 @@ pub fn call_function(this: &WrapperFunc, i: &mut Interpreter, args: &Vec<Value>)
     match result {
         Ok(boxed) => {
             convert_from_rust(&*boxed)
-                .ok_or_else(|| runtime_err(RuntimeError::ImpossibleConversion))
+                .ok_or_else(|| InterpreterError::ImpossibleConversion.wrap())
         }
         Err(e) => Err(e)
     }
@@ -60,7 +60,7 @@ impl FunctionRegister for Runtime {
     fn register_fn_raw(&mut self, name: String, args: Vec<TypeId>, ret: TypeId, boxed: Box<FnAny>) -> Result<(), ElmError> {
         let len = args.len() as u32;
         let ty = type_from_ids(args, ret)
-            .map_err(|e| ElmError::Interop { info: e })?;
+            .map_err(|e| e.wrap())?;
 
         let function = Arc::new(Function::Wrapper(
             next_fun_id(),
@@ -150,7 +150,7 @@ mod tests {
     fn test_register_invalid_function() {
         let mut i = Runtime::new();
         let result = i.register_fn("test_function2", test_function2);
-        assert_eq!(result, Err(ElmError::Interop { info: InteropError::FunRegistrationUnknownTypeArg(0) }));
+        assert_eq!(result, Err(InteropError::FunRegistrationUnknownTypeArg(0).wrap()));
     }
 
     fn test_function(a: i32) -> i32 { a }

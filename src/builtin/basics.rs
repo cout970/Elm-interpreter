@@ -9,7 +9,8 @@ use ast::Type;
 use builtin::func_of;
 use constructors::*;
 use errors::ElmError;
-use errors::RuntimeError;
+use errors::InterpreterError;
+use errors::Wrappable;
 use interpreter::Interpreter;
 use rust_interop::conversions::bool_of;
 use rust_interop::conversions::float_of;
@@ -81,7 +82,7 @@ fn unary_minus(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
         Value::Number(a) => Ok(Value::Number(-*a)),
         Value::Int(a) => Ok(Value::Int(-*a)),
         Value::Float(a) => Ok(Value::Float(-*a)),
-        _ => Err(ElmError::Interpreter { info: RuntimeError::ExpectedNumber(args[0].clone()) })
+        _ => Err(InterpreterError::ExpectedNumber(args[0].clone()).wrap())
     }
 }
 

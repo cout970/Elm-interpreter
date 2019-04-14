@@ -18,6 +18,7 @@ use builtin::get_core_kernel_modules;
 use errors::ElmError;
 use errors::LoaderError;
 use errors::TypeError::InternalError;
+use errors::Wrappable;
 use interpreter::dynamic_env::RuntimeStack;
 use interpreter::Interpreter;
 use loader::AnalyzedModule;
@@ -180,7 +181,7 @@ impl Runtime {
 
     fn load_analyzed_module(&mut self, module_name: &str) -> Result<(), ElmError> {
         let dependencies = self.loaded_modules.get(module_name)
-            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?
+            .ok_or_else(|| LoaderError::MissingModule { module: module_name.to_string() }.wrap())?
             .dependencies.clone();
 
         // Load dependencies
@@ -192,7 +193,7 @@ impl Runtime {
 
         eprintln!("Analyzing {}", module_name);
         let module = self.loaded_modules.get(module_name)
-            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?;
+            .ok_or_else(|| LoaderError::MissingModule { module: module_name.to_string() }.wrap())?;
 
 
         // Analyze module
@@ -205,7 +206,7 @@ impl Runtime {
 
     fn load_runtime_module(&mut self, module_name: &str) -> Result<(), ElmError> {
         let dependencies = self.analyzed_modules.get(module_name)
-            .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?
+            .ok_or_else(|| LoaderError::MissingModule { module: module_name.to_string() }.wrap())?
             .dependencies.clone();
 
         // Load dependencies
@@ -219,7 +220,7 @@ impl Runtime {
         let mut interpreter = Interpreter::new();
         let runtime_module = {
             let module = self.analyzed_modules.get(module_name)
-                .ok_or_else(|| ElmError::Loader { info: LoaderError::MissingModule { module: module_name.to_string() } })?;
+                .ok_or_else(|| LoaderError::MissingModule { module: module_name.to_string() }.wrap())?;
 
             interpreter.eval_module(&self.runtime_modules, module)?
         };

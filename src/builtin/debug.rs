@@ -2,7 +2,8 @@ use ast::Type;
 use builtin::func_of;
 use constructors::*;
 use errors::ElmError;
-use errors::RuntimeError;
+use errors::InterpreterError;
+use errors::Wrappable;
 use interpreter::Interpreter;
 use rust_interop::conversions::string_of;
 use types::Value;
@@ -28,7 +29,5 @@ fn log(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
 fn todo(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = string_of(&args[0])?;
 
-    Err(ElmError::Interpreter {
-        info: RuntimeError::FunctionTODO(string)
-    })
+    Err(InterpreterError::FunctionTODO(string).wrap())
 }
