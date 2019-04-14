@@ -155,7 +155,7 @@ impl Analyzer {
 
     pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<(Vec<Declaration>, Vec<TypedDefinition>), Vec<TypeError>> {
         let statements = sort_statements(statements)
-            .map_err(|e| vec![TypeError::CyclicStatementDependency(e)])?;
+            .map_err(|cycle| vec![TypeError::CyclicStatementDependency { cycle }])?;
 
         let mut declarations = vec![];
         let mut definitions = vec![];

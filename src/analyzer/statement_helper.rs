@@ -28,7 +28,7 @@ impl Analyzer {
                 .map(|t| t.clone())
                 .collect::<Vec<String>>();
 
-            return Err(TypeError::UnusedTypeVariables(unused_vars));
+            return Err(TypeError::UnusedTypeVariables { name: name.to_string(), values: unused_vars });
         }
 
         if used_vars.len() > decl_vars.len() {
@@ -37,7 +37,7 @@ impl Analyzer {
                 .map(|t| t.clone())
                 .collect::<Vec<String>>();
 
-            return Err(TypeError::UndeclaredTypeVariables(unknown_vars));
+            return Err(TypeError::UndeclaredTypeVariables { name: name.to_string(), values: unknown_vars });
         }
 
 
@@ -136,7 +136,7 @@ mod tests {
         let mut analyzer = Analyzer::new(SourceCode::from_str("typealias A = a"));
         assert_eq!(
             analyzer.analyze_statement_typealias("A", &vec![], &ty),
-            Err(TypeError::UndeclaredTypeVariables(vec!["a".s()]))
+            Err(TypeError::UndeclaredTypeVariables { name: "A".to_string(), values: vec!["a".s()] })
         );
     }
 
@@ -146,7 +146,7 @@ mod tests {
         let mut analyzer = Analyzer::new(SourceCode::from_str("typealias A a b = a"));
         assert_eq!(
             analyzer.analyze_statement_typealias("A", &vec!["a".s(), "b".s()], &ty),
-            Err(TypeError::UnusedTypeVariables(vec!["b".s()]))
+            Err(TypeError::UnusedTypeVariables { name: "A".to_string(), values: vec!["b".s()] })
         );
     }
 }

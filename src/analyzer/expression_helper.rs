@@ -1,9 +1,9 @@
+use core::borrow::Borrow;
 use std::collections::HashMap;
 
 use analyzer::Analyzer;
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
-use analyzer::PatternMatchingError;
 use analyzer::type_helper::calculate_common_type;
 use analyzer::type_helper::get_common_type;
 use analyzer::type_helper::is_assignable;
@@ -16,6 +16,7 @@ use analyzer::type_inference::type_inference_type_from_expected;
 use ast::*;
 use ast;
 use constructors::*;
+use errors::PatternMatchingError;
 use errors::TypeError;
 use typed_ast::expr_type;
 use typed_ast::LetEntry;
@@ -41,9 +42,11 @@ impl Analyzer {
             // Float
 
             if !is_assignable(&argument, &expr_type(&input)) {
-                return Err(TypeError::ArgumentsDoNotMatch(
-                    span(arg), format!("Expected argument: {}, found: {}", argument, input),
-                ));
+                return Err(TypeError::ArgumentsDoNotMatch {
+                    span: span(arg),
+                    expected: argument.as_ref().clone(),
+                    found: expr_type(&input).clone(),
+                });
             }
 
             let mut vars: HashMap<String, Type> = HashMap::new();
@@ -58,17 +61,19 @@ impl Analyzer {
 
             Ok(TypedExpr::Application(output, Box::new(function), Box::new(input)))
         } else {
-            return Err(TypeError::NotAFunction(
-                span(app),
-                format!("Expected function found: {}, (in: {}, out: {})", function, fun, arg),
-            ));
+            return Err(TypeError::NotAFunction {
+                span: span(app),
+                function: expr_type(&function),
+                input: fun.clone(),
+                output: arg.clone(),
+            });
         }
     }
 
     pub fn analyze_expression_ref(&mut self, expected: Option<&Type>, span: Span, name: &String) -> Result<TypedExpr, TypeError> {
         let def = self.env.find_definition(name)
             .or_else(|| self.env.find_alias(name))
-            .ok_or(TypeError::MissingDefinition(span, name.to_string()))?;
+            .ok_or(TypeError::MissingDefinition { span, name: name.to_string() })?;
 
         let new_ty = if let Some(expected_ty) = expected {
             let new_ty = type_inference_type_from_expected(&mut self.env, expected_ty, &def);
@@ -93,7 +98,7 @@ impl Analyzer {
         for (name, value) in &new_vars {
             if self.env.find_definition(name).is_some() {
                 self.env.exit_block();
-                return Err(TypeError::VariableNameShadowed(span, name.clone()));
+                return Err(TypeError::VariableNameShadowed { span, name: name.clone() });
             }
 
             self.env.add_definition(name, value.clone());
@@ -124,7 +129,7 @@ impl Analyzer {
             let elem_type = expr_type(&elem);
 
             if !is_assignable(&list_type, &elem_type) {
-                return Err(TypeError::ListNotHomogeneous(span, list_type, expr_type(&elem), i as u32));
+                return Err(TypeError::ListNotHomogeneous { span, list_type, item_type: expr_type(&elem), index: i as u32 });
             }
 
             if let Type::Var(_) = list_type {
@@ -157,9 +162,9 @@ impl Analyzer {
                 LetDeclaration::Pattern(pattern, expr) => {
                     let (pat_ty, vars) = match analyze_pattern(&mut self.env, pattern) {
                         Ok(it) => it,
-                        Err(e) => {
+                        Err(info) => {
                             self.env.exit_block();
-                            return Err(TypeError::InvalidPattern(span, e));
+                            return Err(TypeError::PatternMatchingError { span, info });
                         }
                     };
 
@@ -173,7 +178,11 @@ impl Analyzer {
 
                     if !is_assignable(&pat_ty, &expr_type(&typed_expr)) {
                         self.env.exit_block();
-                        return Err(TypeError::DefinitionTypeAndReturnTypeMismatch);
+                        return Err(TypeError::DefinitionTypeAndReturnTypeMismatch {
+                            span: ast::span(expr),
+                            expected: pat_ty.clone(),
+                            found: expr_type(&typed_expr),
+                        });
                     }
 
                     for (name, ty) in vars {
@@ -275,18 +284,17 @@ impl Analyzer {
             Type::Record(fields) => {
                 for (field_name, _) in updates {
                     if !fields.iter().any(|(field, _)| field == field_name) {
-                        return Err(TypeError::RecordUpdateUnknownField(
+                        return Err(TypeError::RecordUpdateUnknownField {
                             span,
-                            format!("Field '{}' not found in record: {} of type: {}", field_name, name, ref_expr),
-                        ));
+                            field: field_name.to_string(),
+                            record_name: name.to_string(),
+                            record: ref_expr,
+                        });
                     }
                 }
             }
             _ => {
-                return Err(TypeError::RecordUpdateOnNonRecord(
-                    span,
-                    format!("Expecting record to update but found: {}", ref_expr),
-                ));
+                return Err(TypeError::RecordUpdateOnNonRecord { span, expr: ref_expr });
             }
         }
 
@@ -297,7 +305,7 @@ impl Analyzer {
         let patterns_types = branches.iter()
             .map(|(p, _)| analyze_pattern(&mut self.env, p).map(|(ty, _)| ty))
             .collect::<Result<Vec<_>, PatternMatchingError>>()
-            .map_err(|e| TypeError::InvalidPattern(span, e))?;
+            .map_err(|info| TypeError::PatternMatchingError { span, info })?;
 
         let mut patterns_types_iter = patterns_types.iter();
         let mut patterns_type = patterns_types_iter.next().unwrap();
@@ -306,10 +314,8 @@ impl Analyzer {
             match get_common_type(patterns_type, ty) {
                 Some(ty) => { patterns_type = ty; }
                 None => {
-                    return Err(TypeError::InvalidPattern(
-                        span,
-                        PatternMatchingError::ListPatternsAreNotHomogeneous(patterns_type.clone(), ty.clone()),
-                    ));
+                    let info = PatternMatchingError::ListPatternsAreNotHomogeneous(patterns_type.clone(), ty.clone());
+                    return Err(TypeError::PatternMatchingError { span, info });
                 }
             }
         }
@@ -323,7 +329,7 @@ impl Analyzer {
         let first_type = {
             // check patterns for variables
             let (_, vars) = analyze_pattern_with_type(&mut self.env, first_pattern, expr_type(&cond_type))
-                .map_err(|e| TypeError::InvalidPattern(span, e))?;
+                .map_err(|info| TypeError::PatternMatchingError { span, info })?;
 
             // add variable to the environment
             self.env.enter_block();
@@ -347,7 +353,7 @@ impl Analyzer {
         while let Some((pattern, expression)) = iter.next() {
             // check patterns for variables
             let (_, vars) = analyze_pattern_with_type(&mut self.env, pattern, expr_type(&cond_type))
-                .map_err(|e| TypeError::InvalidPattern(span, e))?;
+                .map_err(|info| TypeError::PatternMatchingError { span, info })?;
 
             // add variable to the environment
             self.env.enter_block();
@@ -364,7 +370,11 @@ impl Analyzer {
             let ret = result?;
 
             if !is_assignable(&first_type, &expr_type(&ret)) {
-                return Err(TypeError::CaseBranchDontMatchReturnType(ast::span(expression), "".to_string()));
+                return Err(TypeError::CaseBranchDontMatchReturnType {
+                    span: ast::span(expression),
+                    expected: first_type,
+                    found: expr_type(&ret),
+                });
             }
 
             branches.push((pattern.clone(), ret));
@@ -379,14 +389,16 @@ impl Analyzer {
         let false_branch = self.analyze_expression_helper(expected, b)?;
 
         if !is_assignable(&type_bool(), &expr_type(&cond)) {
-            return Err(TypeError::IfWithNonBoolCondition(span, format!("Expected Bool expression but found {}", cond)));
+            return Err(TypeError::IfWithNonBoolCondition { span, expr: cond });
         }
 
         let branches = vec![expr_type(&true_branch), expr_type(&false_branch)];
 
         match calculate_common_type(&branches) {
             Ok(ty) => Ok(TypedExpr::If(ty.clone(), Box::new(cond), Box::new(true_branch), Box::new(false_branch))),
-            Err((a, b)) => Err(TypeError::IfBranchesDoesntMatch(span, format!("True Branch: {}, False Branch: {}", a, b)))
+            Err((a, b)) => Err(
+                TypeError::IfBranchesDoesntMatch { span, true_branch, false_branch }
+            )
         }
     }
 
@@ -399,7 +411,7 @@ impl Analyzer {
                     ExprTreeError::AssociativityError => format!("Associativity error"),
                     ExprTreeError::InternalError(msg) => format!("Internal error: {}", msg),
                 };
-                Err(TypeError::InvalidOperandChain(span, msg))
+                Err(TypeError::InvalidOperandChain { span, msg })
             }
         }
     }
@@ -511,7 +523,7 @@ mod tests {
         let (expr, mut analyzer) = Test::expr_analyzer("[1, 2, 'a']");
 
         assert_eq!(analyze_expression(&mut analyzer, &expr), Err(
-            TypeError::ListNotHomogeneous(span(&expr), type_number(), type_char(), 2)
+            TypeError::ListNotHomogeneous { span: span(&expr), list_type: type_number(), item_type: type_char(), index: 2 }
         ));
     }
 
@@ -555,40 +567,5 @@ mod tests {
                 Type::Unit,
             ])
         ));
-    }
-
-    #[test]
-    fn check_record_update() {
-        let (expr, mut analyzer) = Test::expr_analyzer("{ x | a = 0 }");
-
-        // Type of x
-        let record_type = Type::Record(vec![
-            ("a".s(), Type::Var("number".s())),
-            ("b".s(), Type::Var("number".s())),
-        ]);
-
-        // Type of expr
-        let result_type = Type::RecExt("x".s(), vec![
-            ("a".s(), Type::Var("number".s()))
-        ]);
-
-        analyzer.env.add_definition("x", record_type.clone());
-
-        let result = analyze_expression(&mut analyzer, &expr);
-        assert_eq!(result, Ok(result_type));
-    }
-
-    #[test]
-    fn check_case() {
-        let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag("String".s(), vec![])));
-    }
-
-    #[test]
-    fn check_case2() {
-        let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> 1\n _ -> \"b\"");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Err(TypeError::CaseBranchDontMatchReturnType((24, 27), "".s())));
     }
 }

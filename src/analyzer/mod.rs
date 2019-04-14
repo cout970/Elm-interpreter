@@ -33,21 +33,6 @@ mod expression_helper;
 mod statement_helper;
 mod module_helper;
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum PatternMatchingError {
-    ListPatternsAreNotHomogeneous(Type, Type),
-    UnknownOperatorPattern(String),
-    UnknownAdtVariant(String),
-    ExpectedListType(Type),
-    ExpectedUnit(Type),
-    ExpectedTuple(Pattern, Type),
-    ExpectedRecord(Type),
-    ExpectedAdt(String, Type),
-    PatternNotExhaustive(Pattern),
-    InvalidRecordEntryName(String),
-    ExpectedLiteral(String, Type),
-}
-
 #[derive(Debug)]
 pub struct Analyzer {
     env: StaticEnv,
@@ -172,9 +157,10 @@ impl Analyzer {
                 let list = unpack_types(ty);
 
                 if patterns.len() > list.len() {
-                    eprintln!("patterns: {:?}", patterns);
-                    eprintln!("list: {:?}", list);
-                    return Err(TypeError::InvalidPatternAmount(list.len(), patterns.len()));
+                    return Err(TypeError::InvalidFunctionPatternAmount {
+                        expected: list.len(),
+                        found: patterns.len(),
+                    });
                 }
 
                 list.into_iter().zip(patterns).map(|(ty, pat)| (Some(ty), pat)).collect()
@@ -187,19 +173,22 @@ impl Analyzer {
         for (ty, patt) in iter {
             if !is_exhaustive(patt) {
                 // TODO
-                return Err(TypeError::InvalidPattern((0, 0), PatternMatchingError::PatternNotExhaustive(patt.clone())));
-            }
+                return Err(TypeError::PatternMatchingError {
+                    span: (0, 0),
+                    info: PatternMatchingError::PatternNotExhaustive(patt.clone()),
+                });
+            };
 
             let (ty, vars) = match ty {
                 Some(ty) => {
                     // TODO
                     analyze_pattern_with_type(&mut self.env, patt, ty)
-                        .map_err(|e| TypeError::InvalidPattern((0, 0), e))?
+                        .map_err(|info| TypeError::PatternMatchingError { span: (0, 0), info })?
                 }
                 None => {
                     //TODO
                     analyze_pattern(&mut self.env, patt)
-                        .map_err(|e| TypeError::InvalidPattern((0, 0), e))?
+                        .map_err(|info| TypeError::PatternMatchingError { span: (0, 0), info })?
                 }
             };
 

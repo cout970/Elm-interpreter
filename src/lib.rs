@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 // }
 
+extern crate core;
 extern crate nom;
 #[cfg(test)]
 #[macro_use]

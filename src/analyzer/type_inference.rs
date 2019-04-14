@@ -284,7 +284,9 @@ pub fn type_inference_rename_variables(env: &mut StaticEnv, vars: &mut HashMap<S
 #[cfg(test)]
 mod tests {
     use constructors::type_char;
+    use constructors::type_int;
     use constructors::type_number;
+    use constructors::type_string;
     use test_utils::Test;
     use util::StringConversion;
 
@@ -293,111 +295,6 @@ mod tests {
     fn analyze_expression(analyzer: &mut Analyzer, expr: &Expr) -> Result<Type, TypeError> {
         let expr = analyzer.analyze_expression_helper(None, expr)?;
         Ok(expr_type(&expr))
-    }
-
-    #[test]
-    fn check_unit() {
-        let (expr, mut analyzer) = Test::expr_analyzer("()");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Unit));
-    }
-
-    #[test]
-    fn check_literal() {
-        let (expr, mut analyzer) = Test::expr_analyzer("123");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Var("number".s())));
-    }
-
-    #[test]
-    fn check_fun() {
-        let (expr, mut analyzer) = Test::expr_analyzer("fun 123");
-
-        analyzer.env.add_definition("fun", Type::Fun(
-            Box::new(Type::Tag("Int".s(), vec![])),
-            Box::new(Type::Tag("Int".s(), vec![])),
-        ));
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag("Int".s(), vec![])));
-    }
-
-    #[test]
-    fn check_if() {
-        let (expr, mut analyzer) = Test::expr_analyzer("if True then 1 else 0");
-
-        analyzer.env.add_definition("True", Type::Tag("Bool".s(), vec![]));
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Var("number".s())));
-    }
-
-    #[test]
-    fn check_lambda() {
-        let (expr, mut analyzer) = Test::expr_analyzer("\\x -> 1");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Fun(
-            Box::new(Type::Var("a".s())),
-            Box::new(Type::Var("number".s())),
-        )));
-    }
-
-    #[test]
-    fn check_list() {
-        let (expr, mut analyzer) = Test::expr_analyzer("[1, 2, 3]");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag(
-            "List".s(), vec![Type::Var("number".s())],
-        )));
-    }
-
-    #[test]
-    fn check_bad_list() {
-        let (expr, mut analyzer) = Test::expr_analyzer("[1, 2, 'a']");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Err(
-            TypeError::ListNotHomogeneous(span(&expr), type_number(), type_char(), 2)
-        ));
-    }
-
-    #[test]
-    fn check_record() {
-        let (expr, mut analyzer) = Test::expr_analyzer("{ a = 1, b = \"Hi\" }");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(
-            Type::Record(vec![
-                ("a".s(), Type::Var("number".s())),
-                ("b".s(), Type::Tag("String".s(), vec![])),
-            ])
-        ));
-    }
-
-    #[test]
-    fn check_operator_chain() {
-        let (expr, mut analyzer) = Test::expr_analyzer("1 + 2");
-
-        analyzer.env.add_definition("+", Type::Fun(
-            Box::new(Type::Var("number".s())),
-            Box::new(Type::Fun(
-                Box::new(Type::Var("number".s())),
-                Box::new(Type::Var("number".s())),
-            )),
-        ));
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(
-            Type::Var("number".s())
-        ));
-    }
-
-    #[test]
-    fn check_tuple() {
-        let (expr, mut analyzer) = Test::expr_analyzer("(1, \"a\", ())");
-
-        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(
-            Type::Tuple(vec![
-                Type::Var("number".s()),
-                Type::Tag("String".s(), vec![]),
-                Type::Unit,
-            ])
-        ));
     }
 
     #[test]
@@ -434,7 +331,11 @@ mod tests {
 
         assert_eq!(
             analyze_expression(&mut analyzer, &expr),
-            Err(TypeError::CaseBranchDontMatchReturnType((24, 27), "".s()))
+            Err(TypeError::CaseBranchDontMatchReturnType {
+                span: (24, 27),
+                expected: type_number(),
+                found: type_string(),
+            })
         );
     }
 }

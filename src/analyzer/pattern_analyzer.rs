@@ -1,4 +1,3 @@
-use analyzer::PatternMatchingError;
 use analyzer::static_env::StaticEnv;
 use analyzer::type_helper::calculate_common_type;
 use ast::*;
@@ -7,6 +6,7 @@ use constructors::type_int;
 use constructors::type_list;
 use constructors::type_string;
 use constructors::type_var;
+use errors::PatternMatchingError;
 use util::create_vec;
 use util::VecExt;
 

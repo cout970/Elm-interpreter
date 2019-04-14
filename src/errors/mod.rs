@@ -5,7 +5,7 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use analyzer::PatternMatchingError;
+use ast::Expr;
 use ast::Pattern;
 use ast::Span;
 use ast::Type;
@@ -14,6 +14,7 @@ use loader::declaration_name;
 use loader::SourceFile;
 use source::SourceCode;
 use tokenizer::Token;
+use typed_ast::expr_type;
 use typed_ast::TypedExpr;
 use types::Value;
 use util::expression_fold::ExprTreeError;
@@ -52,28 +53,41 @@ pub enum ParseError {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
-    MissingDefinition(Span, String),
-    ListNotHomogeneous(Span, Type, Type, u32),
-    IfWithNonBoolCondition(Span, String),
-    IfBranchesDoesntMatch(Span, String),
-    ArgumentsDoNotMatch(Span, String),
-    NotAFunction(Span, String),
-    InvalidOperandChain(Span, String),
-    RecordUpdateOnNonRecord(Span, String),
-    RecordUpdateUnknownField(Span, String),
-    CaseBranchDontMatchReturnType(Span, String),
-    DefinitionTypeAndReturnTypeMismatch,
-    InvalidPattern(Span, PatternMatchingError),
-    ConstantEvaluationError(String),
-    VariableAlreadyDeclared(String),
-    UnableToCalculateFunctionType(String),
-    VariableNameShadowed(Span, String),
-    UndeclaredTypeVariables(Vec<String>),
-    UnusedTypeVariables(Vec<String>),
-    InvalidPatternAmount(usize, usize),
-    InternalError,
-    CyclicStatementDependency(Vec<String>),
-    ExpectingRecordWithName { record: TypedExpr, name: String },
+    //@formatter:off
+    PatternMatchingError                { span: Span, info: PatternMatchingError },
+    MissingDefinition                   { span: Span, name: String },
+    ListNotHomogeneous                  { span: Span, list_type: Type, item_type: Type, index: u32 },
+    IfWithNonBoolCondition              { span: Span, expr: TypedExpr },
+    IfBranchesDoesntMatch               { span: Span, true_branch: TypedExpr, false_branch: TypedExpr },
+    ArgumentsDoNotMatch                 { span: Span, expected: Type, found: Type },
+    NotAFunction                        { span: Span, function: Type, input: Expr, output: Expr },
+    InvalidOperandChain                 { span: Span, msg: String },
+    RecordUpdateOnNonRecord             { span: Span, expr: TypedExpr },
+    RecordUpdateUnknownField            { span: Span, field: String, record_name: String, record: TypedExpr },
+    CaseBranchDontMatchReturnType       { span: Span, expected: Type, found: Type },
+    DefinitionTypeAndReturnTypeMismatch { span: Span, expected: Type, found: Type },
+    VariableNameShadowed                { span: Span, name: String },
+    UndeclaredTypeVariables             { name: String, values: Vec<String> },
+    UnusedTypeVariables                 { name: String, values: Vec<String> },
+    InvalidFunctionPatternAmount        { expected: usize, found: usize },
+    CyclicStatementDependency           { cycle: Vec<String> },
+    ExpectingRecordWithName             { record: TypedExpr, name: String },
+    //@formatter:on
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum PatternMatchingError {
+    ListPatternsAreNotHomogeneous(Type, Type),
+    UnknownOperatorPattern(String),
+    UnknownAdtVariant(String),
+    ExpectedListType(Type),
+    ExpectedUnit(Type),
+    ExpectedTuple(Pattern, Type),
+    ExpectedRecord(Type),
+    ExpectedAdt(String, Type),
+    PatternNotExhaustive(Pattern),
+    InvalidRecordEntryName(String),
+    ExpectedLiteral(String, Type),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -228,49 +242,74 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
     write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n").unwrap();
 
     match error {
-        TypeError::MissingDefinition(span, name) => {
-            let upper = name.chars().next().unwrap().is_ascii_uppercase();
-
+        TypeError::PatternMatchingError { .. } => {
+            write!(&mut msg, "{:?}", error).unwrap();
+        },
+        TypeError::MissingDefinition { span, name } => {
             write!(&mut msg, "I cannot find `{}`:\n", name).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
-        }
-        TypeError::InvalidPattern(span, pe) => {
-            write!(&mut msg, "-- PATTERN ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-            write!(&mut msg, "{:?}\n", pe).unwrap();
+        },
+        TypeError::ListNotHomogeneous { span, list_type, item_type, index } => {
+            write!(&mut msg, "Expected list of `{}`, but found item {} with type '{}'\n", list_type, index, item_type).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
-        }
-        TypeError::ArgumentsDoNotMatch(span, str) => {
-            write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-            write!(&mut msg, "{}\n", str).unwrap();
+        },
+        TypeError::IfWithNonBoolCondition { span, expr } => {
+            write!(&mut msg, "If condition must have type Bool, but it was '{}'\n", expr_type(expr)).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
-        }
-        TypeError::NotAFunction(span, str) => {
-            write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-            write!(&mut msg, "{}\n", str).unwrap();
+        },
+        TypeError::IfBranchesDoesntMatch { span, true_branch, false_branch } => {
+            write!(&mut msg, "If branch types doesn't match: \n\ntrue branch: '{}', \n\nfalse branch: '{}'\n", expr_type(true_branch), expr_type(false_branch)).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
-        }
-//        TypeError::ListNotHomogeneous(_) => {},
-//        TypeError::IfWithNonBoolCondition(_) => {},
-//        TypeError::IfBranchesDoesntMatch(_) => {},
-//        TypeError::ArgumentsDoNotMatch(_) => {},
-//        TypeError::NotAFunction(_) => {},
-//        TypeError::InvalidOperandChain(_) => {},
-//        TypeError::RecordUpdateOnNonRecord(_) => {},
-//        TypeError::RecordUpdateUnknownField(_) => {},
-//        TypeError::CaseBranchDontMatchReturnType(_) => {},
-//        TypeError::DefinitionTypeAndReturnTypeMismatch => {},
-//        TypeError::InvalidPattern(_) => {},
-//        TypeError::ConstantEvaluationError(_) => {},
-//        TypeError::VariableAlreadyDeclared(_) => {},
-//        TypeError::UnableToCalculateFunctionType(_) => {},
-//        TypeError::VariableNameShadowed(_) => {},
-//        TypeError::InternalError => {},
-
-        _ => {
-            write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
-            write!(&mut msg, "{:?}", error).unwrap();
-        }
+        },
+        TypeError::ArgumentsDoNotMatch { span, expected, found } => {
+            write!(&mut msg, "Function call with incorrect argument types: \n\nexpected: '{}', \n\n   found: '{}'\n", expected, found).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::NotAFunction { span, function, input, output } => {
+            write!(&mut msg, "Attempt to call a non-function: '{}', \n", function).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::InvalidOperandChain { span, msg: msg_ } => {
+            write!(&mut msg, "{}\n", msg_).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::RecordUpdateOnNonRecord { span, expr } => {
+            write!(&mut msg, "Trying to update record, but found '{}' instead\n", expr_type(expr)).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::RecordUpdateUnknownField { span, field, record_name, record } => {
+            write!(&mut msg, "Cannot update non-existent field '{}' in record '{}' of type '{}'\n", field, record_name, expr_type(record)).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::CaseBranchDontMatchReturnType { span, expected, found } => {
+            write!(&mut msg, "Case-of branch doesn't match expression type: \n\nexpected: '{}', \n\n   found: '{}'\n", expected, found).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::DefinitionTypeAndReturnTypeMismatch { span, expected, found } => {
+            write!(&mut msg, "Type annotation and expresion type doesn't match: \n\nexpected: '{}', \n\n   found: '{}'\n", expected, found).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::VariableNameShadowed { span, name } => {
+            write!(&mut msg, "Shadowed variable name '{}'\n", name).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::UndeclaredTypeVariables { name, values } => {
+            write!(&mut msg, "Use of undeclared variable types on typealias '{}'\nvalues: {:?}", name, values).unwrap();
+        },
+        TypeError::UnusedTypeVariables { name, values } => {
+            write!(&mut msg, "Definition of unused variable types on typealias '{}'\nvalues: {:?}", name, values).unwrap();
+        },
+        TypeError::InvalidFunctionPatternAmount { expected, found } => {
+            write!(&mut msg, "Pattern amount mismatch, expected {} but found {}", expected, found).unwrap();
+        },
+        TypeError::CyclicStatementDependency { cycle } => {
+            write!(&mut msg, "Found cyclic dependency between statements: {:?}", cycle).unwrap();
+        },
+        TypeError::ExpectingRecordWithName { record, name } => {
+            write!(&mut msg, "Expecting record with field '{}', but found '{}'", name, expr_type(record)).unwrap();
+        },
     }
+
     write!(&mut msg, "\n").unwrap();
     msg
 }
