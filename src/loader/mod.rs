@@ -25,7 +25,7 @@ use util::sort::sort_dependencies;
 #[derive(Clone, Debug)]
 pub struct ModuleLoader {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SourceFile {
     pub name: String,
     pub path: String,
@@ -78,7 +78,7 @@ impl ModuleLoader {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         let mut data: HashMap<String, (SourceFile, Module)> = HashMap::new();
 
-        get_all_source_files(&mut sources, "", path).map_err(io_error)?;
+        get_all_source_files(&mut sources, "", path)?;
 
         for src in sources {
             let ast = load_source_file(&src)?;
@@ -103,7 +103,7 @@ impl ModuleLoader {
     }
 
     pub fn include_file(run: &mut Runtime, inner_path: &str, path: &str) -> Result<(), ElmError> {
-        let source = get_source_file(inner_path, path).map_err(io_error)?;
+        let source = get_source_file(inner_path, path)?;
         let ast = load_source_file(&source)?;
         Self::include_module(run, source, ast)
     }
@@ -118,7 +118,7 @@ impl ModuleLoader {
             .collect::<Vec<String>>();
 
         if !missing_deps.is_empty() {
-            return Err(LoaderError::MissingDependencies { dependencies: missing_deps }.wrap());
+            return Err(LoaderError::MissingDependencies { dependencies: missing_deps, src: src.clone() }.wrap());
         }
 
         let module = LoadedModule { src, ast, dependencies: deps };
@@ -148,21 +148,23 @@ fn load_source_file(file: &SourceFile) -> Result<Module, ElmError> {
     Parser::new(Tokenizer::new(&file.source)).parse_module()
 }
 
-fn io_error(err: Error) -> ElmError {
-    LoaderError::IO { error: Arc::new(err) }.wrap()
-}
-
-fn get_all_source_files(dst: &mut Vec<SourceFile>, inner_path: &str, path: &str) -> Result<(), Error> {
-    let directory = fs::read_dir(path)?;
+fn get_all_source_files(dst: &mut Vec<SourceFile>, inner_path: &str, path: &str) -> Result<(), ElmError> {
+    let directory = fs::read_dir(path)
+        .map_err(|err| LoaderError::IO { error: Arc::new(err), msg: format!("read folder '{}'", path) }.wrap())?;
 
     for entry_result in directory {
-        let entry = entry_result?;
-        let file_type = entry.file_type()?;
+        let entry = entry_result
+            .map_err(|err| LoaderError::IO { error: Arc::new(err), msg: format!("read folder entry") }.wrap())?;
+
+        let file_type = entry.file_type()
+            .map_err(|err| LoaderError::IO { error: Arc::new(err), msg: format!("read file type") }.wrap())?;
+
         let file_name = entry.file_name().to_str().unwrap().to_string();
         let file_path = format!("{}/{}", path, file_name);
 
         if file_type.is_file() && file_name.ends_with(".elm") {
-            dst.push(get_source_file(inner_path, &file_path)?);
+            let file = get_source_file(inner_path, &file_path)?;
+            dst.push(file);
         } else if file_type.is_dir() {
             let inner: String = if inner_path.is_empty() {
                 file_name
@@ -176,7 +178,7 @@ fn get_all_source_files(dst: &mut Vec<SourceFile>, inner_path: &str, path: &str)
     Ok(())
 }
 
-fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, Error> {
+fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, ElmError> {
     let path = Path::new(abs_path);
     let file_name = path.file_name().unwrap().to_str().unwrap();
 
@@ -186,7 +188,8 @@ fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, Error
         format!("{}.{}", inner_path, file_name)
     };
 
-    let file_contents = fs::read(abs_path)?;
+    let file_contents = fs::read(abs_path)
+        .map_err(|err| LoaderError::IO { error: Arc::new(err), msg: format!("read file '{}'", abs_path) }.wrap())?;
 
     let loaded_module = SourceFile {
         name: module_name.trim_end_matches(".elm").to_string(),

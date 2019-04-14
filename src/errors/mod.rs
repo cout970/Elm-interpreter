@@ -11,6 +11,7 @@ use ast::Span;
 use ast::Type;
 use loader::Declaration;
 use loader::declaration_name;
+use loader::SourceFile;
 use source::SourceCode;
 use tokenizer::Token;
 use typed_ast::TypedExpr;
@@ -33,6 +34,20 @@ pub enum ElmError {
 pub enum LexicalError {
     ReachedEnd { pos: u32 },
     UnableToTokenize { span: Span },
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ParseError {
+    //@formatter:off
+    Expected                    { span: Span, expected: Token, found: Token },
+    ExpectedInt                 { span: Span, found: Token },
+    ExpectedId                  { span: Span, found: Token },
+    ExpectedUpperId             { span: Span, found: Token },
+    ExpectedBinaryOperator      { span: Span, found: Token },
+    ExpectedIndentationLevel    { span: Span, expected: u32, found: u32 },
+    ExpectedIndentation         { span: Span, found: Token },
+    UnmatchedToken              { span: Span, found: Token, options: Vec<Token> },
+    //@formatter:on
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,22 +74,6 @@ pub enum TypeError {
     InternalError,
     CyclicStatementDependency(Vec<String>),
     ExpectingRecordWithName { record: TypedExpr, name: String },
-}
-
-
-/// Enum with all possible parsing errors
-#[derive(PartialEq, Debug, Clone)]
-pub enum ParseError {
-    //@formatter:off
-    Expected                    { span: Span, expected: Token, found: Token },
-    ExpectedInt                 { span: Span, found: Token },
-    ExpectedId                  { span: Span, found: Token },
-    ExpectedUpperId             { span: Span, found: Token },
-    ExpectedBinaryOperator      { span: Span, found: Token },
-    ExpectedIndentationLevel    { span: Span, expected: u32, found: u32 },
-    ExpectedIndentation         { span: Span, found: Token },
-    UnmatchedToken              { span: Span, found: Token, options: Vec<Token> },
-    //@formatter:on
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -123,19 +122,10 @@ pub enum InteropError {
 
 #[derive(Clone, Debug)]
 pub enum LoaderError {
-    IO { error: Arc<std::io::Error> },
-    MissingDependencies { dependencies: Vec<String> },
+    IO { error: Arc<std::io::Error>, msg: String },
+    MissingDependencies { dependencies: Vec<String>, src: SourceFile },
     CyclicDependency { cycle: Vec<String> },
-    MissingImport { name: String },
     MissingModule { module: String },
-}
-
-pub fn lexical_err<T>(code: &SourceCode, info: LexicalError) -> Result<T, ElmError> {
-    Err(ElmError::Tokenizer(code.clone(), info))
-}
-
-pub fn parsing_err<T>(code: &SourceCode, info: ParseError) -> Result<T, ElmError> {
-    Err(ElmError::Parser(code.clone(), info))
 }
 
 pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Vec<T>, func: F) -> ElmError {
@@ -153,106 +143,111 @@ pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Ve
 
 pub fn format_error(error: &ElmError) -> String {
     match error {
-        ElmError::Tokenizer(code, info) => { format_lexical_error(code, info) }
-        ElmError::Parser(code, info) => { format_parse_error(code.as_str(), info) }
-        ElmError::Analyser(code, info) => { format_type_error(code.as_str(), info) }
-        ElmError::Interpreter(info) => { format_runtime_error(info) }
-        ElmError::Interop(info) => { format_interop_error(info) }
-        ElmError::Loader(info) => {
-            format!("{:?}", info)
-        }
+        ElmError::Tokenizer(code, info) => format_lexical_error(code, info),
+        ElmError::Parser(code, info) => format_parse_error(code, info),
+        ElmError::Analyser(code, info) => format_type_error(code, info),
+        ElmError::Interpreter(info) => format_runtime_error(info),
+        ElmError::Interop(info) => format_interop_error(info),
+        ElmError::Loader(info) => format_loader_error(info),
         ElmError::List(list) => {
-            list.iter()
-                .map(|li| format_error(li))
-                .fold(String::new(), |base, item| base + &item)
+            let mut msg = String::new();
+
+            for error in list {
+                msg.push_str(&format_error(error));
+            }
+
+            msg
         }
     }
 }
 
 pub fn format_lexical_error(code: &SourceCode, error: &LexicalError) -> String {
     let mut msg = String::new();
-    msg.push_str("-- TOKENIZER ERROR ------------------------------------------------------------- elm\n");
+    msg.push_str("-- LEXICAL ERROR ------------------------------------------------------------- elm\n");
 
     match error {
         LexicalError::ReachedEnd { pos } => {
             let loc = print_code_location(code.as_str(), &(*pos, *pos + 1));
-            write!(&mut msg, "Unable to read complete token: {}\n", loc).unwrap();
+            write!(&mut msg, "Unable to read complete token: {}", loc).unwrap();
         },
         LexicalError::UnableToTokenize { span } => {
             let loc = print_code_location(code.as_str(), span);
-            write!(&mut msg, "Unknown character sequence: {}\n", loc).unwrap();
+            write!(&mut msg, "Unknown character sequence: {}", loc).unwrap();
         },
     }
 
+    write!(&mut msg, "\n").unwrap();
     msg
 }
 
-pub fn format_parse_error(code: &str, error: &ParseError) -> String {
+pub fn format_parse_error(code: &SourceCode, error: &ParseError) -> String {
     let mut msg = String::new();
     msg.push_str("-- PARSE ERROR ------------------------------------------------------------- elm\n");
 
     match error {
         ParseError::Expected { span, expected, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected token '{}', but found '{}': {}\n", expected, found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected token '{}', but found '{}': {}", expected, found, loc).unwrap()
         }
         ParseError::ExpectedInt { span, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected integer, but found '{}': {}\n", found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected integer, but found '{}': {}", found, loc).unwrap()
         }
         ParseError::ExpectedId { span, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected identifier, but found '{}': {}\n", found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected identifier, but found '{}': {}", found, loc).unwrap()
         }
         ParseError::ExpectedUpperId { span, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected capitalized identifier, but found '{}': {}\n", found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected capitalized identifier, but found '{}': {}", found, loc).unwrap()
         }
         ParseError::ExpectedBinaryOperator { span, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected binary operator, but found '{}': {}\n", found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected binary operator, but found '{}': {}", found, loc).unwrap()
         }
         ParseError::UnmatchedToken { span, found, .. } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Found unexpected token '{}': {}\n", found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Found unexpected token '{}': {}", found, loc).unwrap()
         }
         ParseError::ExpectedIndentation { span, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected indentation, but found '{}': {}\n", found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected indentation, but found '{}': {}", found, loc).unwrap()
         }
         ParseError::ExpectedIndentationLevel { span, expected, found } => {
-            let loc = print_code_location(code, span);
-            write!(&mut msg, "Expected indentation of {}, but found {}: {}\n", expected, found, loc).unwrap()
+            let loc = print_code_location(code.as_str(), span);
+            write!(&mut msg, "Expected indentation of {}, but found {}: {}", expected, found, loc).unwrap()
         }
     }
+
+    write!(&mut msg, "\n").unwrap();
     msg
 }
 
-pub fn format_type_error(code: &str, error: &TypeError) -> String {
+pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
     let mut msg = String::new();
+    write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n").unwrap();
+
     match error {
         TypeError::MissingDefinition(span, name) => {
-            write!(&mut msg, "-- NAMING ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             let upper = name.chars().next().unwrap().is_ascii_uppercase();
-            let ty = if upper { "constructor" } else { "variable" };
-            write!(&mut msg, "I cannot find a `{}` {}:\n", name, ty).unwrap();
-            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
-            write!(&mut msg, "Hint: Read <https://elm-lang.org/0.19.0/imports> to see how `import` declarations work in Elm.\n").unwrap();
+
+            write!(&mut msg, "I cannot find `{}`:\n", name).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         }
         TypeError::InvalidPattern(span, pe) => {
             write!(&mut msg, "-- PATTERN ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "{:?}\n", pe).unwrap();
-            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         }
         TypeError::ArgumentsDoNotMatch(span, str) => {
             write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "{}\n", str).unwrap();
-            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         }
         TypeError::NotAFunction(span, str) => {
             write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n\n").unwrap();
             write!(&mut msg, "{}\n", str).unwrap();
-            write!(&mut msg, "{}\n\n", print_code_location(code, span)).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         }
 //        TypeError::ListNotHomogeneous(_) => {},
 //        TypeError::IfWithNonBoolCondition(_) => {},
@@ -276,6 +271,7 @@ pub fn format_type_error(code: &str, error: &TypeError) -> String {
             write!(&mut msg, "{:?}", error).unwrap();
         }
     }
+    write!(&mut msg, "\n").unwrap();
     msg
 }
 
@@ -386,11 +382,56 @@ pub fn format_runtime_error(error: &InterpreterError) -> String {
 
 pub fn format_interop_error(error: &InteropError) -> String {
     let mut msg = String::new();
-    write!(&mut msg, "-- interop ERROR ------------------------------------------------------------ elm\n\n").unwrap();
+    write!(&mut msg, "-- RUST INTEROP ERROR ------------------------------------------------------------ elm\n").unwrap();
     write!(&mut msg, "{:?}", error).unwrap();
     msg
 }
 
+pub fn format_loader_error(error: &LoaderError) -> String {
+    let mut msg = String::new();
+    write!(&mut msg, "-- MODULE LOADING ERROR ------------------------------------------------------------ elm\n").unwrap();
+
+    match error {
+        LoaderError::IO { error, msg: m, .. } => {
+            write!(&mut msg, "IO error: {} => {}", m, error).unwrap();
+        },
+        LoaderError::MissingDependencies { dependencies, src } => {
+            write!(&mut msg, "Unsatisfied dependencies for module '{}' at '{}'. \nRequired dependencies: ", src.name, src.path).unwrap();
+
+            for (i, item) in dependencies.iter().enumerate() {
+                write!(&mut msg, "{}", item).unwrap();
+
+                if i != dependencies.len() - 1 {
+                    write!(&mut msg, ", ").unwrap();
+                }
+            }
+        },
+        LoaderError::CyclicDependency { cycle } => {
+            write!(&mut msg, "Found cyclic dependencies: \n|\n|    ").unwrap();
+
+            for (i, item) in cycle.iter().enumerate() {
+                write!(&mut msg, "{}", item).unwrap();
+                write!(&mut msg, " -> ").unwrap();
+            }
+
+            write!(&mut msg, "{}\n|", &cycle[0]).unwrap();
+        },
+        LoaderError::MissingModule { module, .. } => {
+            write!(&mut msg, "Missing module '{}'", module).unwrap();
+        },
+    }
+
+    write!(&mut msg, "\n").unwrap();
+    msg
+}
+
+/// Prints a line of code and a pointer to a region in that line
+/// For example: input = "test", span = (0, 3)
+/// ```
+/// 1 │ test
+///   │ ʌʌʌ
+///   │ ┘
+/// ```
 pub fn print_code_location(input: &str, span: &Span) -> String {
     if input.is_empty() {
         return String::from("Empty");
@@ -449,6 +490,7 @@ pub fn print_code_location(input: &str, span: &Span) -> String {
     output
 }
 
+
 impl Display for ElmError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", format_error(self))
@@ -468,14 +510,11 @@ impl PartialEq for LoaderError {
                 // io:Error cannot be compared so we ignore this case
                 true
             },
-            LoaderError::MissingDependencies { dependencies: this, .. } => {
-                if let LoaderError::MissingDependencies { dependencies: other } = other { this == other } else { false }
+            LoaderError::MissingDependencies { dependencies: this, src: name0, .. } => {
+                if let LoaderError::MissingDependencies { dependencies: other, src: name1, .. } = other { this == other && name0 == name1 } else { false }
             },
             LoaderError::CyclicDependency { cycle: this, .. } => {
                 if let LoaderError::CyclicDependency { cycle: other } = other { this == other } else { false }
-            },
-            LoaderError::MissingImport { name: this, .. } => {
-                if let LoaderError::MissingImport { name: other } = other { this == other } else { false }
             },
             LoaderError::MissingModule { module: this, .. } => {
                 if let LoaderError::MissingModule { module: other } = other { this == other } else { false }
@@ -511,5 +550,79 @@ impl Wrappable for LoaderError {
 
     fn wrap(self) -> ElmError {
         ElmError::Loader(self)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn print_loader_error() {
+        eprintln!("{}", format_loader_error(&LoaderError::IO {
+            error: Arc::new(fs::read_dir("non-existent-folder").unwrap_err()),
+            msg: format!("read folder 'non-existent-folder'"),
+        }));
+        eprintln!("{}", format_loader_error(&LoaderError::MissingDependencies {
+            dependencies: vec![format!("SubModule1"), format!("SubModule2")],
+            src: SourceFile {
+                name: "Main".to_string(),
+                path: "root/Main.elm".to_string(),
+                source: SourceCode::from_str("module Main"),
+            },
+        }));
+        eprintln!("{}", format_loader_error(&LoaderError::CyclicDependency {
+            cycle: vec![format!("Main"), format!("SubModule1"), format!("SubModule2")],
+        }));
+        eprintln!("{}", format_loader_error(&LoaderError::MissingModule {
+            module: format!("Main"),
+        }));
+    }
+
+    #[test]
+    fn print_lexical_error() {
+        eprintln!("{}", format_lexical_error(
+            &SourceCode::from_str("test"),
+            &LexicalError::ReachedEnd { pos: 2 },
+        ));
+        eprintln!("{}", format_lexical_error(
+            &SourceCode::from_str("test"),
+            &LexicalError::UnableToTokenize { span: (0, 3) },
+        ));
+    }
+
+    #[test]
+    fn print_parse_error() {
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str("test"),
+            &ParseError::Expected { span: (0, 4), expected: Token::If, found: Token::Id(format!("test")) },
+        ));
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str("test"),
+            &ParseError::ExpectedInt { span: (0, 4), found: Token::Id(format!("test")) },
+        ));
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str("1"),
+            &ParseError::ExpectedId { span: (0, 1), found: Token::LitInt(1) },
+        ));
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str("test"),
+            &ParseError::ExpectedBinaryOperator { span: (0, 4), found: Token::Id(format!("test")) },
+        ));
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str(" test"),
+            &ParseError::ExpectedIndentationLevel { span: (0, 1), expected: 4, found: 1 },
+        ));
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str("test"),
+            &ParseError::ExpectedIndentation { span: (0, 4), found: Token::Id(format!("test")) },
+        ));
+        eprintln!("{}", format_parse_error(
+            &SourceCode::from_str("test"),
+            &ParseError::UnmatchedToken { span: (0, 4), found: Token::Id(format!("test")), options: vec![Token::If, Token::Let] },
+        ));
     }
 }

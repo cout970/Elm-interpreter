@@ -56,8 +56,7 @@ pub struct Analyzer {
 
 impl Analyzer {
     pub fn new(source: SourceCode) -> Self {
-        let mut env = StaticEnv::new();
-        Analyzer { env, source }
+        Analyzer { env: StaticEnv::new(), source }
     }
 
     pub fn with(&self, source: SourceCode) -> Self {

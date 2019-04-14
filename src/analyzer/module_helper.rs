@@ -57,7 +57,7 @@ impl Analyzer {
     fn analyze_import(&mut self, modules: &HashMap<String, AnalyzedModule>, module_imports: &mut Vec<ModuleImport>, import: &Import) -> Result<(), ElmError> {
         let module_name = import.path.join(".");
         let module = modules.get(&module_name)
-            .ok_or_else(|| LoaderError::MissingImport { name: module_name.clone() }.wrap())?;
+            .ok_or_else(|| LoaderError::MissingModule { module: module_name.clone() }.wrap())?;
 
         let decls = match (&import.alias, &import.exposing) {
             (None, Some(me)) => {

@@ -143,7 +143,9 @@ impl Tokenizer {
                     NomErr::Incomplete(_) => {
                         // This happens when read_token_forced reaches the end of the code
                         // trying to read a string or a large name
-                        lexical_err(&self.code, LexicalError::ReachedEnd { pos: self.pos as u32 })
+                        Err(ElmError::Tokenizer(self.code.clone(), LexicalError::ReachedEnd {
+                            pos: self.pos as u32
+                        }))
                     }
                     NomErr::Error(ctx) | NomErr::Failure(ctx) => {
                         // Some invalid character or unknown sequence of characters that we are
@@ -155,9 +157,9 @@ impl Tokenizer {
                         };
                         let new_pos = self.code.as_str().len() - input.len();
 
-                        lexical_err(&self.code, LexicalError::UnableToTokenize {
+                        Err(ElmError::Tokenizer(self.code.clone(), LexicalError::UnableToTokenize {
                             span: (start as u32, new_pos as u32)
-                        })
+                        }))
                     }
                 };
 
