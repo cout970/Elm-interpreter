@@ -20,8 +20,8 @@ pub fn get_list_funs() -> Vec<(&'static str, Type, Value)> {
         func_of("map5", "(a -> b -> c -> d -> e -> result) -> List a -> List b -> List c -> List d -> List e -> List", map5),
 //        func_of("fromArray", "Array a -> List a", func),
 //        func_of("toArray", "List a -> Array a", func),
-//        func_of("sortBy", "(a -> comparable) ->  List a -> List a", sort_by),
-//        func_of("sortWith", "(a -> a -> Order) ->  List a -> List a", sort_with),
+        func_of("sortBy", "(a -> comparable) ->  List a -> List a", sort_by),
+        func_of("sortWith", "(a -> a -> Order) ->  List a -> List a", sort_with),
     ]
 }
 
@@ -132,41 +132,66 @@ fn map5(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
 //    Ok(Value::List(result))
 //}
 
-//fn sort_by(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-//    let func = &args[0];
-//    let mut list = list_of(&args[0])?.to_vec();
-//
-//    list.sort_by(|a, b| {
-//        let cmp_a = i.apply_function(func.clone(), &[a.clone()])?;
-//        let cmp_b = i.apply_function(func.clone(), &[b.clone()])?;
-//
-//        compare_values(a, b)
-//    });
-//
-//    Ok(Value::List(list))
-//}
-//
-//fn sort_with(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
-//    let func = &args[0];
-//    let mut list = list_of(&args[0])?.to_vec();
-//    // (a -> a -> Order) ->  List a -> List a
-//
-//    list.sort_by(|a, b| {
-//        let order = i.apply_function(func.clone(), &[a.clone(), b.clone()])?;
-//
-//        if let Value::Adt(name) = &order {
-//            match name.as_str() {
-//                "GT" => Ordering::Greater,
-//                "LT" => Ordering::Less,
-//                "EQ" => Ordering::Equal,
-//                _ => {
-//                    return Err(ElmError::Interpreter { info: RuntimeError::ExpectedAdt(order.clone()) });
-//                }
-//            }
-//        } else {
-//            return Err(ElmError::Interpreter { info: RuntimeError::ExpectedAdt(order.clone()) });
-//        }
-//    });
-//
-//    Ok(Value::List(list))
-//}
+fn sort_by(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let func = &args[0];
+    let mut list = list_of(&args[0])?.to_vec();
+    let mut errors = vec![];
+
+    list.sort_by(|a, b| {
+        let cmp_a = i.apply_function(func.clone(), &[a.clone()]);
+        let cmp_b = i.apply_function(func.clone(), &[b.clone()]);
+
+        match (cmp_a, cmp_b) {
+            (Ok(a), Ok(b)) => compare_values(&a, &b),
+            (Err(e), _) | (_, Err(e)) => {
+                errors.push(e);
+                Ordering::Equal
+            }
+        }
+    });
+
+    if !errors.is_empty() {
+        Err(ElmError::List(errors))
+    } else {
+        Ok(Value::List(list))
+    }
+}
+
+fn sort_with(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    let func = &args[0];
+    let mut list = list_of(&args[0])?.to_vec();
+    let mut errors = vec![];
+    // (a -> a -> Order) ->  List a -> List a
+
+    list.sort_by(|a, b| {
+        let order = i.apply_function(func.clone(), &[a.clone(), b.clone()]);
+
+        match order {
+            Ok(Value::Adt(name, args, adt)) => {
+                match name.as_str() {
+                    "GT" => Ordering::Greater,
+                    "LT" => Ordering::Less,
+                    "EQ" => Ordering::Equal,
+                    _ => {
+                        errors.push(InterpreterError::ExpectedAdt(Value::Adt(name, args, adt)).wrap());
+                        Ordering::Equal
+                    }
+                }
+            },
+            Ok(value) => {
+                errors.push(InterpreterError::ExpectedAdt(value).wrap());
+                Ordering::Equal
+            },
+            Err(e) => {
+                errors.push(e);
+                Ordering::Equal
+            },
+        }
+    });
+
+    if !errors.is_empty() {
+        Err(ElmError::List(errors))
+    } else {
+        Ok(Value::List(list))
+    }
+}
