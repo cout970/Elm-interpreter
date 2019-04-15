@@ -84,14 +84,7 @@ pub fn builtin_string_append(_: &mut Runtime, args: &Vec<Value>) -> Result<Value
     Ok(Value::String(format!("{}{}", string_of(&args[0])?, string_of(&args[1])?)))
 }
 
-// (<<) << (<<)
-
 // Utility functions
-
-fn apply(_func: Value, _arg: Value) -> Result<Value, RuntimeError> {
-    //TODO use a Value::Fun
-    unimplemented!()
-}
 
 fn float_of(value: &Value) -> Result<f32, RuntimeError> {
     match value {

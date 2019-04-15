@@ -51,22 +51,26 @@ impl Interpreter {
         let mut definitions = HashMap::new();
 
         for (name, value) in old_definitions.into_iter() {
-            let opt = if let Value::Fun { arg_count, fun, .. } = &value {
-                if *arg_count == 0 {
-                    Some(self.exec_fun(fun.borrow(), vec![])?)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            let new_value = opt.unwrap_or(value);
+            let new_value = self.eval_const(value)?;
 
             definitions.insert(name, new_value);
         }
 
         Ok(RuntimeModule { name, definitions, imports })
+    }
+
+    fn eval_const(&mut self, value: Value) -> Result<Value, ElmError> {
+        let opt = if let Value::Fun { arg_count, fun, .. } = &value {
+            if *arg_count == 0 {
+                Some(self.exec_fun(fun.borrow(), vec![])?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(opt.unwrap_or(value))
     }
 
     pub fn eval_module(&mut self, modules: &HashMap<String, RuntimeModule>, module: &AnalyzedModule) -> Result<RuntimeModule, ElmError> {
@@ -86,10 +90,7 @@ impl Interpreter {
         };
 
         for def in &module.definitions {
-            let name = def.name.clone();
-            let value = Self::create_function_closure(&mut self.stack, def);
-
-            self.stack.add(&name, value.clone());
+            let (name, value) = self.eval_definition(def);
             definitions.insert(name, value);
         }
 
@@ -98,6 +99,27 @@ impl Interpreter {
             definitions,
             imports: module.imports.clone(),
         })
+    }
+
+    pub fn eval_declaration(&mut self, decl: &Declaration) -> Result<Option<Value>, ElmError> {
+        if let Declaration::Definition(_, def) = decl {
+            let (name, value) = self.eval_definition(def);
+            let value = self.eval_const(value)?;
+
+            self.stack.add(&name, value.clone());
+            Ok(Some(value))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn eval_definition(&mut self, def: &TypedDefinition) -> (String, Value) {
+        let name = def.name.clone();
+        let value = Self::create_function_closure(&mut self.stack, def);
+
+        self.stack.add(&name, value.clone());
+
+        (name, value)
     }
 
     pub fn eval_expr(&mut self, expr: &TypedExpr) -> Result<Value, ElmError> {

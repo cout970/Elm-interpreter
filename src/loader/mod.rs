@@ -17,6 +17,7 @@ use parsers::Parser;
 use Runtime;
 use source::SourceCode;
 use tokenizer::Tokenizer;
+use typed_ast::expr_type;
 use typed_ast::TypedDefinition;
 use types::Adt;
 use types::Value;
@@ -135,6 +136,16 @@ pub fn declaration_name(decl: &Declaration) -> &str {
         Declaration::Alias(name, _) => name,
         Declaration::Adt(name, _) => name,
         Declaration::Infix(name, _) => name,
+    }
+}
+
+pub fn declaration_type(decl: &Declaration) -> Option<&Type> {
+    match decl {
+        Declaration::Port(_, ty) => Some(ty),
+        Declaration::Definition(_, ty) => Some(&ty.header),
+        Declaration::Alias(_, _) => None,
+        Declaration::Adt(_, _) => None,
+        Declaration::Infix(_, _) => None,
     }
 }
 

@@ -54,101 +54,91 @@ impl Analyzer {
         Ok(module_imports)
     }
 
+    fn import_qualified(&mut self, module_name: &str, alias: &str, module: &AnalyzedModule, result: &mut Vec<ModuleImport>) {
+        for decl in &module.all_declarations {
+            self.import_declaration(decl, module_name, alias, result);
+        }
+    }
+
+    fn import_exposed(&mut self, module_name: &str, module: &AnalyzedModule, exposing: &ModuleExposing, result: &mut Vec<ModuleImport>) -> Result<(), ElmError> {
+        let decls = match exposing {
+            ModuleExposing::Just(exp) => {
+                Self::get_exposed_decls(&module.all_declarations, exp).map_err(Wrappable::wrap)?
+            }
+            ModuleExposing::All => {
+                module.all_declarations.clone()
+            }
+        };
+
+        for decl in &module.all_declarations {
+            self.import_declaration(decl, module_name, "", result);
+        }
+
+        Ok(())
+    }
+
+    fn import_declaration(&mut self, decl: &Declaration, module_name: &str, alias: &str, result: &mut Vec<ModuleImport>) {
+        let aliased_name = if alias.is_empty() {
+            declaration_name(decl).to_string()
+        } else {
+            format!("{}.{}", alias, declaration_name(decl))
+        };
+
+        match decl {
+            Declaration::Port(name, ty) => {
+                result.push(ModuleImport {
+                    source: module_name.to_string(),
+                    source_name: name.clone(),
+                    destine_name: aliased_name.clone(),
+                });
+                self.env.add_definition(&aliased_name, ty.clone());
+
+                result.push(ModuleImport {
+                    source: module_name.to_string(),
+                    source_name: name.clone(),
+                    destine_name: name.clone(),
+                });
+                self.env.add_definition(name, ty.clone());
+            }
+            Declaration::Definition(name, def) => {
+                result.push(ModuleImport {
+                    source: module_name.to_string(),
+                    source_name: name.clone(),
+                    destine_name: aliased_name.clone(),
+                });
+                self.env.add_definition(&aliased_name, def.header.clone());
+
+                result.push(ModuleImport {
+                    source: module_name.to_string(),
+                    source_name: name.clone(),
+                    destine_name: name.clone(),
+                });
+                self.env.add_definition(name, def.header.clone());
+            }
+            Declaration::Alias(name, ty) => {
+                self.env.add_alias(&aliased_name, ty.clone())
+            }
+            Declaration::Adt(name, adt) => {
+                self.env.add_adt(&aliased_name, adt.clone())
+            }
+            Declaration::Infix(_, _) => {
+                // Ignore
+            }
+        }
+    }
+
     fn analyze_import(&mut self, modules: &HashMap<String, AnalyzedModule>, module_imports: &mut Vec<ModuleImport>, import: &Import) -> Result<(), ElmError> {
         let module_name = import.path.join(".");
         let module = modules.get(&module_name)
             .ok_or_else(|| LoaderError::MissingModule { module: module_name.clone() }.wrap())?;
 
-        let decls = match (&import.alias, &import.exposing) {
-            (None, Some(me)) => {
-                let decls = match me {
-                    ModuleExposing::Just(exp) => {
-                        Self::get_exposed_decls(&module.all_declarations, exp)
-                            .map_err(|e| e.wrap())?
-                    }
-                    ModuleExposing::All => {
-                        module.all_declarations.clone()
-                    }
-                };
+        let alias = import.alias.as_ref().unwrap_or(&module_name);
 
-                for decl in &decls {
-                    match decl {
-                        Declaration::Port(name, ty) => {
-                            module_imports.push(ModuleImport {
-                                source: module_name.clone(),
-                                source_name: name.clone(),
-                                destine_name: name.clone(),
-                            });
-                            self.env.add_definition(name, ty.clone())
-                        }
-                        Declaration::Definition(name, def) => {
-                            module_imports.push(ModuleImport {
-                                source: module_name.clone(),
-                                source_name: name.clone(),
-                                destine_name: name.clone(),
-                            });
-                            self.env.add_definition(name, def.header.clone())
-                        }
-                        Declaration::Alias(name, ty) => self.env.add_alias(name, ty.clone()),
-                        Declaration::Adt(name, adt) => self.env.add_adt(name, adt.clone()),
-                        Declaration::Infix(_, _) => {}
-                    }
-                }
-            }
-            (Some(_), None) => {
-                // TODO alias import
-                // @HERE@
-                unimplemented!()
-            }
-            (None, None) => {
-                for decl in &module.all_declarations {
-                    match decl {
-                        Declaration::Port(name, ty) => {
-                            let aliased_name = format!("{}.{}", module.name, name);
-                            module_imports.push(ModuleImport {
-                                source: module_name.clone(),
-                                source_name: name.clone(),
-                                destine_name: aliased_name.clone(),
-                            });
-                            self.env.add_definition(&aliased_name, ty.clone());
-                            module_imports.push(ModuleImport {
-                                source: module_name.clone(),
-                                source_name: name.clone(),
-                                destine_name: name.clone(),
-                            });
-                            self.env.add_definition(name, ty.clone());
-                        }
-                        Declaration::Definition(name, def) => {
-                            let aliased_name = format!("{}.{}", module.name, name);
-                            module_imports.push(ModuleImport {
-                                source: module_name.clone(),
-                                source_name: name.clone(),
-                                destine_name: aliased_name.clone(),
-                            });
-                            self.env.add_definition(&aliased_name, def.header.clone());
-                            module_imports.push(ModuleImport {
-                                source: module_name.clone(),
-                                source_name: name.clone(),
-                                destine_name: name.clone(),
-                            });
-                            self.env.add_definition(name, def.header.clone());
-                        }
-                        Declaration::Alias(name, ty) => {
-                            let aliased_name = format!("{}.{}", module.name, name);
-                            self.env.add_alias(&aliased_name, ty.clone())
-                        }
-                        Declaration::Adt(name, adt) => {
-                            let aliased_name = format!("{}.{}", module.name, name);
-                            self.env.add_adt(&aliased_name, adt.clone())
-                        }
-                        Declaration::Infix(_, _) => {}
-                    }
-                }
-            }
-            _ => {
-                panic!("Invalid combination of alias and exposing for import: {:?}", import)
-            }
-        };
+        self.import_qualified(&module_name, alias, module, module_imports);
+
+        if let Some(exposing) = &import.exposing {
+            self.import_exposed(&module_name, module, exposing, module_imports)?;
+        }
 
         Ok(())
     }

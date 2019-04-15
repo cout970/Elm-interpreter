@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
+use std::fmt::Write;
 
 use analyzer::static_env::StaticEnv;
 use ast::Type;
@@ -51,5 +52,18 @@ impl RuntimeStack {
 
     pub fn exit_block(&mut self) {
         self.frames.pop().expect("Tried to pop all the stack frames!");
+    }
+
+    pub fn debug(&self) -> String {
+        let mut msg = String::new();
+
+        for (i, frame) in self.frames.iter().enumerate() {
+            writeln!(&mut msg, "Frame #{}", i).unwrap();
+            for (name, value) in &frame.values {
+                writeln!(&mut msg, "  {} = {}", name, value).unwrap();
+            }
+        }
+
+        msg
     }
 }

@@ -239,16 +239,19 @@ impl Analyzer {
 
         match &record {
             TypedExpr::Record(_, fields) => {
-                if !fields.iter().any(|(f_name, _)| f_name == name) {
-                    return Err(TypeError::ExpectingRecordWithName { record: record.clone(), name: name.clone() });
+                match fields.iter().find(|(f_name, _)| f_name == name) {
+                    Some((_, expr)) => {
+                        Ok(TypedExpr::RecordField(expr_type(expr), Box::new(record.clone()), name.clone()))
+                    }
+                    None => {
+                        Err(TypeError::ExpectingRecordWithName { record: record.clone(), name: name.clone() })
+                    }
                 }
             }
             _ => {
-                return Err(TypeError::ExpectingRecordWithName { record: record.clone(), name: name.clone() });
+                Err(TypeError::ExpectingRecordWithName { record: record.clone(), name: name.clone() })
             }
         }
-
-        Ok(record)
     }
 
     pub fn analyze_expression_tuple(&mut self, items: &Vec<Expr>) -> Result<TypedExpr, TypeError> {

@@ -21,6 +21,8 @@ use errors::LoaderError;
 use errors::Wrappable;
 use interpreter::Interpreter;
 use loader::AnalyzedModule;
+use loader::declaration_name;
+use loader::declaration_type;
 use loader::LoadedModule;
 use loader::ModuleLoader;
 use loader::RuntimeModule;
@@ -91,6 +93,7 @@ impl Runtime {
         let expr = parser.parse_expression()?;
         let typed_expr = self.analyzer.with(code).analyze_expression(&expr)?;
         let value = self.interpreter.eval_expr(&typed_expr)?;
+
         Ok(value)
     }
 
@@ -104,10 +107,20 @@ impl Runtime {
         let tokenizer = Tokenizer::new(&code);
         let mut parser = Parser::new(tokenizer);
         let stm = parser.parse_statement()?;
-        let mut analyser = Analyzer::new(code.clone());
-        let declarations = analyser.analyze_statement(&stm).expect("Analysis error");
-        unimplemented!()
-//        eval_statement(&mut self.env, &stm)
+        let declarations = self.analyzer.with(code.clone()).analyze_statement(&stm)
+            .map_err(|e| ElmError::Analyser(code, e))?;
+
+        let mut opt_value = None;
+
+        for decl in &declarations {
+            opt_value = self.interpreter.eval_declaration(decl)?;
+
+            if let Some(ty) = declaration_type(decl) {
+                self.analyzer.add_definition(declaration_name(decl), ty.clone());
+            }
+        }
+
+        Ok(opt_value)
     }
 
     /// Evaluates a module, for example:
@@ -164,7 +177,6 @@ impl Runtime {
         let module = self.runtime_modules.get(name).expect("Expected module to be already loaded");
 
         for (def_name, val) in &module.definitions {
-            eprintln!("Running: {} = {} : {}", def_name, val, val.get_type());
             let name = if alias.is_empty() {
                 def_name.clone()
             } else {
@@ -250,6 +262,11 @@ impl Runtime {
         // TODO
         Ok(())
     }
+
+
+    pub fn debug(&self) -> String {
+        self.interpreter.stack.debug()
+    }
 }
 
 #[cfg(test)]
@@ -281,6 +298,7 @@ mod test {
     fn test_eval_stm() {
         let mut i = Runtime::new();
         i.eval_statement("x = 2").expect("Expect x to be defined as 2");
+        eprintln!("{}", i.debug());
         i.eval_expr("1 + x / 3").expect("Expect expression to execute correctly");
     }
 

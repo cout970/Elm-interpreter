@@ -466,7 +466,7 @@ pub fn format_loader_error(error: &LoaderError) -> String {
 
 /// Prints a line of code and a pointer to a region in that line
 /// For example: input = "test", span = (0, 3)
-/// ```
+/// ``` output
 /// 1 │ test
 ///   │ ʌʌʌ
 ///   │ ┘
