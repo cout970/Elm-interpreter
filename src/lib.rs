@@ -3,12 +3,13 @@
 // cargo watch -c -q -s 'cargo rustc --lib -- -Awarnings -Zno-codegen && cargo test'
 #![allow(dead_code)]
 // }
+// TODO port to Rust 2018
 
-extern crate core;
 extern crate nom;
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
+extern crate serde;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -65,6 +66,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
+
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
         let mut run = Runtime {
@@ -97,7 +99,7 @@ impl Runtime {
         Ok(value)
     }
 
-    /// Evaluates an statement, for example:
+    /// Evaluates a statement, for example:
     /// `x = 1`,
     /// `sum a b = a + b`,
     /// `type alias Boolean = Bool`,
@@ -151,18 +153,26 @@ impl Runtime {
         self.import_module(name)
     }
 
+    /// Loads all source files in the folder and checks for missing dependencies
+    /// Note: it doesn't import the modules, you have to import them with [import_module]
     pub fn include_files(&mut self, folder_path: &str) -> Result<(), ElmError> {
         ModuleLoader::include_folder(self, folder_path)
     }
 
+    /// Loads a source file and checks its dependencies
+    /// Note: it doesn't import the module, you have to import it with [import_module]
     pub fn include_file(&mut self, file_path: &str) -> Result<(), ElmError> {
         ModuleLoader::include_file(self, "", file_path)
     }
 
+    /// Import a module, previously loaded with include_file/include_files, into the
+    /// current environment
     pub fn import_module(&mut self, module_name: &str) -> Result<(), ElmError> {
         self.import_module_as(module_name, module_name)
     }
 
+    /// Import a module, previously loaded with include_file/include_files, into the
+    /// current environment with an alias
     pub fn import_module_as(&mut self, module_name: &str, alias: &str) -> Result<(), ElmError> {
         if !self.runtime_modules.contains_key(module_name) {
             self.load_analyzed_module(module_name)?;
@@ -171,6 +181,34 @@ impl Runtime {
         self.load_runtime_module(module_name)?;
         self.import_module_definitions(module_name, alias)?;
         Ok(())
+    }
+
+    /// Registers a function that can be called in elm,
+    /// the return value is not checked so make sure it matches the return type
+    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: ExternalFunc) -> Result<(), ElmError> {
+        let arg_count = args.len() as u32;
+        let function_type = build_fun_type(&create_vec_inv(args, ret));
+
+        let function = Arc::new(Function::External(
+            next_fun_id(),
+            func_ref,
+            function_type.clone(),
+        ));
+
+        let function_value = Value::Fun {
+            arg_count,
+            args: vec![],
+            fun: function,
+        };
+
+        self.analyzer.add_definition(name, function_type);
+        self.interpreter.stack.add(name, function_value);
+        Ok(())
+    }
+
+    /// Print all the values in the stack
+    pub fn debug(&self) -> String {
+        self.interpreter.stack.debug()
     }
 
     fn import_module_definitions(&mut self, name: &str, alias: &str) -> Result<(), ElmError> {
@@ -239,33 +277,6 @@ impl Runtime {
 
         self.runtime_modules.insert(module_name.to_string(), runtime_module);
         Ok(())
-    }
-
-    /// Registers a function that can be called in elm,
-    /// the return value is not checked so make sure it matches the return type
-    pub fn register_callback(&mut self, name: &str, args: &[Type], ret: Type, func_ref: ExternalFunc) -> Result<(), ElmError> {
-        let arg_count = args.len() as u32;
-        let function_type = build_fun_type(&create_vec_inv(args, ret));
-
-        let function = Arc::new(Function::External(
-            next_fun_id(),
-            func_ref,
-            function_type.clone(),
-        ));
-
-        let function_value = Value::Fun {
-            arg_count,
-            args: vec![],
-            fun: function,
-        };
-
-        // TODO
-        Ok(())
-    }
-
-
-    pub fn debug(&self) -> String {
-        self.interpreter.stack.debug()
     }
 }
 
