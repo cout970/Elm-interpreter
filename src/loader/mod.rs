@@ -5,6 +5,8 @@ use std::io::Error;
 use std::path::Path;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
 use analyzer::Analyzer;
 use analyzer::static_env::StaticEnv;
 use ast::Module;
@@ -40,6 +42,14 @@ pub struct LoadedModule {
     pub dependencies: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PackedModule {
+    pub name: String,
+    pub path: String,
+    pub ast: Module,
+    pub dependencies: Vec<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct AnalyzedModule {
     pub name: String,
@@ -57,7 +67,7 @@ pub struct RuntimeModule {
     pub imports: Vec<ModuleImport>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModuleImport {
     pub source: String,
     pub source_name: String,

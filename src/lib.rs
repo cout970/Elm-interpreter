@@ -10,6 +10,7 @@ extern crate nom;
 #[macro_use]
 extern crate pretty_assertions;
 extern crate serde;
+extern crate serde_json;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -66,7 +67,6 @@ pub struct Runtime {
 }
 
 impl Runtime {
-
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
         let mut run = Runtime {
@@ -84,6 +84,7 @@ impl Runtime {
 
         run.include_file("/Data/Dev/Elm/core-master/src/Basics.elm").unwrap();
         run.import_module_as("Basics", "").unwrap();
+
         run
     }
 
@@ -208,7 +209,7 @@ impl Runtime {
 
     /// Print all the values in the stack
     pub fn debug(&self) -> String {
-        self.interpreter.stack.debug()
+        self.interpreter.debug()
     }
 
     fn import_module_definitions(&mut self, name: &str, alias: &str) -> Result<(), ElmError> {
@@ -309,7 +310,6 @@ mod test {
     fn test_eval_stm() {
         let mut i = Runtime::new();
         i.eval_statement("x = 2").expect("Expect x to be defined as 2");
-        eprintln!("{}", i.debug());
         i.eval_expr("1 + x / 3").expect("Expect expression to execute correctly");
     }
 

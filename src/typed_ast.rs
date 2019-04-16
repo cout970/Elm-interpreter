@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use ast::Pattern;
 use ast::Type;
 use types::Value;

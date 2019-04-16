@@ -305,6 +305,10 @@ impl Interpreter {
         self.stack.exit_block();
         Ok(res?)
     }
+
+    pub fn debug(&self) -> String {
+        self.stack.debug()
+    }
 }
 
 fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {

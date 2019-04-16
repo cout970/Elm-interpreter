@@ -1,6 +1,8 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use serde::{Deserialize, Serialize};
+
 use util::transmute_float_to_int;
 
 // TODO add a crate feature to use 32 or 64 bits
@@ -12,7 +14,7 @@ pub type Int = i32;
 pub type Float = f32;
 
 /// A module represents an AST tree of a source file
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Module {
     /* Optional module header `module Main exposing (..)` */
     pub header: Option<ModuleHeader>,
@@ -24,21 +26,21 @@ pub struct Module {
 
 // Module Header
 /// Module header with the module name and the list of exposed definitions/types
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ModuleHeader {
     pub name: String,
     pub exposing: ModuleExposing,
 }
 
 /// List exposed definitions/types
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ModuleExposing {
     Just(Vec<Exposing>),
     All,
 }
 
 /// Exposed definitions, types or Adt types
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Exposing {
     Adt(String, AdtExposing),
     Type(String),
@@ -47,7 +49,7 @@ pub enum Exposing {
 }
 
 /// Variants of an Adt Exposed
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum AdtExposing {
     Variants(Vec<String>),
     All,
@@ -56,7 +58,7 @@ pub enum AdtExposing {
 // Import
 
 /// A module import
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Import {
     pub path: Vec<String>,
     pub alias: Option<String>,
@@ -70,7 +72,7 @@ pub struct Import {
 /// a algebraic data type,
 /// a port,
 /// or a definition
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Statement {
     Alias(String, Vec<String>, Type),
     Adt(String, Vec<String>, Vec<(String, Vec<Type>)>),
@@ -80,7 +82,7 @@ pub enum Statement {
 }
 
 /// The representation of a type
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Hash)]
 pub enum Type {
     Unit,
     Var(String),
@@ -93,7 +95,7 @@ pub enum Type {
 }
 
 /// A function definition
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Definition {
     pub header: Option<Type>,
     pub name: String,
@@ -102,7 +104,7 @@ pub struct Definition {
 }
 
 // A pattern that represents 1 or more function arguments
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Pattern {
     Var(String),
     Adt(String, Vec<Pattern>),
@@ -121,7 +123,7 @@ pub enum Pattern {
 pub type Span = (u32, u32);
 
 // An unevaluated expression tree
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Expr {
     /* The unit value `()` */
     Unit(Span),
@@ -161,14 +163,14 @@ pub enum Expr {
 }
 
 /// A let declaration, yeah, really
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum LetDeclaration {
     Def(Definition),
     Pattern(Pattern, Expr),
 }
 
 /// A value literal
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Literal {
     Int(Int),
     Float(Float),

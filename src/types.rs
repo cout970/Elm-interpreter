@@ -5,6 +5,10 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use serde::{Deserialize, Serialize};
+use serde::Deserializer;
+use serde::Serializer;
+
 use analyzer::type_of_value;
 use ast::*;
 use errors::*;
@@ -15,7 +19,7 @@ use typed_ast::TypedExpr;
 use util::transmute_float_to_int;
 
 // Represents the final value after the evaluation of an expression tree
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Value {
     /// The unit value, similar to void in other languages
     Unit,
@@ -92,7 +96,7 @@ pub enum Function {
 }
 
 /// Represents an Adt type with all the information about the variants
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Hash)]
 pub struct Adt {
     pub name: String,
     pub types: Vec<String>,
@@ -100,7 +104,7 @@ pub struct Adt {
 }
 
 /// Is a variant in an Adt
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Hash)]
 pub struct AdtVariant {
     pub name: String,
     pub types: Vec<Type>,
@@ -143,6 +147,19 @@ impl Hash for Value {
                 state.write_usize(fun.get_id());
             }
         }
+    }
+}
+
+impl Serialize for Function {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        panic!("ExternalFunc cannot be serialized");
+    }
+}
+
+impl<'de> Deserialize<'de> for Function {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where
+        D: Deserializer<'de> {
+        panic!("ExternalFunc cannot be deserialized");
     }
 }
 
