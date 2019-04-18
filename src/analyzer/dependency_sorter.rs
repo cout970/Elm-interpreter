@@ -67,7 +67,7 @@ fn get_stm_dependencies(def: &Statement) -> Vec<String> {
                 })
                 .flatten()
                 .collect(),
-        Statement::Infix(_, _, _, _) => vec![]
+        Statement::Infix(_, _, _, fun) => vec![fun.clone()]
     }
 }
 
@@ -232,7 +232,7 @@ fn get_provided_names(stm: &Statement) -> Vec<String> {
         }
         Statement::Port(name, _) => { vec![name.to_owned()] }
         Statement::Def(def) => { vec![def.name.to_owned()] }
-        Statement::Infix(_, _, op, _) => { vec![op.to_owned()] }
+        Statement::Infix(_, _, op, fun) => { vec![op.to_owned(), fun.to_owned()] }
     }
 }
 

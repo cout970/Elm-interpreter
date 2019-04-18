@@ -190,6 +190,13 @@ pub fn test_resource(path: &str) -> String {
     d.to_string_lossy().to_string()
 }
 
+pub fn resource_path(path: &str) -> String {
+    let mut d = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    d.push("resources/");
+    d.push(path);
+    d.to_string_lossy().to_string()
+}
+
 pub fn transmute_float_to_int(x: f32) -> i32 {
     unsafe { transmute::<f32, i32>(x) }
 }

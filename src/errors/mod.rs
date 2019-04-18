@@ -12,6 +12,7 @@ use ast::Type;
 use loader::Declaration;
 use loader::declaration_name;
 use loader::SourceFile;
+use source::SOURCE_CODE_PADDING;
 use source::SourceCode;
 use tokenizer::Token;
 use typed_ast::expr_type;
@@ -140,6 +141,7 @@ pub enum LoaderError {
     MissingDependencies { dependencies: Vec<String>, src: SourceFile },
     CyclicDependency { cycle: Vec<String> },
     MissingModule { module: String },
+    ModulePacking { msg: String, path: String },
 }
 
 pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Vec<T>, func: F) -> ElmError {
@@ -431,7 +433,7 @@ pub fn format_loader_error(error: &LoaderError) -> String {
     write!(&mut msg, "-- MODULE LOADING ERROR ------------------------------------------------------------ elm\n").unwrap();
 
     match error {
-        LoaderError::IO { error, msg: m, .. } => {
+        LoaderError::IO { error, msg: m } => {
             write!(&mut msg, "IO error: {} => {}", m, error).unwrap();
         },
         LoaderError::MissingDependencies { dependencies, src } => {
@@ -455,8 +457,11 @@ pub fn format_loader_error(error: &LoaderError) -> String {
 
             write!(&mut msg, "{}\n|", &cycle[0]).unwrap();
         },
-        LoaderError::MissingModule { module, .. } => {
+        LoaderError::MissingModule { module } => {
             write!(&mut msg, "Missing module '{}'", module).unwrap();
+        },
+        LoaderError::ModulePacking { msg: error_msg, path } => {
+            write!(&mut msg, "Unable to unpack module at '{}': {}", path, error_msg).unwrap();
         },
     }
 
@@ -472,8 +477,8 @@ pub fn format_loader_error(error: &LoaderError) -> String {
 ///   │ ┘
 /// ```
 pub fn print_code_location(input: &str, span: &Span) -> String {
-    if input.is_empty() {
-        return String::from("Empty");
+    if input.is_empty() || (input.len() == SOURCE_CODE_PADDING && input.as_bytes()[0] == b'\0') {
+        return String::from("<No code available>");
     }
 
     let byte_input: &[u8] = input.as_bytes();
@@ -547,7 +552,7 @@ impl PartialEq for LoaderError {
         match self {
             LoaderError::IO { .. } => {
                 // io:Error cannot be compared so we ignore this case
-                true
+                false
             },
             LoaderError::MissingDependencies { dependencies: this, src: name0, .. } => {
                 if let LoaderError::MissingDependencies { dependencies: other, src: name1, .. } = other { this == other && name0 == name1 } else { false }
@@ -557,6 +562,9 @@ impl PartialEq for LoaderError {
             },
             LoaderError::MissingModule { module: this, .. } => {
                 if let LoaderError::MissingModule { module: other } = other { this == other } else { false }
+            },
+            LoaderError::ModulePacking { msg: this, path: name0, .. } => {
+                if let LoaderError::ModulePacking { msg: other, path: name1, .. } = other { this == other && name0 == name1 } else { false }
             },
         }
     }

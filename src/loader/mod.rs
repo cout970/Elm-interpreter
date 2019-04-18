@@ -45,19 +45,15 @@ pub struct LoadedModule {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PackedModule {
     pub name: String,
-    pub path: String,
     pub ast: Module,
-    pub dependencies: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
 pub struct AnalyzedModule {
     pub name: String,
     pub dependencies: Vec<String>,
-    pub all_declarations: Vec<Declaration>,
-
-    pub definitions: Vec<TypedDefinition>,
     pub imports: Vec<ModuleImport>,
+    pub all_declarations: Vec<Declaration>,
 }
 
 #[derive(Clone, Debug)]
@@ -80,7 +76,7 @@ pub enum Declaration {
     Definition(String, TypedDefinition),
     Alias(String, Type),
     Adt(String, Arc<Adt>),
-    Infix(String, String),
+    Infix(String, String, Type),
 }
 
 impl ModuleLoader {
@@ -119,6 +115,17 @@ impl ModuleLoader {
         Self::include_module(run, source, ast)
     }
 
+    pub fn include_packed_module(run: &mut Runtime, inner_path: &str, path: &str) -> Result<(), ElmError> {
+        let module = get_packed_module(inner_path, path)?;
+        let source = SourceFile {
+            name: module.name.to_string(),
+            path: path.to_string(),
+            source: SourceCode::from_str(""),
+        };
+
+        Self::include_module(run, source, module.ast)
+    }
+
     pub fn include_module(run: &mut Runtime, src: SourceFile, ast: Module) -> Result<(), ElmError> {
         let name = src.name.clone();
         let deps = get_module_dependencies(&ast);
@@ -141,11 +148,11 @@ impl ModuleLoader {
 
 pub fn declaration_name(decl: &Declaration) -> &str {
     match decl {
-        Declaration::Port(name, _) => name,
-        Declaration::Definition(name, _) => name,
-        Declaration::Alias(name, _) => name,
-        Declaration::Adt(name, _) => name,
-        Declaration::Infix(name, _) => name,
+        Declaration::Port(name, ..) => name,
+        Declaration::Definition(name, ..) => name,
+        Declaration::Alias(name, ..) => name,
+        Declaration::Adt(name, ..) => name,
+        Declaration::Infix(name, ..) => name,
     }
 }
 
@@ -155,7 +162,7 @@ pub fn declaration_type(decl: &Declaration) -> Option<&Type> {
         Declaration::Definition(_, ty) => Some(&ty.header),
         Declaration::Alias(_, _) => None,
         Declaration::Adt(_, _) => None,
-        Declaration::Infix(_, _) => None,
+        Declaration::Infix(_, _, ty) => Some(ty),
     }
 }
 
@@ -219,4 +226,41 @@ fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, ElmEr
     };
 
     Ok(loaded_module)
+}
+
+fn get_packed_module(inner_path: &str, abs_path: &str) -> Result<PackedModule, ElmError> {
+    let path = Path::new(abs_path);
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+
+    let module_name = if inner_path.is_empty() {
+        file_name.to_string()
+    } else {
+        format!("{}.{}", inner_path, file_name)
+    };
+
+    let file_contents = fs::read(abs_path)
+        .map_err(|err| LoaderError::IO { error: Arc::new(err), msg: format!("read file '{}'", abs_path) }.wrap())?;
+
+    let module_ast: Module = serde_json::from_slice(&file_contents)
+        .map_err(|err| LoaderError::ModulePacking {
+            msg: format!("{}", err),
+            path: abs_path.to_string(),
+        }.wrap())?;
+
+    let packed_module = PackedModule {
+        name: module_ast.header.as_ref().unwrap().name.to_string(),
+        ast: module_ast,
+    };
+
+    Ok(packed_module)
+}
+
+pub fn save_as_packed_module(abs_path: &str, name: &str, ast: &Module) -> Result<(), ElmError> {
+    let file_contents = serde_json::to_string_pretty(ast)
+        .expect("Module to packed failed");
+
+    fs::write(abs_path, file_contents)
+        .expect("File write failed");
+
+    Ok(())
 }

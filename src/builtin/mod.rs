@@ -14,7 +14,9 @@ use builtin::debug::get_debug_funs;
 use builtin::list::get_list_funs;
 use builtin::string::get_string_funs;
 use builtin::utils::get_utils_funs;
+use constructors::type_fun;
 use constructors::type_of;
+use constructors::type_tag_args;
 use errors::ElmError;
 use errors::InterpreterError;
 use errors::Wrappable;
@@ -22,6 +24,8 @@ use interpreter::Interpreter;
 use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::RuntimeModule;
+use types::Adt;
+use types::AdtVariant;
 use types::ElmFn;
 use types::ExternalFunc;
 use types::Function;
@@ -36,6 +40,10 @@ mod string;
 mod list;
 mod bitwise;
 mod utils;
+
+pub const ELM_CORE_MODULES: [&str; 11] = [
+    "Basics", "Bitwise", "Char", "Maybe", "Result", "List", "String", "Debug", "Dict", "Set", "Tuple"
+];
 
 /// Returns a list of the Elm Core kernel modules, adding the basic building blocks of the language
 /// The elm core needs to be loaded to expose and expand the definitions to all the other elm source files
@@ -66,7 +74,6 @@ fn core_kernel_module(name: &'static str, func: fn() -> Vec<(&'static str, Type,
             name: name.to_string(),
             dependencies: vec![],
             all_declarations,
-            definitions: vec![],
             imports: vec![],
         },
         RuntimeModule {
@@ -75,6 +82,14 @@ fn core_kernel_module(name: &'static str, func: fn() -> Vec<(&'static str, Type,
             imports: vec![],
         }
     )
+}
+
+pub fn record_access(ty: &Type, field: &str) -> Value {
+    Value::Fun {
+        arg_count: 1,
+        args: vec![Value::String(field.to_owned())],
+        fun: Arc::new(Function::External(next_fun_id(), builtin_record_access(), ty.clone())),
+    }
 }
 
 // { a = 0 } .a
@@ -103,6 +118,38 @@ pub fn builtin_record_access() -> ExternalFunc {
 
     ExternalFunc { name: "record access".to_string(), fun }
 }
+
+pub fn adt_constructor(adt: Arc<Adt>, variant: &AdtVariant) -> Value {
+    let mut func_types = vec![type_tag_args(&variant.name, vec![])];
+    func_types.extend(variant.types.clone().into_iter());
+    func_types.push(type_tag_args(&variant.name, variant.types.clone()));
+
+    Value::Fun {
+        arg_count: 1,
+        args: vec![Value::Adt(variant.name.to_string(), vec![], adt)],
+        fun: Arc::new(Function::External(next_fun_id(), builtin_adt_constructor(), type_fun(func_types))),
+    }
+}
+
+pub fn builtin_adt_constructor() -> ExternalFunc {
+    ExternalFunc {
+        name: "ADT constructor".to_string(),
+        fun: |_, args| {
+            if let Value::Adt(var, _, adt) = &args[0] {
+                let mut vals: Vec<Value> = vec![];
+
+                for i in 1..args.len() {
+                    vals.push(args[i].clone());
+                }
+
+                Ok(Value::Adt(var.to_owned(), vals, adt.clone()))
+            } else {
+                Err(InterpreterError::InternalErrorAdtCreation(args[0].clone()).wrap())
+            }
+        },
+    }
+}
+
 
 /// Create a function value from a function name, the function type in string format and a rust function reference
 fn func_of(name: &'static str, ty: &'static str, fun: ElmFn) -> (&'static str, Type, Value) {

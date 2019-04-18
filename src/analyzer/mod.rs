@@ -8,6 +8,7 @@ use analyzer::type_inference::type_inference_find_var_replacements;
 use ast::*;
 use ast::Definition;
 use ast::Expr;
+use builtin::ELM_CORE_MODULES;
 use errors::*;
 use interpreter::dynamic_env::RuntimeStack;
 use loader::AnalyzedModule;
@@ -273,13 +274,11 @@ impl Analyzer {
             }
             Statement::Infix(_, _, name, def) => {
                 if let Some(ty) = self.env.find_definition(name) {
-                    if let Some(ty) = self.env.find_definition(def) {
-                        vec![Declaration::Port(name.clone(), ty), Declaration::Infix(name.clone(), def.clone())]
-                    } else {
-                        vec![Declaration::Port(name.clone(), ty), Declaration::Infix(name.clone(), def.clone())]
-                    }
+                    vec![Declaration::Port(name.clone(), ty.clone()), Declaration::Infix(name.clone(), def.clone(), ty)]
+                } else if let Some(ty) = self.env.find_definition(def) {
+                    vec![Declaration::Port(name.clone(), ty.clone()), Declaration::Infix(name.clone(), def.clone(), ty)]
                 } else {
-                    eprintln!("Ignoring infix operator: {}", name);
+                    eprintln!("Ignoring infix operator: {}, {}\n {:?}", name, def, self.env);
                     vec![]
                 }
             }
@@ -290,7 +289,7 @@ impl Analyzer {
 
     pub fn analyze_module(&mut self, modules: &HashMap<String, AnalyzedModule>, module: &LoadedModule)
                           -> Result<AnalyzedModule, ElmError> {
-        let imports = if ["Basics"].contains(&module.src.name.as_str()) {
+        let imports = if ELM_CORE_MODULES.contains(&module.src.name.as_str()) {
             self.analyze_module_imports(modules, &module.ast.imports)?
         } else {
             let mut imports = self.get_default_imports(modules)?;
@@ -298,7 +297,7 @@ impl Analyzer {
             imports
         };
 
-        let (declarations, definitions) = self.analyze_module_declarations(&module.ast.statements)
+        let declarations = self.analyze_module_declarations(&module.ast.statements)
             .map_err(|list| {
                 err_list(&self.source, list, |code, info| ElmError::Analyser(code, info))
             })?;
@@ -307,7 +306,6 @@ impl Analyzer {
             name: module.src.name.to_string(),
             dependencies: module.dependencies.clone(),
             all_declarations: declarations,
-            definitions,
             imports,
         })
     }

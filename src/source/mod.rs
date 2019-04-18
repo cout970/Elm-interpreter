@@ -11,6 +11,8 @@ pub struct SourceCode {
 /// Identifies a position in the stream of chars in the source code
 pub type Location = u32;
 
+pub const SOURCE_CODE_PADDING: usize = 4;
+
 impl SourceCode {
     /// Creates a SourceCode instance wrapping a string
     pub fn from_string(code: String) -> Self {
@@ -18,10 +20,9 @@ impl SourceCode {
 
         // Padding to detect the end of code while tokenizing, this avoids having to check for
         // the end of code before reading every character
-        code.push('\0');
-        code.push('\0');
-        code.push('\0');
-        code.push('\0');
+        for i in 0..SOURCE_CODE_PADDING {
+            code.push('\0');
+        }
 
         SourceCode {
             code: Arc::new(code)
@@ -52,7 +53,7 @@ impl SourceCode {
 
     /// Returns a real size of the source code
     pub fn len(&self) -> usize {
-        self.code.len() - 4
+        self.code.len() - SOURCE_CODE_PADDING
     }
 
     /// Returns a character iterator for the code

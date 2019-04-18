@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::*;
-use builtin::builtin_record_access;
+use builtin::adt_constructor;
+use builtin::builtin_adt_constructor;
+use builtin::record_access;
 use constructors::type_bool;
 use errors::*;
 use interpreter::dynamic_env::RuntimeStack;
@@ -16,6 +18,8 @@ use Runtime;
 use rust_interop::call_function;
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
+use types::Adt;
+use types::AdtVariant;
 use types::FunCall;
 use types::Function;
 use types::next_fun_id;
@@ -89,9 +93,22 @@ impl Interpreter {
             self.stack.add(&import.destine_name, value.clone());
         };
 
-        for def in &module.definitions {
-            let (name, value) = self.eval_definition(def);
-            definitions.insert(name, value);
+        for decl in &module.all_declarations {
+            match decl {
+                Declaration::Port(_, _) => {}
+                Declaration::Definition(_, def) => {
+                    let (name, value) = self.eval_definition(def);
+                    definitions.insert(name, value);
+                }
+                Declaration::Alias(_, _) => {}
+                Declaration::Adt(_, adt) => {
+                    for variant in &adt.variants {
+                        let (name, value) = self.eval_adt_variant(adt.clone(), variant);
+                        definitions.insert(name, value);
+                    }
+                }
+                Declaration::Infix(_, _, _) => {}
+            }
         }
 
         Ok(RuntimeModule {
@@ -116,6 +133,15 @@ impl Interpreter {
     fn eval_definition(&mut self, def: &TypedDefinition) -> (String, Value) {
         let name = def.name.clone();
         let value = Self::create_function_closure(&mut self.stack, def);
+
+        self.stack.add(&name, value.clone());
+
+        (name, value)
+    }
+
+    fn eval_adt_variant(&mut self, adt: Arc<Adt>, variant: &AdtVariant) -> (String, Value) {
+        let name = variant.name.clone();
+        let value = adt_constructor(adt.clone(), &variant);
 
         self.stack.add(&name, value.clone());
 
@@ -210,11 +236,7 @@ impl Interpreter {
                 }
             }
             TypedExpr::RecordAccess(ty, field) => {
-                Ok(Value::Fun {
-                    arg_count: 1,
-                    args: vec![Value::String(field.to_owned())],
-                    fun: Arc::new(Function::External(next_fun_id(), builtin_record_access(), ty.clone())),
-                })
+                Ok(record_access(ty, field))
             }
             TypedExpr::Case(_, cond, branches) => {
                 let cond_val = self.eval_expr(cond)?;

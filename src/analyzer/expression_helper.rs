@@ -72,7 +72,9 @@ impl Analyzer {
     pub fn analyze_expression_ref(&mut self, expected: Option<&Type>, span: Span, name: &String) -> Result<TypedExpr, TypeError> {
         let def = self.env.find_definition(name)
             .or_else(|| self.env.find_alias(name))
-            .ok_or(TypeError::MissingDefinition { span, name: name.to_string() })?;
+            .ok_or_else(|| {
+                TypeError::MissingDefinition { span, name: name.to_string() }
+            })?;
 
         let new_ty = if let Some(expected_ty) = expected {
             let new_ty = type_inference_type_from_expected(&mut self.env, expected_ty, &def);

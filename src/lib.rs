@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use analyzer::Analyzer;
 use ast::Type;
+use builtin::ELM_CORE_MODULES;
 use builtin::get_core_kernel_modules;
 use errors::ElmError;
 use errors::LoaderError;
@@ -27,7 +28,9 @@ use loader::declaration_name;
 use loader::declaration_type;
 use loader::LoadedModule;
 use loader::ModuleLoader;
+use loader::PackedModule;
 use loader::RuntimeModule;
+use loader::save_as_packed_module;
 use loader::SourceFile;
 use parsers::Parser;
 use source::SourceCode;
@@ -38,6 +41,7 @@ use types::next_fun_id;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
+use util::resource_path;
 
 pub mod ast;
 pub mod typed_ast;
@@ -69,23 +73,51 @@ pub struct Runtime {
 impl Runtime {
     /// Creates a new Interpreter
     pub fn new() -> Runtime {
-        let mut run = Runtime {
-            interpreter: Interpreter::new(),
-            analyzer: Analyzer::new(SourceCode::from_str("")),
-            loaded_modules: HashMap::new(),
-            analyzed_modules: HashMap::new(),
-            runtime_modules: HashMap::new(),
-        };
+        let mut run = Self::empty_runtime();
 
+        // Add kernel modules, in the standard compiler those modules are written in JS,
+        // the here they are in Rust
         for (name, analyzed, runtime) in get_core_kernel_modules() {
             run.analyzed_modules.insert(name.to_string(), analyzed);
             run.runtime_modules.insert(name.to_string(), runtime);
         }
 
-        run.include_file("/Data/Dev/Elm/core-master/src/Basics.elm").unwrap();
-        run.import_module_as("Basics", "").unwrap();
+        // Load Elm-core modules, except Array, Process, Task and Platform
+
+        // Load from packed modules
+        for name in ELM_CORE_MODULES.iter() {
+            let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
+            run.include_packed_module(&path).unwrap();
+        }
+
+        /* DEBUG ONLY
+        // Load from elm-core source files (to get nice error messages when debugging, just download the git repo and update the path)
+        for name in ELM_CORE_MODULES.iter() {
+            let path = format!("/Data/Dev/Elm/core-master/src/{}.elm", name);
+            run.include_file(&path).unwrap();
+        }
+        */
+
+        // Analyze and evaluate all core modules
+        for name in ELM_CORE_MODULES.iter() {
+            run.load_analyzed_module(name).expect("Unable to load analyzed module");
+            run.load_runtime_module(name).expect("Unable to load runtime module");
+        }
+
+        // Import the default modules into the current environment
+        run.analyzer.get_default_imports(&HashMap::new()).expect("Default imports cannot be included");
 
         run
+    }
+
+    pub fn empty_runtime() -> Runtime {
+        Runtime {
+            interpreter: Interpreter::new(),
+            analyzer: Analyzer::new(SourceCode::from_str("")),
+            loaded_modules: HashMap::new(),
+            analyzed_modules: HashMap::new(),
+            runtime_modules: HashMap::new(),
+        }
     }
 
     /// Evaluates an expression like `1 + 2`
@@ -164,6 +196,12 @@ impl Runtime {
     /// Note: it doesn't import the module, you have to import it with [import_module]
     pub fn include_file(&mut self, file_path: &str) -> Result<(), ElmError> {
         ModuleLoader::include_file(self, "", file_path)
+    }
+
+    /// Loads a module packed as a binary blob and checks its dependencies
+    /// Note: it doesn't import the module, you have to import it with [import_module]
+    pub fn include_packed_module(&mut self, file_path: &str) -> Result<(), ElmError> {
+        ModuleLoader::include_packed_module(self, "", file_path)
     }
 
     /// Import a module, previously loaded with include_file/include_files, into the

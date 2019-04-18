@@ -4,6 +4,7 @@ use types::Value;
 
 pub fn get_string_funs() -> Vec<(&'static str, Type, Value)> {
     vec![
+        // TODO
 //        ("cons",        "Char -> String -> String"),
 //        ("uncons",      "String -> (Char, String)"),
 //        ("append",      "String -> String -> String"),

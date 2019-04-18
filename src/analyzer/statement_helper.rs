@@ -80,16 +80,18 @@ impl Analyzer {
         });
 
         let adt_type = Type::Tag(name.to_owned(), vars);
-        let decls = vec![Declaration::Adt(name.to_owned(), adt.clone())];
+        let mut decls = vec![Declaration::Adt(name.to_owned(), adt.clone())];
 
-        // TODO
-//        for (variant_name, params) in variants {
-//            if !params.is_empty() {
-//                let variant_type = build_fun_type(&create_vec_inv(params, adt_type.clone()));
-//
-//                decls.push(Declaration::Port(variant_name.clone(), variant_type));
-//            }
-//        }
+        // For each variant a definition is added, this definition is a constructor.
+        for (variant_name, params) in variants {
+            let variant_type = if !params.is_empty() {
+                build_fun_type(&create_vec_inv(params, adt_type.clone()))
+            } else {
+                adt_type.clone()
+            };
+
+            decls.push(Declaration::Port(variant_name.clone(), variant_type));
+        }
 
         Ok(decls)
     }

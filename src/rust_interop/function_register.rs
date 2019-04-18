@@ -46,7 +46,9 @@ macro_rules! def_register {
                 let fun = move |_: &mut Interpreter, mut args: Vec<&mut Any>| {
                     // Check for length at the beginning to avoid
                     // per-element bound checks.
-                    if args.len() != count_args!($($par)*) {
+                    let argc = count_args!($($par)*);
+
+                    if args.len() != argc {
                         return Err(InteropError::FunctionArgMismatch.wrap());
                     }
 

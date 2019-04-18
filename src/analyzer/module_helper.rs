@@ -8,6 +8,8 @@ use ast::Import;
 use ast::ModuleExposing;
 use ast::Statement;
 use ast::Type;
+use constructors::type_number;
+use constructors::type_unary_minus;
 use errors::ElmError;
 use errors::InterpreterError;
 use errors::LoaderError;
@@ -25,28 +27,37 @@ impl Analyzer {
         let mut module_imports = vec![];
 
         let basic = Import { path: vec!["Basics".to_string()], alias: None, exposing: Some(ModuleExposing::All) };
-//        let list = Import { path: vec!["List".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("List".to_string(), AdtExposing::All)])) };
-//        let maybe = Import { path: vec!["Maybe".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Maybe".to_string(), AdtExposing::All)])) };
-//        let result = Import { path: vec!["Result".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Result".to_string(), AdtExposing::All)])) };
-//        let string = Import { path: vec!["String".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("String".to_string())])) };
-//        let char_ = Import { path: vec!["Char".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("Char".to_string())])) };
-//        let tuple = Import { path: vec!["Tuple".to_string()], alias: None, exposing: None };
-//        let debug = Import { path: vec!["Debug".to_string()], alias: None, exposing: None };
+        let list = Import { path: vec!["List".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("List".to_string(), AdtExposing::All)])) };
+        let maybe = Import { path: vec!["Maybe".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Maybe".to_string(), AdtExposing::All)])) };
+        let result = Import { path: vec!["Result".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Result".to_string(), AdtExposing::All)])) };
+        let string = Import { path: vec!["String".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("String".to_string())])) };
+        let char_ = Import { path: vec!["Char".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("Char".to_string())])) };
+        let tuple = Import { path: vec!["Tuple".to_string()], alias: None, exposing: None };
+        let debug = Import { path: vec!["Debug".to_string()], alias: None, exposing: None };
 
         self.analyze_import(modules, &mut module_imports, &basic)?;
-//        self.analyze_import(modules, &mut module_imports, &list)?;
-//        self.analyze_import(modules, &mut module_imports, &maybe)?;
-//        self.analyze_import(modules, &mut module_imports, &result)?;
-//        self.analyze_import(modules, &mut module_imports, &string)?;
-//        self.analyze_import(modules, &mut module_imports, &char_)?;
-//        self.analyze_import(modules, &mut module_imports, &tuple)?;
-//        self.analyze_import(modules, &mut module_imports, &debug)?;
+        self.analyze_import(modules, &mut module_imports, &list)?;
+        self.analyze_import(modules, &mut module_imports, &maybe)?;
+        self.analyze_import(modules, &mut module_imports, &result)?;
+        self.analyze_import(modules, &mut module_imports, &string)?;
+        self.analyze_import(modules, &mut module_imports, &char_)?;
+        self.analyze_import(modules, &mut module_imports, &tuple)?;
+        self.analyze_import(modules, &mut module_imports, &debug)?;
 
         Ok(module_imports)
     }
     pub fn analyze_module_imports(&mut self, modules: &HashMap<String, AnalyzedModule>, imports: &Vec<Import>) -> Result<Vec<ModuleImport>, ElmError> {
         let mut module_imports = vec![];
 
+        // Add builtin __internal__minus
+        module_imports.push(ModuleImport {
+            source: "Elm.Kernel.Basics".to_string(),
+            source_name: "__internal__minus".to_string(),
+            destine_name: "__internal__minus".to_string(),
+        });
+        self.env.add_definition("__internal__minus", type_unary_minus());
+
+        // Add rest of imports
         for import in imports {
             self.analyze_import(modules, &mut module_imports, import)?;
         }
@@ -70,7 +81,7 @@ impl Analyzer {
             }
         };
 
-        for decl in &module.all_declarations {
+        for decl in &decls {
             self.import_declaration(decl, module_name, "", result);
         }
 
@@ -92,13 +103,6 @@ impl Analyzer {
                     destine_name: aliased_name.clone(),
                 });
                 self.env.add_definition(&aliased_name, ty.clone());
-
-                result.push(ModuleImport {
-                    source: module_name.to_string(),
-                    source_name: name.clone(),
-                    destine_name: name.clone(),
-                });
-                self.env.add_definition(name, ty.clone());
             }
             Declaration::Definition(name, def) => {
                 result.push(ModuleImport {
@@ -107,13 +111,6 @@ impl Analyzer {
                     destine_name: aliased_name.clone(),
                 });
                 self.env.add_definition(&aliased_name, def.header.clone());
-
-                result.push(ModuleImport {
-                    source: module_name.to_string(),
-                    source_name: name.clone(),
-                    destine_name: name.clone(),
-                });
-                self.env.add_definition(name, def.header.clone());
             }
             Declaration::Alias(name, ty) => {
                 self.env.add_alias(&aliased_name, ty.clone())
@@ -121,8 +118,13 @@ impl Analyzer {
             Declaration::Adt(name, adt) => {
                 self.env.add_adt(&aliased_name, adt.clone())
             }
-            Declaration::Infix(_, _) => {
-                // Ignore
+            Declaration::Infix(name, _, ty) => {
+                result.push(ModuleImport {
+                    source: module_name.to_string(),
+                    source_name: name.clone(),
+                    destine_name: name.clone(),
+                });
+                self.env.add_definition(name, ty.clone());
             }
         }
     }
@@ -143,12 +145,11 @@ impl Analyzer {
         Ok(())
     }
 
-    pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<(Vec<Declaration>, Vec<TypedDefinition>), Vec<TypeError>> {
+    pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<TypeError>> {
         let statements = sort_statements(statements)
             .map_err(|cycle| vec![TypeError::CyclicStatementDependency { cycle }])?;
 
         let mut declarations = vec![];
-        let mut definitions = vec![];
         let mut errors = vec![];
 
         let mut internal_declarations = vec![];
@@ -163,7 +164,6 @@ impl Analyzer {
                         match decl {
                             Declaration::Definition(name, def) => {
                                 self.env.add_definition(&name, def.header.clone());
-                                definitions.push(def);
                             }
                             Declaration::Port(name, ty) => {
                                 self.env.add_definition(&name, ty);
@@ -174,7 +174,9 @@ impl Analyzer {
                             Declaration::Adt(name, adt) => {
                                 self.env.add_adt(&name, adt);
                             }
-                            Declaration::Infix(_, _) => {}
+                            Declaration::Infix(name, _, ty) => {
+                                self.env.add_definition(&name, ty.clone());
+                            }
                         }
                     }
                 }
@@ -183,17 +185,29 @@ impl Analyzer {
                 }
             }
         }
+
+        // Replace infix definitions for copies of the referenced function
         for decl in internal_declarations {
-            if let Declaration::Infix(name, def) = decl {
-                if let Some(mut def) = definitions.iter().find(|it| it.name == def).cloned() {
-                    def.name = name.to_string();
-                    definitions.push(def);
+            if let Declaration::Infix(name, infix_def, _) = decl {
+                let mut new_declaration = vec![];
+
+                for declaration in &declarations {
+                    if let Declaration::Definition(def_name, def) = declaration {
+                        if def_name == &infix_def {
+                            let mut def = def.clone();
+                            def.name = name.to_string();
+                            new_declaration.push(Declaration::Definition(name.to_string(), def));
+                            break;
+                        }
+                    }
                 }
+
+                declarations.extend(new_declaration);
             }
         }
 
         if errors.is_empty() {
-            Ok((declarations, definitions))
+            Ok(declarations)
         } else {
             Err(errors)
         }

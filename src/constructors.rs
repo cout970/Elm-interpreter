@@ -13,6 +13,13 @@ pub fn type_of(code: &str) -> Type {
     Parser::new(Tokenizer::new(&SourceCode::from_str(code))).parse_type().unwrap()
 }
 
+pub fn type_unary_minus() -> Type {
+    Type::Fun(
+        Box::new(type_number()),
+        Box::new(type_number()),
+    )
+}
+
 pub fn type_unit() -> Type {
     Type::Unit
 }
