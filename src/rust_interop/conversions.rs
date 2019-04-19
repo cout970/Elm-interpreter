@@ -8,6 +8,7 @@ use errors::InterpreterError;
 use errors::Wrappable;
 use types::Value;
 
+// TODO convert to postfix function calls
 pub fn float_of(value: &Value) -> Result<f32, ElmError> {
     match value {
         Value::Number(a) => Ok(*a as f32),
@@ -32,7 +33,7 @@ pub fn char_of(value: &Value) -> Result<char, ElmError> {
     match value {
         Value::Char(a) => Ok(*a),
         _ => {
-            Err(InterpreterError::ExpectedInt(value.clone()).wrap())
+            Err(InterpreterError::ExpectedChar(value.clone()).wrap())
         }
     }
 }
@@ -40,6 +41,15 @@ pub fn char_of(value: &Value) -> Result<char, ElmError> {
 pub fn string_of(value: &Value) -> Result<String, ElmError> {
     match value {
         Value::String(string) => Ok(string.clone()),
+        _ => {
+            Err(InterpreterError::ExpectedString(value.clone()).wrap())
+        }
+    }
+}
+
+pub fn str_of(value: &Value) -> Result<&str, ElmError> {
+    match value {
+        Value::String(string) => Ok(string.as_ref()),
         _ => {
             Err(InterpreterError::ExpectedString(value.clone()).wrap())
         }

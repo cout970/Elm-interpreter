@@ -146,8 +146,10 @@ impl Analyzer {
     }
 
     pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<TypeError>> {
-        let statements = sort_statements(statements)
-            .map_err(|cycle| vec![TypeError::CyclicStatementDependency { cycle }])?;
+        let statements = statements.iter().collect::<Vec<_>>();
+        // TODO find a better solution, that sorts only the type-inferred statements
+//            sort_statements(statements)
+//            .map_err(|cycle| vec![TypeError::CyclicStatementDependency { cycle }])?;
 
         let mut declarations = vec![];
         let mut errors = vec![];

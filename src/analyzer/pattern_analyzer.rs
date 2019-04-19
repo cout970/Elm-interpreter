@@ -189,7 +189,18 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
                     Ok((Type::Tuple(sub_input), sub_vars))
                 }
                 _ => {
-                    return Err(PatternMatchingError::ExpectedTuple(pattern.clone(), ty));
+
+                    // TODO this is temporary until a new type inference system is implemented
+                    for pattern in sub_patterns.iter() {
+                        let (ty, vars) = analyze_pattern(env, pattern)?;
+                        sub_input.push(ty);
+                        for v in vars {
+                            sub_vars.push(v);
+                        }
+                    }
+
+                    Ok((Type::Tuple(sub_input), sub_vars))
+//                    return Err(PatternMatchingError::ExpectedTuple(pattern.clone(), ty));
                 }
             }
         }

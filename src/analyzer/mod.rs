@@ -13,6 +13,7 @@ use errors::*;
 use interpreter::dynamic_env::RuntimeStack;
 use loader::AnalyzedModule;
 use loader::Declaration;
+use loader::declaration_type;
 use loader::LoadedModule;
 use loader::ModuleImport;
 use source::SourceCode;
@@ -297,6 +298,24 @@ impl Analyzer {
             imports
         };
 
+        // Avoid problems with statement order
+        for stm in &module.ast.statements {
+            if let Some(ty) = declared_statement_type(stm) {
+                self.env.add_definition(declared_statement_name(stm).unwrap(), ty.clone());
+            }
+        }
+
+        // Custom behaviour for binary operators
+        for stm in &module.ast.statements {
+            if let Statement::Infix(_, _, name, def) = stm {
+                if let Some(ty) = self.env.find_definition(def) {
+                    self.env.add_definition(name, ty);
+                } else {
+                    eprintln!("Infix operator {} where the function {} doesn't have a type header", name, def);
+                }
+            }
+        }
+
         let declarations = self.analyze_module_declarations(&module.ast.statements)
             .map_err(|list| {
                 err_list(&self.source, list, |code, info| ElmError::Analyser(code, info))
@@ -308,6 +327,32 @@ impl Analyzer {
             all_declarations: declarations,
             imports,
         })
+    }
+}
+
+fn declared_statement_type(stm: &Statement) -> Option<&Type> {
+    match stm {
+        Statement::Alias(_, _, _) => None,
+        Statement::Adt(_, _, _) => None,
+        Statement::Infix(_, _, _, _) => None,
+        Statement::Port(name, ty) => Some(ty),
+        Statement::Def(def) => {
+            if let Some(ty) = &def.header {
+                Some(ty)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn declared_statement_name(stm: &Statement) -> Option<&str> {
+    match stm {
+        Statement::Alias(_, _, _) => None,
+        Statement::Adt(_, _, _) => None,
+        Statement::Infix(_, _, name, _) => Some(name),
+        Statement::Port(name, ty) => Some(name),
+        Statement::Def(def) => Some(&def.name)
     }
 }
 

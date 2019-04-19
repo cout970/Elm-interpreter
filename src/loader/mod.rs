@@ -8,18 +8,15 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use analyzer::Analyzer;
-use analyzer::static_env::StaticEnv;
 use ast::Module;
 use ast::Type;
 use errors::ElmError;
-use errors::err_list;
 use errors::LoaderError;
 use errors::Wrappable;
 use parsers::Parser;
 use Runtime;
 use source::SourceCode;
 use tokenizer::Tokenizer;
-use typed_ast::expr_type;
 use typed_ast::TypedDefinition;
 use types::Adt;
 use types::Value;

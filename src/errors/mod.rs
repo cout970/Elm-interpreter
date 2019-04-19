@@ -109,6 +109,7 @@ pub enum InterpreterError {
     ExpectedList(Value),
     ExpectedFloat(Value),
     ExpectedInt(Value),
+    ExpectedChar(Value),
     ExpectedString(Value),
     ExpectedBoolean(Value),
     ExpectedNumber(Value),
@@ -244,8 +245,9 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
     write!(&mut msg, "-- TYPE ERROR ------------------------------------------------------------ elm\n").unwrap();
 
     match error {
-        TypeError::PatternMatchingError { .. } => {
-            write!(&mut msg, "{:?}", error).unwrap();
+        TypeError::PatternMatchingError { span, info } => {
+            write!(&mut msg, "{:?}", info).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },
         TypeError::MissingDefinition { span, name } => {
             write!(&mut msg, "I cannot find `{}`:\n", name).unwrap();
@@ -305,7 +307,7 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
             write!(&mut msg, "Pattern amount mismatch, expected {} but found {}", expected, found).unwrap();
         },
         TypeError::CyclicStatementDependency { cycle } => {
-            write!(&mut msg, "Found cyclic dependency between statements: {:?}", cycle).unwrap();
+            write!(&mut msg, "Found cyclic dependency between statements:\n\n   {}\n", cycle.join(" -> ")).unwrap();
         },
         TypeError::ExpectingRecordWithName { record, name } => {
             write!(&mut msg, "Expecting record with field '{}', but found '{}'", name, expr_type(record)).unwrap();

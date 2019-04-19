@@ -6,6 +6,7 @@ use parsers::input::Input;
 use parsers::ParseError;
 use parsers::pattern::parse_pattern;
 use parsers::types::parse_type;
+use parsers::types::parse_type_without_adt;
 use parsers::util::expect;
 use parsers::util::expect_binop;
 use parsers::util::expect_id;
@@ -94,7 +95,7 @@ pub fn parse_definition(indent: u32, input: Input) -> Result<(Definition, Input)
 
 fn parse_adt_branch(input: Input) -> Result<((String, Vec<Type>), Input), ParseError> {
     let (name, i) = expect_upper(input)?;
-    let (params, i) = many0(&parse_type, i)?;
+    let (params, i) = many0(&parse_type_without_adt, i)?;
 
     Ok(((name, params), i))
 }
@@ -129,6 +130,8 @@ mod tests {
         test_parser(parse_statement, "x =\n 0");
         test_parser(parse_statement, "func\n x\n =\n x");
         test_parser(parse_statement, "func (a, b) = a + b");
+
+        test_parser(parse_statement, "type Dict k v \n= RBNode_elm_builtin NColor k v (Dict k v) (Dict k v)\n| RBEmpty_elm_builtin");
     }
 
     #[test]

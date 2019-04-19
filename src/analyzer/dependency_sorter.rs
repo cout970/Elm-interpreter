@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use analyzer::Analyzer;
+use analyzer::declared_statement_type;
 use analyzer::static_env::StaticEnv;
 use ast::*;
 use source::SourceCode;
@@ -17,6 +18,11 @@ pub fn sort_statements(stms: &Vec<Statement>) -> Result<Vec<&Statement>, Vec<Str
     let mut all_names = HashMap::new();
 
     for stm in stms {
+        // Ignore statements with type header
+//        if declared_statement_type(stm).is_some() {
+//            continue;
+//        }
+
         let name = get_stm_name(stm).to_owned();
         let provided = get_provided_names(stm);
         let deps = get_stm_dependencies(stm);
@@ -232,7 +238,7 @@ fn get_provided_names(stm: &Statement) -> Vec<String> {
         }
         Statement::Port(name, _) => { vec![name.to_owned()] }
         Statement::Def(def) => { vec![def.name.to_owned()] }
-        Statement::Infix(_, _, op, fun) => { vec![op.to_owned(), fun.to_owned()] }
+        Statement::Infix(_, _, op, fun) => { vec![op.to_owned()] }
     }
 }
 

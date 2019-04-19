@@ -13,13 +13,21 @@ use util::qualified_name;
 use util::uncons;
 
 pub fn parse_type(input: Input) -> Result<(Type, Input), ParseError> {
-    let (ty, i) = parse_type_base(input)?;
+    let (ty, i) = parse_type_with_adt(input)?;
     let (rest, i) = many0(&parse_type_chain, i)?;
 
     Ok((create_fun(ty, rest), i))
 }
 
-pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
+pub fn parse_type_without_adt(input: Input) -> Result<(Type, Input), ParseError> {
+    parse_type_base(input, false)
+}
+
+pub fn parse_type_with_adt(input: Input) -> Result<(Type, Input), ParseError> {
+    parse_type_base(input, true)
+}
+
+pub fn parse_type_base(input: Input, adt: bool) -> Result<(Type, Input), ParseError> {
     let (ty, i) = match input.read() {
         Token::Id(name) => (Type::Var(name.to_owned()), input.next()),
         Token::UpperId(name) => {
@@ -43,8 +51,12 @@ pub fn parse_type_base(input: Input) -> Result<(Type, Input), ParseError> {
                 _ => (name.to_owned(), i)
             };
 
-            let (params, i) = many0(&parse_type_base, i)?;
-            (Type::Tag(name, params), i)
+            if adt {
+                let (params, i) = many0(&parse_type_with_adt, i)?;
+                (Type::Tag(name, params), i)
+            } else {
+                (Type::Tag(name, vec![]), i)
+            }
         }
         Token::LeftParen => {
             // () => Unit

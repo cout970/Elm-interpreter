@@ -42,6 +42,17 @@ impl Interpreter {
         }
     }
 
+    pub fn adt_value(&mut self, adt_name: &str, arguments: &[Value]) -> Result<Value, ElmError> {
+        let ctor = self.find_value(adt_name)
+            .ok_or_else(|| InterpreterError::MissingDefinition(adt_name.to_string()).wrap())?;
+
+        self.apply_function(ctor, arguments)
+    }
+
+    pub fn find_value(&mut self, name: &str) -> Option<Value> {
+        self.stack.find(name)
+    }
+
     pub fn true_value(&mut self) -> Value {
         self.eval_expr(&TypedExpr::Ref(type_bool(), "True".to_string())).unwrap()
     }

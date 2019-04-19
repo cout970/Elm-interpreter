@@ -26,7 +26,6 @@ pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> 
         patt = chain.into_iter().rev().fold(last_patt, |accum, (p, op)| {
             Pattern::BinaryOp(op, Box::from(p), Box::from(accum))
         });
-
     } else if let Token::As = i.read() {
         let (alias, i) = expect_id(i.next())?;
         return Ok((Pattern::Alias(Box::from(patt), alias), i));
@@ -36,11 +35,23 @@ pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> 
 }
 
 pub fn parse_pattern(input: Input) -> Result<(Pattern, Input), ParseError> {
+    parse_pattern_helper(input, true)
+}
+
+pub fn parse_pattern_without_adt(input: Input) -> Result<(Pattern, Input), ParseError> {
+    parse_pattern_helper(input, false)
+}
+
+fn parse_pattern_helper(input: Input, adt: bool) -> Result<(Pattern, Input), ParseError> {
     let (patt, i) = match input.read() {
         Token::Id(name) => (Pattern::Var(name.to_owned()), input.next()),
         Token::UpperId(name) => {
-            let (params, i) = many0(&parse_pattern, input.next())?;
-            (Pattern::Adt(name.to_owned(), params), i)
+            if adt {
+                let (params, i) = many0(&parse_pattern_without_adt, input.next())?;
+                (Pattern::Adt(name.to_owned(), params), i)
+            } else {
+                (Pattern::Adt(name.to_owned(), vec![]), input.next())
+            }
         }
         Token::LeftParen => {
             // Unit => ()
