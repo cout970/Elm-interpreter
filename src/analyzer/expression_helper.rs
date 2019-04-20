@@ -442,7 +442,7 @@ impl Analyzer {
             Literal::Char(i) => Value::Char(*i),
         };
 
-        Ok(TypedExpr::Const(value))
+        Ok(TypedExpr::Const(value.get_type(), value))
     }
 }
 

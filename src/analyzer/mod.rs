@@ -34,6 +34,7 @@ mod type_helper;
 mod expression_helper;
 mod statement_helper;
 mod module_helper;
+mod inference;
 
 #[derive(Debug)]
 pub struct Analyzer {
@@ -255,7 +256,7 @@ impl Analyzer {
             Expr::Literal(_, lit) => {
                 self.analyze_expression_literal(expected, lit)
             }
-            Expr::Unit(..) => Ok(TypedExpr::Const(Value::Unit)),
+            Expr::Unit(..) => Ok(TypedExpr::Const(Value::Unit.get_type(), Value::Unit)),
         }
     }
 

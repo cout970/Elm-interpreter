@@ -8,7 +8,7 @@ use types::Value;
 #[derive(Debug, Clone)]
 pub enum TypedExpr {
     /* A value like unit, 1, 'a', "A", etc */
-    Const(Value),
+    Const(Type, Value),
     /* A tuple of 2 or more elements */
     Tuple(Type, Vec<TypedExpr>),
     /* A list of homogeneous values */
@@ -53,7 +53,7 @@ pub enum LetEntry {
 
 pub fn expr_type(expr: &TypedExpr) -> Type {
     match expr {
-        TypedExpr::Const(value) => value.get_type(),
+        TypedExpr::Const(ty, value) => ty.clone(),
         TypedExpr::Tuple(ty, _) => ty.clone(),
         TypedExpr::List(ty, _) => ty.clone(),
         TypedExpr::Record(ty, _) => ty.clone(),
@@ -72,8 +72,8 @@ pub fn expr_type(expr: &TypedExpr) -> Type {
 impl PartialEq for TypedExpr {
     fn eq(&self, other: &TypedExpr) -> bool {
         match self {
-            TypedExpr::Const(a) => {
-                if let TypedExpr::Const(a2) = other { a == a2 } else { false }
+            TypedExpr::Const(_, a) => {
+                if let TypedExpr::Const(_, a2) = other { a == a2 } else { false }
             }
             TypedExpr::Tuple(_, a) => {
                 if let TypedExpr::Tuple(_, a2) = other { a == a2 } else { false }

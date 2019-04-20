@@ -63,6 +63,16 @@ pub trait VecExt<A> {
     fn join_vec(&self, other: &[A]) -> Vec<A>;
 }
 
+pub trait ToVec<A> {
+    fn to_vec(&mut self) -> Vec<A>;
+}
+
+impl<T: ?Sized, A: Sized> ToVec<A> for T where T: Iterator<Item=A> {
+    fn to_vec(&mut self) -> Vec<A> {
+        self.collect()
+    }
+}
+
 impl<A: Clone> VecExt<A> for Vec<A> {
     fn for_each<F: FnMut(&A)>(&self, f: F) {
         self.iter().for_each(f);

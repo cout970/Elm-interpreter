@@ -1,4 +1,3 @@
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NameSequence {
     last: u32
@@ -32,6 +31,22 @@ impl NameSequence {
             return name;
         } else {
             panic!("To many names!");
+        }
+    }
+
+    /// Generates a sequence of names with a prefix and number at the end
+    /// For example, the prefix "number" will generate:
+    ///
+    /// number, number1, number2, number3, number4, etc
+    ///
+    pub fn next_with_prefix(&mut self, prefix: &str) -> String {
+        let index = self.last as usize;
+        self.last += 1;
+
+        if index == 0 {
+            prefix.to_string()
+        } else {
+            format!("{}{}", prefix, index)
         }
     }
 

@@ -170,7 +170,7 @@ impl Interpreter {
                     }
                 }
             }
-            TypedExpr::Const(value) => Ok(value.clone()),
+            TypedExpr::Const(_, value) => Ok(value.clone()),
             TypedExpr::Tuple(_, items) => {
                 let values = items.iter()
                     .map(|e| self.eval_expr(e))
