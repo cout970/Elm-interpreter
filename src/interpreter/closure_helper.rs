@@ -6,7 +6,7 @@ use ast::Type;
 use interpreter::dynamic_env::RuntimeStack;
 use interpreter::Interpreter;
 use Runtime;
-use typed_ast::LetEntry;
+use typed_ast::{LetEntry, TypedPattern};
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
 use types::Function;
@@ -14,7 +14,7 @@ use types::next_fun_id;
 use types::Value;
 
 impl Interpreter {
-    pub fn create_lambda_closure(env: &mut RuntimeStack, ty: &Type, patterns: &Vec<Pattern>, expr: &TypedExpr) -> Value {
+    pub fn create_lambda_closure(env: &mut RuntimeStack, ty: &Type, patterns: &Vec<TypedPattern>, expr: &TypedExpr) -> Value {
         let function = Arc::new(Function::Definition {
             id: next_fun_id(),
             patterns: patterns.clone(),

@@ -15,7 +15,7 @@ use errors::*;
 use interpreter::Interpreter;
 use Runtime;
 use rust_interop::FnAny;
-use typed_ast::TypedExpr;
+use typed_ast::{TypedExpr, TypedPattern};
 use util::transmute_float_to_int;
 
 // Represents the final value after the evaluation of an expression tree
@@ -88,7 +88,7 @@ pub enum Function {
     Wrapper(FunId, WrapperFunc, Type),
     Definition {
         id: FunId,
-        patterns: Vec<Pattern>,
+        patterns: Vec<TypedPattern>,
         expression: TypedExpr,
         function_type: Type,
         captures: HashMap<String, Value>,

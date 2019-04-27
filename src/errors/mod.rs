@@ -15,7 +15,7 @@ use loader::SourceFile;
 use source::SOURCE_CODE_PADDING;
 use source::SourceCode;
 use tokenizer::Token;
-use typed_ast::expr_type;
+use typed_ast::{expr_type, TypedPattern};
 use typed_ast::TypedExpr;
 use types::Value;
 use util::expression_fold::ExprTreeError;
@@ -100,7 +100,7 @@ pub enum InterpreterError {
     InvalidIfCondition(Value),
     InvalidExpressionChain(ExprTreeError),
     RecordFieldNotFound(String, Value),
-    CaseExpressionNonExhaustive(Value, Vec<Pattern>),
+    CaseExpressionNonExhaustive(Value, Vec<TypedPattern>),
     FunArgumentSizeMismatch(u32, u32),
     ExpectedRecord(Value),
     ExpectedFunction(Value),

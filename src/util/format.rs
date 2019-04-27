@@ -6,7 +6,7 @@ use std::fmt::Write;
 
 use ast::*;
 use tokenizer::Token;
-use typed_ast::expr_type;
+use typed_ast::{expr_type, TypedPattern};
 use typed_ast::TypedExpr;
 use types::ExternalFunc;
 use types::Value;
@@ -314,6 +314,12 @@ impl Display for Value {
 
 
 impl Display for Pattern {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Display for TypedPattern {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{:?}", self)
     }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use analyzer::Analyzer;
+use analyzer::inference::{tmp_map_pattern, tmp_map_patterns};
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::type_helper::calculate_common_type;
@@ -113,7 +114,7 @@ impl Analyzer {
         let mut var = tys.clone();
         var.push(expr_type(&typed_expr));
 
-        Ok(TypedExpr::Lambda(build_fun_type(&var), patterns.clone(), Box::new(typed_expr)))
+        Ok(TypedExpr::Lambda(build_fun_type(&var), tmp_map_patterns(patterns), Box::new(typed_expr)))
     }
 
     pub fn analyze_expression_list(&mut self, span: Span, exprs: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
@@ -190,7 +191,7 @@ impl Analyzer {
                         self.env.add_definition(&name, ty);
                     }
 
-                    entries.push(LetEntry::Pattern(pattern.clone(), typed_expr));
+                    entries.push(LetEntry::Pattern(tmp_map_pattern(pattern), typed_expr));
                 }
             }
         }
@@ -350,7 +351,7 @@ impl Analyzer {
             let case_expr = result?;
             let case_type = expr_type(&case_expr);
 
-            branches.push((first_pattern.clone(), case_expr));
+            branches.push((tmp_map_pattern(first_pattern), case_expr));
             case_type
         };
 
@@ -381,7 +382,7 @@ impl Analyzer {
                 });
             }
 
-            branches.push((pattern.clone(), ret));
+            branches.push((tmp_map_pattern(pattern), ret));
         }
 
         Ok(TypedExpr::Case(first_type, Box::new(cond_type), branches))

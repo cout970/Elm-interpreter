@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use analyzer::inference::{Env, infer_definition_type, tmp_map_patterns};
 use analyzer::pattern_analyzer::analyze_pattern;
 use analyzer::pattern_analyzer::analyze_pattern_with_type;
 use analyzer::pattern_analyzer::is_exhaustive;
@@ -39,116 +40,119 @@ mod inference;
 #[derive(Debug)]
 pub struct Analyzer {
     env: StaticEnv,
+    pub e: Env,
     source: SourceCode,
 }
 
 impl Analyzer {
     pub fn new(source: SourceCode) -> Self {
-        Analyzer { env: StaticEnv::new(), source }
+        Analyzer { env: StaticEnv::new(), e: Env::new(), source }
     }
 
     pub fn with(&self, source: SourceCode) -> Self {
-        Analyzer { env: self.env.clone(), source }
+        Analyzer { env: self.env.clone(), e: Env::new(), source }
     }
 
     pub fn add_definition(&mut self, name: &str, var: Type) {
-        self.env.add_definition(name, var)
+        self.env.add_definition(name, var.clone());
+        self.e.set(name, var);
     }
 
     pub fn analyze_definition(&mut self, fun: &Definition) -> Result<TypedDefinition, TypeError> {
         let name_seq = self.env.name_seq.save();
-
-        // Extract function input types and argument variables
-        let (argument_types, argument_vars) = self.analyze_function_arguments(&fun.patterns, &fun.header)?;
-        self.env.enter_block();
-
-        // Add function arguments
-        for (arg_name, ty) in &argument_vars {
-            self.env.add_definition(arg_name, ty.clone());
-        }
-
-        // Analyse function expression
-        let return_expr = if let Some(ty) = &fun.header {
-            // Register own type to be able to call the function recursively
-            self.env.add_definition(&fun.name, ty.clone());
-
-            // TODO use the number of defined arguments to obtain the [return_type]
-
-            // Convert `a -> b -> c` into vec![a, b, c]
-            let fn_types = unpack_types(ty);
-            // Extract the last value, `c`
-            let return_type = fn_types.last().expect("Expected last value to exist");
-
-            // Analyse function body
-            self.analyze_expression_helper(Some(return_type), &fun.expr)
-        } else {
-
-            // Create a self function type with a variable as output type, we don't know
-            // the return type yet, it must be inferred
-            let self_type = create_vec_inv(&argument_types, Type::Var("z".to_string()));
-            // Register own type to be able to call the function recursively
-            self.env.add_definition(&fun.name, build_fun_type(&self_type));
-
-            // Analyse function body
-            self.analyze_expression_helper(None, &fun.expr)
-        };
-
-        // If the expression analysis failed, we return the error
-        let return_expr = match return_expr {
-            Ok(expr) => expr,
-            Err(e) => {
-                // The environment must be restored
-                self.env.exit_block();
-                self.env.name_seq.restore(name_seq);
-                return Err(e);
-            }
-        };
-
-        // Extract or update the final function type
-        let fun_type = if fun.header.is_none() {
-            let mut final_arg_types: Vec<Type> = vec![];
-
-            // Update argument variable with concrete types
-            'outer: for arg in &argument_types {
-                if let Type::Var(arg_var_name) = arg {
-
-                    // search in local variables for the type of this variable,
-                    // this is needed because the number of arguments and local variables can be different
-                    for (name, ty) in &argument_vars {
-                        if let Type::Var(local_var_name) = ty {
-                            if local_var_name == arg_var_name {
-                                if let Some(ty) = self.env.find_definition(name) {
-                                    final_arg_types.push(ty);
-                                    continue 'outer;
-                                }
-                            }
-                        }
-                    }
-
-                    // TODO remove panics in the middle of code
-                    panic!("Unable to find variable '{}' in {:?}, for function: {}", &arg, argument_vars, fun.name);
-                } else {
-                    final_arg_types.push(arg.clone());
-                }
-            }
-
-            final_arg_types.push(expr_type(&return_expr));
-            build_fun_type(&final_arg_types)
-        } else {
-            fun.header.clone().unwrap()
-        };
-
-        self.env.exit_block();
-        self.env.name_seq.restore(name_seq);
-
-        // TODO check fun type and expr type are the same
-
-        Ok(TypedDefinition {
-            header: fun_type,
-            name: fun.name.clone(),
-            patterns: fun.patterns.clone(),
-            expr: return_expr,
-        })
+        return infer_definition_type(&mut self.e, fun);
+//
+//        // Extract function input types and argument variables
+//        let (argument_types, argument_vars) = self.analyze_function_arguments(&fun.patterns, &fun.header)?;
+//        self.env.enter_block();
+//
+//        // Add function arguments
+//        for (arg_name, ty) in &argument_vars {
+//            self.env.add_definition(arg_name, ty.clone());
+//        }
+//
+//        // Analyse function expression
+//        let return_expr = if let Some(ty) = &fun.header {
+//            // Register own type to be able to call the function recursively
+//            self.env.add_definition(&fun.name, ty.clone());
+//
+//            // TODO use the number of defined arguments to obtain the [return_type]
+//
+//            // Convert `a -> b -> c` into vec![a, b, c]
+//            let fn_types = unpack_types(ty);
+//            // Extract the last value, `c`
+//            let return_type = fn_types.last().expect("Expected last value to exist");
+//
+//            // Analyse function body
+//            self.analyze_expression_helper(Some(return_type), &fun.expr)
+//        } else {
+//
+//            // Create a self function type with a variable as output type, we don't know
+//            // the return type yet, it must be inferred
+//            let self_type = create_vec_inv(&argument_types, Type::Var("z".to_string()));
+//            // Register own type to be able to call the function recursively
+//            self.env.add_definition(&fun.name, build_fun_type(&self_type));
+//
+//            // Analyse function body
+//            self.analyze_expression_helper(None, &fun.expr)
+//        };
+//
+//        // If the expression analysis failed, we return the error
+//        let return_expr = match return_expr {
+//            Ok(expr) => expr,
+//            Err(e) => {
+//                // The environment must be restored
+//                self.env.exit_block();
+//                self.env.name_seq.restore(name_seq);
+//                return Err(e);
+//            }
+//        };
+//
+//        // Extract or update the final function type
+//        let fun_type = if fun.header.is_none() {
+//            let mut final_arg_types: Vec<Type> = vec![];
+//
+//            // Update argument variable with concrete types
+//            'outer: for arg in &argument_types {
+//                if let Type::Var(arg_var_name) = arg {
+//
+//                    // search in local variables for the type of this variable,
+//                    // this is needed because the number of arguments and local variables can be different
+//                    for (name, ty) in &argument_vars {
+//                        if let Type::Var(local_var_name) = ty {
+//                            if local_var_name == arg_var_name {
+//                                if let Some(ty) = self.env.find_definition(name) {
+//                                    final_arg_types.push(ty);
+//                                    continue 'outer;
+//                                }
+//                            }
+//                        }
+//                    }
+//
+//                    // TODO remove panics in the middle of code
+//                    panic!("Unable to find variable '{}' in {:?}, for function: {}", &arg, argument_vars, fun.name);
+//                } else {
+//                    final_arg_types.push(arg.clone());
+//                }
+//            }
+//
+//            final_arg_types.push(expr_type(&return_expr));
+//            build_fun_type(&final_arg_types)
+//        } else {
+//            fun.header.clone().unwrap()
+//        };
+//
+//        self.env.exit_block();
+//        self.env.name_seq.restore(name_seq);
+//
+//        // TODO check fun type and expr type are the same
+//
+//        Ok(TypedDefinition {
+//            header: fun_type,
+//            name: fun.name.clone(),
+//            patterns: tmp_map_patterns(&fun.patterns),
+//            expr: return_expr,
+//        })
     }
 
     pub fn analyze_function_arguments(&mut self, patterns: &Vec<Pattern>, func_ty: &Option<Type>) -> Result<(Vec<Type>, Vec<(String, Type)>), TypeError> {
@@ -302,6 +306,7 @@ impl Analyzer {
         // Avoid problems with statement order
         for stm in &module.ast.statements {
             if let Some(ty) = declared_statement_type(stm) {
+                self.e.set(declared_statement_name(stm).unwrap(), ty.clone());
                 self.env.add_definition(declared_statement_name(stm).unwrap(), ty.clone());
             }
         }
@@ -310,6 +315,7 @@ impl Analyzer {
         for stm in &module.ast.statements {
             if let Statement::Infix(_, _, name, def) = stm {
                 if let Some(ty) = self.env.find_definition(def) {
+                    self.e.set(name, ty.clone());
                     self.env.add_definition(name, ty);
                 } else {
                     eprintln!("Infix operator {} where the function {} doesn't have a type header", name, def);

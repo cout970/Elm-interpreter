@@ -55,6 +55,7 @@ impl Analyzer {
             source_name: "__internal__minus".to_string(),
             destine_name: "__internal__minus".to_string(),
         });
+        self.e.set("__internal__minus", type_unary_minus());
         self.env.add_definition("__internal__minus", type_unary_minus());
 
         // Add rest of imports
@@ -102,6 +103,7 @@ impl Analyzer {
                     source_name: name.clone(),
                     destine_name: aliased_name.clone(),
                 });
+                self.e.set(&aliased_name, ty.clone());
                 self.env.add_definition(&aliased_name, ty.clone());
             }
             Declaration::Definition(name, def) => {
@@ -110,6 +112,7 @@ impl Analyzer {
                     source_name: name.clone(),
                     destine_name: aliased_name.clone(),
                 });
+                self.e.set(&aliased_name, def.header.clone());
                 self.env.add_definition(&aliased_name, def.header.clone());
             }
             Declaration::Alias(name, ty) => {
@@ -124,6 +127,7 @@ impl Analyzer {
                     source_name: name.clone(),
                     destine_name: name.clone(),
                 });
+                self.e.set(name, ty.clone());
                 self.env.add_definition(name, ty.clone());
             }
         }
@@ -165,9 +169,11 @@ impl Analyzer {
                         declarations.push(decl.clone());
                         match decl {
                             Declaration::Definition(name, def) => {
+                                self.e.set(&name, def.header.clone());
                                 self.env.add_definition(&name, def.header.clone());
                             }
                             Declaration::Port(name, ty) => {
+                                self.e.set(&name, ty.clone());
                                 self.env.add_definition(&name, ty);
                             }
                             Declaration::Alias(name, ty) => {
@@ -177,6 +183,7 @@ impl Analyzer {
                                 self.env.add_adt(&name, adt);
                             }
                             Declaration::Infix(name, _, ty) => {
+                                self.e.set(&name, ty.clone());
                                 self.env.add_definition(&name, ty.clone());
                             }
                         }

@@ -20,7 +20,7 @@ impl SourceCode {
 
         // Padding to detect the end of code while tokenizing, this avoids having to check for
         // the end of code before reading every character
-        for i in 0..SOURCE_CODE_PADDING {
+        for _ in 0..SOURCE_CODE_PADDING {
             code.push('\0');
         }
 

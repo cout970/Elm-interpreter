@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use ast::{Int, Pattern};
+use ast::Int;
 use ast::Type;
 use constructors::{type_char, type_int, type_string};
 use types::Value;
@@ -27,9 +27,9 @@ pub enum TypedExpr {
     /* If expression */
     If(Type, Box<TypedExpr>, Box<TypedExpr>, Box<TypedExpr>),
     /* Case expression */
-    Case(Type, Box<TypedExpr>, Vec<(Pattern, TypedExpr)>),
+    Case(Type, Box<TypedExpr>, Vec<(TypedPattern, TypedExpr)>),
     /* Creation of an anonymous function */
-    Lambda(Type, Vec<Pattern>, Box<TypedExpr>),
+    Lambda(Type, Vec<TypedPattern>, Box<TypedExpr>),
     /* Function call, the first expression if the function and the second it's argument */
     Application(Type, Box<TypedExpr>, Box<TypedExpr>),
     /* A let definition, allows to create local functions to use in the final expression */
@@ -41,7 +41,7 @@ pub enum TypedExpr {
 pub struct TypedDefinition {
     pub header: Type,
     pub name: String,
-    pub patterns: Vec<Pattern>,
+    pub patterns: Vec<TypedPattern>,
     pub expr: TypedExpr,
 }
 
@@ -49,7 +49,7 @@ pub struct TypedDefinition {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LetEntry {
     Definition(TypedDefinition),
-    Pattern(Pattern, TypedExpr),
+    Pattern(TypedPattern, TypedExpr),
 }
 
 // A pattern that represents 1 or more function arguments
@@ -68,7 +68,6 @@ pub enum TypedPattern {
     LitChar(char),
     Alias(Type, Box<TypedPattern>, String),
 }
-
 
 impl TypedPattern {
     pub fn get_type(&self) -> Type {

@@ -16,7 +16,7 @@ use loader::ModuleLoader;
 use loader::RuntimeModule;
 use Runtime;
 use rust_interop::call_function;
-use typed_ast::TypedDefinition;
+use typed_ast::{TypedDefinition, TypedPattern};
 use typed_ast::TypedExpr;
 use types::Adt;
 use types::AdtVariant;
@@ -344,34 +344,34 @@ impl Interpreter {
     }
 }
 
-fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
+fn matches_pattern(pattern: &TypedPattern, value: &Value) -> bool {
     match pattern {
-        Pattern::Var(_) => true,
-        Pattern::Wildcard => true,
-        Pattern::Alias(pat, _) => matches_pattern(pat, value),
-        Pattern::Adt(p_name, p_sub) => {
+        TypedPattern::Var(_, _) => true,
+        TypedPattern::Wildcard => true,
+        TypedPattern::Alias(_, pat, _) => matches_pattern(pat, value),
+        TypedPattern::Adt(_, p_name, p_sub) => {
             if let Value::Adt(v_name, v_sub, _) = value {
                 p_name == v_name && p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
             } else {
                 false
             }
         }
-        Pattern::Unit => value == &Value::Unit,
-        Pattern::Tuple(p_sub) => {
+        TypedPattern::Unit => value == &Value::Unit,
+        TypedPattern::Tuple(_, p_sub) => {
             if let Value::Tuple(v_sub) = value {
                 p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
             } else {
                 false
             }
         }
-        Pattern::List(p_sub) => {
+        TypedPattern::List(_, p_sub) => {
             if let Value::List(v_sub) = value {
                 p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
             } else {
                 false
             }
         }
-        Pattern::BinaryOp(op, first, rest) => {
+        TypedPattern::BinaryOp(_, op, first, rest) => {
             assert_eq!(op.as_str(), "::");
 
             if let Value::List(v_sub) = value {
@@ -385,7 +385,7 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
                 false
             }
         }
-        Pattern::Record(fields) => {
+        TypedPattern::Record(_, fields) => {
             if let Value::Record(entries) = value {
                 fields.iter().all(|field_name| {
                     entries.iter().find(|(name, _)| name == field_name).is_some()
@@ -394,7 +394,7 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
                 false
             }
         }
-        Pattern::LitInt(p) => {
+        TypedPattern::LitInt(p) => {
             match value {
                 Value::Int(v) => {
                     (*p) == (*v)
@@ -407,25 +407,25 @@ fn matches_pattern(pattern: &Pattern, value: &Value) -> bool {
                 }
             }
         }
-        Pattern::LitString(p) => {
+        TypedPattern::LitString(p) => {
             if let Value::String(v) = value { p == v } else { false }
         }
-        Pattern::LitChar(p) => {
+        TypedPattern::LitChar(p) => {
             if let Value::Char(v) = value { *p == *v } else { false }
         }
     }
 }
 
-pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value) -> Result<(), InterpreterError> {
+pub fn add_pattern_values(env: &mut Interpreter, pattern: &TypedPattern, value: Value) -> Result<(), InterpreterError> {
     match pattern {
-        Pattern::Var(n) => {
+        TypedPattern::Var(_, n) => {
             env.stack.add(&n, value);
         }
-        Pattern::Alias(pat, name) => {
+        TypedPattern::Alias(_, pat, name) => {
             env.stack.add(name, value.clone());
             add_pattern_values(env, pat, value)?;
         }
-        Pattern::Record(items) => {
+        TypedPattern::Record(_, items) => {
             if let Value::Record(vars) = &value {
                 for patt in items {
                     let (name, val) = vars.iter()
@@ -438,7 +438,7 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                 return Err(InterpreterError::ExpectedRecord(value.clone()));
             }
         }
-        Pattern::Adt(_, ref items) => {
+        TypedPattern::Adt(_, _, items) => {
             if let Value::Adt(_, vars, _) = &value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val.clone())?;
@@ -447,8 +447,8 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                 return Err(InterpreterError::ExpectedAdt(value.clone()));
             }
         }
-        Pattern::Tuple(ref items) => {
-            if let Value::Tuple(ref vars) = &value {
+        TypedPattern::Tuple(_, items) => {
+            if let Value::Tuple(vars) = &value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val.clone())?;
                 }
@@ -456,8 +456,8 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                 return Err(InterpreterError::ExpectedTuple(value.clone()));
             }
         }
-        Pattern::List(ref items) => {
-            if let Value::List(ref vars) = &value {
+        TypedPattern::List(_, items) => {
+            if let Value::List(vars) = &value {
                 for (patt, val) in items.iter().zip(vars) {
                     add_pattern_values(env, patt, val.clone())?;
                 }
@@ -465,14 +465,14 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &Pattern, value: Value
                 return Err(InterpreterError::ExpectedList(value.clone()));
             }
         }
-        Pattern::LitInt(_) => {}
-        Pattern::LitString(_) => {}
-        Pattern::LitChar(_) => {}
-        Pattern::Wildcard => {}
-        Pattern::Unit => {}
-        Pattern::BinaryOp(ref op, ref a, ref b) => {
+        TypedPattern::LitInt(_) => {}
+        TypedPattern::LitString(_) => {}
+        TypedPattern::LitChar(_) => {}
+        TypedPattern::Wildcard => {}
+        TypedPattern::Unit => {}
+        TypedPattern::BinaryOp(_, op, a, b) => {
             if op == "::" {
-                if let Value::List(ref vars) = &value {
+                if let Value::List(vars) = &value {
                     if vars.len() == 0 {
                         return Err(InterpreterError::ExpectedNonEmptyList(value.clone()));
                     }
