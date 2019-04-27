@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use ast::Pattern;
+use ast::{Int, Pattern};
 use ast::Type;
+use constructors::{type_char, type_int, type_string};
 use types::Value;
 
 // An unevaluated expression tree
@@ -49,6 +50,43 @@ pub struct TypedDefinition {
 pub enum LetEntry {
     Definition(TypedDefinition),
     Pattern(Pattern, TypedExpr),
+}
+
+// A pattern that represents 1 or more function arguments
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum TypedPattern {
+    Var(Type, String),
+    Adt(Type, String, Vec<TypedPattern>),
+    Wildcard,
+    Unit,
+    Tuple(Type, Vec<TypedPattern>),
+    List(Type, Vec<TypedPattern>),
+    BinaryOp(Type, String, Box<TypedPattern>, Box<TypedPattern>),
+    Record(Type, Vec<String>),
+    LitInt(Int),
+    LitString(String),
+    LitChar(char),
+    Alias(Type, Box<TypedPattern>, String),
+}
+
+
+impl TypedPattern {
+    pub fn get_type(&self) -> Type {
+        match self {
+            TypedPattern::Var(ty, _) => ty.clone(),
+            TypedPattern::Adt(ty, _, _) => ty.clone(),
+            TypedPattern::Wildcard => Type::Var("_".to_string()),
+            TypedPattern::Unit => Type::Unit,
+            TypedPattern::Tuple(ty, _) => ty.clone(),
+            TypedPattern::List(ty, _) => ty.clone(),
+            TypedPattern::BinaryOp(ty, _, _, _) => ty.clone(),
+            TypedPattern::Record(ty, _) => ty.clone(),
+            TypedPattern::LitInt(_) => type_int(),
+            TypedPattern::LitString(_) => type_string(),
+            TypedPattern::LitChar(_) => type_char(),
+            TypedPattern::Alias(ty, _, _) => ty.clone(),
+        }
+    }
 }
 
 pub fn expr_type(expr: &TypedExpr) -> Type {
