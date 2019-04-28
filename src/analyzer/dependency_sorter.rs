@@ -104,22 +104,22 @@ fn add_patterns(analyser: &mut Analyzer, patterns: &Vec<Pattern>) -> Vec<String>
     for pattern in patterns {
         pattern_visitor(&mut deps, pattern, &|s: &mut Vec<String>, p: &Pattern| {
             match p {
-                Pattern::Var(_) => {}
-                Pattern::Adt(name, _) => {
+                Pattern::Var(_, _) => {}
+                Pattern::Adt(_, name, _) => {
                     s.push(name.to_owned());
                 }
-                Pattern::Wildcard => {}
-                Pattern::Unit => {}
-                Pattern::Tuple(_) => {}
-                Pattern::List(_) => {}
-                Pattern::BinaryOp(op, _, _) => {
+                Pattern::Wildcard(_, ) => {}
+                Pattern::Unit(_, ) => {}
+                Pattern::Tuple(_, _) => {}
+                Pattern::List(_, _) => {}
+                Pattern::BinaryOp(_, op, _, _) => {
                     s.push(op.to_owned());
                 }
-                Pattern::Record(_) => {}
-                Pattern::LitInt(_) => {}
-                Pattern::LitString(_) => {}
-                Pattern::LitChar(_) => {}
-                Pattern::Alias(_, _) => {}
+                Pattern::Record(_, _) => {}
+                Pattern::LitInt(_, _) => {}
+                Pattern::LitString(_, _) => {}
+                Pattern::LitChar(_, _) => {}
+                Pattern::Alias(_, _, _) => {}
             }
         });
     }

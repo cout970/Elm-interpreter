@@ -15,16 +15,16 @@ pub fn get_utils_funs() -> Vec<(&'static str, Type, Value)> {
         func_of("==", "a -> a -> Bool", equal),
         func_of("notEqual", "a -> a -> Bool", not_equal),
         func_of("/=", "a -> a -> Bool", not_equal),
-        func_of("compare", "a -> a -> Bool", compare),
-        func_of("lt", "a -> a -> Bool", lt),
-        func_of("<", "a -> a -> Bool", lt),
-        func_of("le", "a -> a -> Bool", le),
-        func_of("<=", "a -> a -> Bool", le),
-        func_of("gt", "a -> a -> Bool", gt),
-        func_of(">", "a -> a -> Bool", gt),
-        func_of("ge", "a -> a -> Bool", ge),
-        func_of(">=", "a -> a -> Bool", ge),
-        func_of("append", "String -> String -> String", append),
+        func_of("compare", "comparable -> comparable -> Order", compare),
+        func_of("lt", "comparable -> comparable -> Bool", lt),
+        func_of("<", "comparable -> comparable -> Bool", lt),
+        func_of("le", "comparable -> comparable -> Bool", le),
+        func_of("<=", "comparable -> comparable -> Bool", le),
+        func_of("gt", "comparable -> comparable -> Bool", gt),
+        func_of(">", "comparable -> comparable -> Bool", gt),
+        func_of("ge", "comparable -> comparable -> Bool", ge),
+        func_of(">=", "comparable -> comparable -> Bool", ge),
+        func_of("append", "appendable -> appendable -> appendable", append),
         func_of("<|", "(a -> b) -> a -> b", ignore), // Defined in Basics.elm
         func_of("|>", "a -> (a -> b) -> b", ignore), // Defined in Basics.elm
         func_of("<<", "(b -> c) -> (a -> b) -> (a -> c)", ignore), // Defined in Basics.elm
@@ -48,7 +48,8 @@ fn not_equal(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     }
 }
 
-fn compare(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn compare(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+    // TODO Orders instead of Int
     match compare_values(&args[1], &args[1]) {
         Ordering::Less => Ok(Value::Int(-1)),
         Ordering::Equal => Ok(Value::Int(0)),

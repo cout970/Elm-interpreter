@@ -111,33 +111,33 @@ pub fn pattern_visitor_block<S, F: Fn(&mut S, &Pattern), G: Fn(&mut S, &Pattern)
     enter(state, root);
 
     match root {
-        Pattern::Var(_) => {}
-        Pattern::Adt(_, items) => {
+        Pattern::Var(_, _) => {}
+        Pattern::Adt(_, _, items) => {
             for item in items {
                 pattern_visitor_block(state, item, enter, exit);
             }
         }
-        Pattern::Wildcard => {}
-        Pattern::Unit => {}
-        Pattern::Tuple(items) => {
+        Pattern::Wildcard(_, ) => {}
+        Pattern::Unit(_, ) => {}
+        Pattern::Tuple(_, items) => {
             for item in items {
                 pattern_visitor_block(state, item, enter, exit);
             }
         }
-        Pattern::List(items) => {
+        Pattern::List(_, items) => {
             for item in items {
                 pattern_visitor_block(state, item, enter, exit);
             }
         }
-        Pattern::BinaryOp(_, left, right) => {
+        Pattern::BinaryOp(_, _, left, right) => {
             pattern_visitor_block(state, &*left, enter, exit);
             pattern_visitor_block(state, &*right, enter, exit);
         }
-        Pattern::Record(_) => {}
-        Pattern::LitInt(_) => {}
-        Pattern::LitString(_) => {}
-        Pattern::LitChar(_) => {}
-        Pattern::Alias(child, _) => {
+        Pattern::Record(_, _) => {}
+        Pattern::LitInt(_, _) => {}
+        Pattern::LitString(_, _) => {}
+        Pattern::LitChar(_, _) => {}
+        Pattern::Alias(_, child, _) => {
             pattern_visitor_block(state, &*child, enter, exit);
         }
     }

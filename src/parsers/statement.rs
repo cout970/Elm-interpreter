@@ -177,7 +177,7 @@ mod tests {
             Definition {
                 header: None,
                 name: "my_fun".s(),
-                patterns: vec![Pattern::Var("x".s())],
+                patterns: vec![Pattern::Var((0, 0), "x".s())],
                 expr: Expr::Unit((0, 0)),
             }
         ));
@@ -217,13 +217,13 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
             Definition {
                 header: None,
                 name: "update".s(),
-                patterns: vec![Pattern::Var("msg".s()), Pattern::Var("model".s())],
+                patterns: vec![Pattern::Var((0, 0), "msg".s()), Pattern::Var((0, 0), "model".s())],
                 expr: Expr::Case(
                     (0, 0),
                     Box::new(Expr::Ref((0, 0), "msg".s())),
                     vec![
                         (
-                            Pattern::Adt("Increment".s(), vec![]),
+                            Pattern::Adt((0, 0), "Increment".s(), vec![]),
                             Expr::OpChain(
                                 (0, 0),
                                 vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
@@ -231,7 +231,7 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
                             )
                         ),
                         (
-                            Pattern::Adt("Decrement".s(), vec![]),
+                            Pattern::Adt((0, 0), "Decrement".s(), vec![]),
                             Expr::OpChain(
                                 (0, 0),
                                 vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
@@ -259,7 +259,7 @@ update msg model =\n    case msg of\n    Increment ->\n        model + 1\n    De
             )),
             name: "init".s(),
             patterns: vec![
-                Pattern::Var("flags".s())
+                Pattern::Var((0, 0), "flags".s())
             ],
             expr: Expr::Tuple(
                 (0, 0),

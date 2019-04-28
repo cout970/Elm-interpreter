@@ -17,7 +17,7 @@ pub fn get_list_funs() -> Vec<(&'static str, Type, Value)> {
         func_of("map2", "(a -> b -> result) -> List a -> List b -> List result", map2),
         func_of("map3", "(a -> b -> c -> result) -> List a -> List b -> List c -> List result", map3),
         func_of("map4", "(a -> b -> c -> d -> result) -> List a -> List b -> List c -> List d -> List result", map4),
-        func_of("map5", "(a -> b -> c -> d -> e -> result) -> List a -> List b -> List c -> List d -> List e -> List", map5),
+        func_of("map5", "(a -> b -> c -> d -> e -> result) -> List a -> List b -> List c -> List d -> List e -> List result", map5),
         func_of("fromArray", "Array a -> List a", temp_do_nothing),
         func_of("toArray", "List a -> Array a", temp_do_nothing),
         func_of("sortBy", "(a -> comparable) ->  List a -> List a", sort_by),

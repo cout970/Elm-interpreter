@@ -13,7 +13,6 @@ use analyzer::type_of_value;
 use ast::*;
 use errors::*;
 use interpreter::Interpreter;
-use Runtime;
 use rust_interop::FnAny;
 use typed_ast::{TypedExpr, TypedPattern};
 use util::transmute_float_to_int;

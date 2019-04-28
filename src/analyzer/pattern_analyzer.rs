@@ -12,30 +12,30 @@ use util::VecExt;
 
 pub fn is_exhaustive(pattern: &Pattern) -> bool {
     match pattern {
-        Pattern::Var(_) => true,
-        Pattern::Adt(_, _) => true,
-        Pattern::Wildcard => true,
-        Pattern::Unit => true,
-        Pattern::Tuple(sub_patterns) => {
+        Pattern::Var(_, _) => true,
+        Pattern::Adt(_, _, _) => true,
+        Pattern::Wildcard(_, ) => true,
+        Pattern::Unit(_, ) => true,
+        Pattern::Tuple(_, sub_patterns) => {
             sub_patterns.iter().all(|p| is_exhaustive(p))
         }
-        Pattern::List(_) => false,
-        Pattern::Alias(pat, _) => is_exhaustive(pat),
-        Pattern::BinaryOp(_, _, _) => false,
-        Pattern::Record(_) => true,
-        Pattern::LitInt(_) => false,
-        Pattern::LitString(_) => false,
-        Pattern::LitChar(_) => false,
+        Pattern::List(_, _) => false,
+        Pattern::Alias(_, pat, _) => is_exhaustive(pat),
+        Pattern::BinaryOp(_, _, _, _) => false,
+        Pattern::Record(_, _) => true,
+        Pattern::LitInt(_, _) => false,
+        Pattern::LitString(_, _) => false,
+        Pattern::LitChar(_, _) => false,
     }
 }
 
 pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, Vec<(String, Type)>), PatternMatchingError> {
     match pattern {
-        Pattern::Var(name) => {
+        Pattern::Var(_, name) => {
             let ty_name = env.name_seq.next();
             Ok((Type::Var(ty_name.clone()), vec![(name.to_owned(), Type::Var(ty_name))]))
         }
-        Pattern::Adt(name, sub_patterns) => {
+        Pattern::Adt(_, name, sub_patterns) => {
             let mut sub_input = Vec::new();
             let mut sub_vars = Vec::new();
 
@@ -53,13 +53,13 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
             // TODO error Maybe vs Maybe a
             Ok((Type::Tag(adt.name.clone(), sub_input), sub_vars))
         }
-        Pattern::Wildcard => {
+        Pattern::Wildcard(_) => {
             Ok((Type::Var(env.name_seq.next()), vec![]))
         }
-        Pattern::Unit => {
+        Pattern::Unit(_) => {
             Ok((Type::Unit, vec![]))
         }
-        Pattern::Tuple(sub_patterns) => {
+        Pattern::Tuple(_, sub_patterns) => {
             let mut sub_input = Vec::new();
             let mut sub_vars = Vec::new();
 
@@ -73,7 +73,7 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
             Ok((Type::Tuple(sub_input), sub_vars))
         }
-        Pattern::List(sub_patterns) => {
+        Pattern::List(_, sub_patterns) => {
             let mut sub_input = Vec::new();
             let mut sub_vars = Vec::new();
 
@@ -97,7 +97,7 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
             Ok((type_list(ty), sub_vars))
         }
-        Pattern::BinaryOp(operand, left, right) => {
+        Pattern::BinaryOp(_, operand, left, right) => {
             if operand != "::" {
                 return Err(PatternMatchingError::UnknownOperatorPattern(operand.clone()));
             }
@@ -107,7 +107,7 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
             Ok((type_list(left_ty), left_vars.join_vec(&right_vars)))
         }
-        Pattern::Record(entry_names) => {
+        Pattern::Record(_, entry_names) => {
             let mut entries = Vec::new();
 
             for name in entry_names {
@@ -116,10 +116,10 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
             Ok((Type::Record(entries.clone()), entries))
         }
-        Pattern::LitInt(_) => Ok((type_int(), vec![])),
-        Pattern::LitString(_) => Ok((type_string(), vec![])),
-        Pattern::LitChar(_) => Ok((type_char(), vec![])),
-        Pattern::Alias(pat, alias) => {
+        Pattern::LitInt(_, _) => Ok((type_int(), vec![])),
+        Pattern::LitString(_, _) => Ok((type_string(), vec![])),
+        Pattern::LitChar(_, _) => Ok((type_char(), vec![])),
+        Pattern::Alias(_, pat, alias) => {
             let (ret_ty, vars) = analyze_pattern(env, pat)?;
             Ok((ret_ty.clone(), create_vec((alias.to_owned(), ret_ty), vars)))
         }
@@ -128,10 +128,10 @@ pub fn analyze_pattern(env: &mut StaticEnv, pattern: &Pattern) -> Result<(Type, 
 
 pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Type) -> Result<(Type, Vec<(String, Type)>), PatternMatchingError> {
     match pattern {
-        Pattern::Var(name) => {
+        Pattern::Var(_, name) => {
             Ok((ty.clone(), vec![(name.to_owned(), ty)]))
         }
-        Pattern::Adt(name, sub_patterns) => {
+        Pattern::Adt(_, name, sub_patterns) => {
             let mut sub_input = Vec::new();
             let mut sub_vars = Vec::new();
 
@@ -161,16 +161,16 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
 
             Ok((Type::Tag(adt.name.clone(), sub_input), sub_vars))
         }
-        Pattern::Wildcard => {
+        Pattern::Wildcard(_) => {
             Ok((ty, vec![]))
         }
-        Pattern::Unit => {
+        Pattern::Unit(_) => {
             if ty != Type::Unit {
                 return Err(PatternMatchingError::ExpectedUnit(ty));
             }
             Ok((Type::Unit, vec![]))
         }
-        Pattern::Tuple(sub_patterns) => {
+        Pattern::Tuple(_, sub_patterns) => {
             let mut sub_input = Vec::new();
             let mut sub_vars = Vec::new();
 
@@ -204,7 +204,7 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
                 }
             }
         }
-        Pattern::List(sub_patterns) => {
+        Pattern::List(_, sub_patterns) => {
             let mut sub_vars = Vec::new();
             let list_param = get_list_param_type(&ty)?;
 
@@ -217,7 +217,7 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
 
             Ok((type_list(list_param.clone()), sub_vars))
         }
-        Pattern::Record(pattern_entries) => {
+        Pattern::Record(_, pattern_entries) => {
             let mut entries = Vec::new();
             let pairs = get_record_entries(&ty)?;
 
@@ -231,7 +231,7 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
 
             Ok((ty.clone(), entries))
         }
-        Pattern::BinaryOp(operand, left, right) => {
+        Pattern::BinaryOp(_, operand, left, right) => {
             if operand != "::" {
                 return Err(PatternMatchingError::UnknownOperatorPattern(operand.clone()));
             }
@@ -242,7 +242,7 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
 
             Ok((type_list(list_param.clone()), left_vars.join_vec(&right_vars)))
         }
-        Pattern::LitInt(_) => {
+        Pattern::LitInt(_, _) => {
             if let Type::Var(name) = &ty {
                 if name != "number" {
                     return Err(PatternMatchingError::ExpectedLiteral("Int or number".to_owned(), ty.clone()));
@@ -252,15 +252,15 @@ pub fn analyze_pattern_with_type(env: &mut StaticEnv, pattern: &Pattern, ty: Typ
             }
             Ok((ty, vec![]))
         }
-        Pattern::LitString(_) => {
+        Pattern::LitString(_, _) => {
             check_type_literal(&ty, "String")?;
             Ok((ty, vec![]))
         }
-        Pattern::LitChar(_) => {
+        Pattern::LitChar(_, _) => {
             check_type_literal(&ty, "Char")?;
             Ok((ty, vec![]))
         }
-        Pattern::Alias(pat, alias) => {
+        Pattern::Alias(_, pat, alias) => {
             let (ret_ty, vars) = analyze_pattern_with_type(env, pat, ty)?;
             Ok((ret_ty.clone(), create_vec((alias.to_owned(), ret_ty), vars)))
         }

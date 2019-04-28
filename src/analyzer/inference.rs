@@ -1,13 +1,15 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Error, Formatter};
 
 use analyzer::static_env::StaticEnv;
 use analyzer::type_inference::expr_tree_to_expr;
+use analyzer::unpack_types;
 use ast::{Definition, LetDeclaration, Span};
 use ast::Expr;
 use ast::Literal;
 use ast::Pattern;
 use ast::Type;
-use constructors::{type_bool, type_record, type_var};
+use constructors::{type_bool, type_fun, type_record, type_var};
 use constructors::type_list;
 use errors::TypeError;
 use typed_ast::{expr_type, LetEntry, TypedPattern};
@@ -24,7 +26,7 @@ use util::VecExt;
 // https://youtu.be/oPVTNxiMcSU?t=4301
 //type Constraint = (Type, Type);
 
-#[debug]
+#[derive(Debug, Clone)]
 struct Constraint {
     span: Span,
     left: Type,
@@ -81,6 +83,7 @@ pub struct Env {
     alias: HashMap<String, Type>,
     generator: NameSequence,
     number: NameSequence,
+    save: Vec<(u32, u32)>,
 }
 
 impl Env {
@@ -90,6 +93,7 @@ impl Env {
             alias: HashMap::new(),
             generator: NameSequence::new(),
             number: NameSequence::new(),
+            save: vec![],
         }
     }
 
@@ -115,12 +119,34 @@ impl Env {
         Type::Var(self.number.next_with_prefix("number"))
     }
 
+    fn next_comparable_type(&mut self) -> Type {
+        Type::Var(self.number.next_with_prefix("comparable"))
+    }
+    fn next_appendable_type(&mut self) -> Type {
+        Type::Var(self.number.next_with_prefix("appendable"))
+    }
+
+    pub fn block<T, F>(&mut self, mut func: F) -> Result<T, TypeError>
+        where F: FnMut(&mut Self) -> Result<T, TypeError>
+    {
+        self.enter_block();
+        let i = func(self);
+        self.exit_block();
+        i
+    }
+
     pub fn enter_block(&mut self) {
+//        let save0 = self.generator.save();
+//        let save1 = self.number.save();
+//        self.save.push((save0, save1));
         self.blocks.push(HashMap::new());
     }
 
     pub fn exit_block(&mut self) {
         self.blocks.pop().expect("Tried to pop the global environment");
+//        let (save0, save1) = self.save.pop().unwrap();
+//        self.generator.restore(save0);
+//        self.number.restore(save1);
     }
 }
 
@@ -135,39 +161,119 @@ impl From<Literal> for Value {
     }
 }
 
+impl Display for Env {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        writeln!(f, "Env:")?;
+        for (i, block) in self.blocks.iter().enumerate() {
+            let mut pad = String::new();
+
+            for _ in 0..(i * 2) {
+                pad.push(' ');
+            }
+
+            writeln!(f, "# Block {}", i)?;
+            for (k, v) in block {
+                writeln!(f, "{}{} => {}", pad, k, v)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDefinition, TypeError> {
-    // Type Annotation
-    env.enter_block();
-    let mut annotated_patterns = vec![];
-    for pat in &fun.patterns {
-        annotated_patterns.push(annotate_pattern(env, &pat)?);
-    }
-    for pat in &annotated_patterns {
-        add_pattern_vars_to_env(env, pat);
-    }
-
-    let annotated_expr = annotate_expr(env, &fun.expr)?;
-    env.exit_block();
-
-    // Constraint collection
     let mut constraints = vec![];
 
-    for pat in &annotated_patterns {
-        collect_pattern_constraints(&mut constraints, pat);
+    let (substitution, func_type, annotated_patterns, annotated_expr) = env.block(|env| {
+
+        // Type Annotation
+        let func_type = env.next_type();
+
+        env.set(&fun.name, func_type.clone());
+
+        let mut annotated_patterns = vec![];
+        for pat in &fun.patterns {
+            annotated_patterns.push(annotate_pattern(env, &pat)?);
+        }
+        for pat in &annotated_patterns {
+            add_pattern_vars_to_env(env, pat);
+        }
+
+        let annotated_expr = annotate_expr(env, &fun.expr)?;
+
+        // Collect constraints
+        let safe_ty = if let Some(ty) = &fun.header {
+            let safe_ty = update_type_variables(env, &mut HashMap::new(), ty.clone());
+
+            collect_type_definition_constraints(&mut constraints, &safe_ty, &annotated_patterns, &annotated_expr);
+
+            safe_ty
+        } else {
+            Type::Var("_".to_string())
+        };
+
+        for pat in &annotated_patterns {
+            collect_pattern_constraints(&mut constraints, pat);
+        }
+
+        collect_expr_constraints(&mut constraints, &annotated_expr);
+
+        // Function type
+        let mut func_types: Vec<Type> = annotated_patterns.iter()
+            .map(|pat| pat.get_type())
+            .collect();
+
+        func_types.push(annotated_expr.get_type());
+
+
+        constraints.push(Constraint::new(
+            annotated_expr.get_span(),
+            &func_type,
+            &type_fun(func_types),
+        ));
+
+        // Debug
+        eprintln!("Func {}:\ntype: {}\npatterns:\n{:?}\nexpr:\n{}\n", &fun.name, safe_ty, &annotated_patterns, &annotated_expr);
+
+        eprintln!("Constraints: ");
+        for p in &constraints {
+            eprintln!("{} => {}", p.left, p.right);
+        }
+        eprintln!();
+
+        // Constraint solutions
+        let substitution = match unify_constraints(&constraints) {
+            Ok(sub) => sub,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+
+        Ok((substitution, func_type, annotated_patterns, annotated_expr))
+    })?;
+
+    // Apply solution
+    let res_expr = replace_expr_types(&substitution, annotated_expr);
+    let res_patterns: Vec<TypedPattern> = annotated_patterns.into_iter()
+        .map(|pat| replace_pattern_types(&substitution, pat))
+        .collect();
+
+    let def_type = substitution.replace(func_type);
+
+    // Debug
+    if let Some(ty) = &fun.header {
+        eprintln!("------\nTypedDefinition {}: {}\n inferred: {}\n\n{}\n------\n", &fun.name, ty, def_type, res_expr);
+        if ty != &def_type {
+            println!("Wait a second!");
+        }
+    } else {
+        eprintln!("------\nTypedDefinition {}: ?\n inferred: {}\n\n{}\n------\n", &fun.name, def_type, res_expr);
     }
 
-    collect_expr_constraints(&mut constraints, &annotated_expr);
-
-    // Constraint solutions
-    let substitution = unify_constraints(&constraints);
-    let res = replace_types(&substitution, annotated_expr);
-
-
     Ok(TypedDefinition {
-        header: expr_type(&res),
+        header: def_type,
         name: fun.name.to_string(),
-        patterns: tmp_map_patterns(&fun.patterns),
-        expr: res,
+        patterns: res_patterns,
+        expr: res_expr,
     })
 }
 
@@ -185,7 +291,7 @@ fn infer_types(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
     }
     eprintln!();
 
-    let substitution = unify_constraints(&constraints);
+    let substitution = unify_constraints(&constraints)?;
 
     eprintln!("Substitutions: ");
     for (a, b) in &substitution.0 {
@@ -193,7 +299,7 @@ fn infer_types(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
     }
     eprintln!();
 
-    let res = replace_types(&substitution, annotated);
+    let res = replace_expr_types(&substitution, annotated);
 
     eprintln!("Tree: \n{}\n", &res);
 
@@ -206,7 +312,11 @@ fn update_type_variables(env: &mut Env, dup: &mut HashMap<String, Type>, ty: Typ
             match dup.get(&name).cloned() {
                 Some(var) => var,
                 None => {
-                    let new_ty = if name.starts_with("number") {
+                    let new_ty = if name.starts_with("comparable") {
+                        env.next_comparable_type()
+                    } else if name.starts_with("appendable") {
+                        env.next_appendable_type()
+                    } else if name.starts_with("number") {
                         env.next_number_type()
                     } else {
                         env.next_type()
@@ -291,65 +401,66 @@ pub fn tmp_map_pattern(it: &Pattern) -> TypedPattern {
 
 fn annotate_pattern(env: &mut Env, pat: &Pattern) -> Result<TypedPattern, TypeError> {
     let typed = match pat {
-        Pattern::Var(name) => {
+        Pattern::Var(span, name) => {
             if env.get(name).is_some() {
-                return Err(TypeError::VariableNameShadowed { span: (0, 0), name: name.clone() });
+                return Err(TypeError::VariableNameShadowed { span: pat.get_span(), name: name.clone() });
             }
 
-            TypedPattern::Var(env.next_type(), name.clone())
+            TypedPattern::Var(*span, env.next_type(), name.clone())
         }
-        Pattern::Adt(name, items) => {
+        Pattern::Adt(span, name, items) => {
             TypedPattern::Adt(
+                *span,
                 env.next_type(),
-                name.clone(),
+                env.get(name).unwrap().clone(),//TODO
                 vec_map(env, items, annotate_pattern)?,
             )
         }
-        Pattern::Wildcard => {
-            TypedPattern::Wildcard
+        Pattern::Wildcard(span) => {
+            TypedPattern::Wildcard(*span)
         }
-        Pattern::Unit => {
-            TypedPattern::Unit
+        Pattern::Unit(span) => {
+            TypedPattern::Unit(*span)
         }
-        Pattern::Tuple(items) => {
-            TypedPattern::Tuple(
-                env.next_type(),
-                vec_map(env, items, annotate_pattern)?,
+        Pattern::Tuple(span, items) => {
+            TypedPattern::Tuple(*span,
+                                env.next_type(),
+                                vec_map(env, items, annotate_pattern)?,
             )
         }
-        Pattern::List(items) => {
-            TypedPattern::List(
-                env.next_type(),
-                vec_map(env, items, annotate_pattern)?,
+        Pattern::List(span, items) => {
+            TypedPattern::List(*span,
+                               env.next_type(),
+                               vec_map(env, items, annotate_pattern)?,
             )
         }
-        Pattern::BinaryOp(op, a, b) => {
-            TypedPattern::BinaryOp(
-                env.next_type(),
-                op.clone(),
-                Box::new(annotate_pattern(env, a)?),
-                Box::new(annotate_pattern(env, b)?),
+        Pattern::BinaryOp(span, op, a, b) => {
+            TypedPattern::BinaryOp(*span,
+                                   env.next_type(),
+                                   op.clone(),
+                                   Box::new(annotate_pattern(env, a)?),
+                                   Box::new(annotate_pattern(env, b)?),
             )
         }
-        Pattern::Record(items) => {
-            TypedPattern::Record(
-                env.next_type(),
-                items.clone(),
+        Pattern::Record(span, items) => {
+            TypedPattern::Record(*span,
+                                 env.next_type(),
+                                 items.clone(),
             )
         }
-        Pattern::LitInt(val) => {
-            TypedPattern::LitInt(*val)
+        Pattern::LitInt(span, val) => {
+            TypedPattern::LitInt(*span, *val)
         }
-        Pattern::LitString(val) => {
-            TypedPattern::LitString(val.clone())
+        Pattern::LitString(span, val) => {
+            TypedPattern::LitString(*span, val.clone())
         }
-        Pattern::LitChar(val) => {
-            TypedPattern::LitChar(*val)
+        Pattern::LitChar(span, val) => {
+            TypedPattern::LitChar(*span, *val)
         }
-        Pattern::Alias(pat, name) => {
+        Pattern::Alias(span, pat, name) => {
             let ty = annotate_pattern(env, pat)?;
             env.set(name, ty.get_type());
-            TypedPattern::Alias(ty.get_type(), Box::new(ty), name.clone())
+            TypedPattern::Alias(*span, ty.get_type(), Box::new(ty), name.clone())
         }
     };
 
@@ -364,126 +475,156 @@ fn annotate_expr(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
                 .ok_or_else(|| TypeError::MissingDefinition { span: *span, name: name.to_string() })?;
 
             let ty = update_type_variables(env, &mut HashMap::new(), ty);
-            TypedExpr::Ref(ty, name.clone())
+            TypedExpr::Ref(*span, ty, name.clone())
         }
         Expr::Ref(span, name) => {
             let ty = env.get(name).cloned()
-                .ok_or_else(|| TypeError::MissingDefinition { span: *span, name: name.to_string() })?;
+                .ok_or_else(|| {
+                    eprintln!("\n\nMissingDefinition '{}': \n{}\n\n", name, env);
+                    TypeError::MissingDefinition { span: *span, name: name.to_string() }
+                })?;
+
 
             let ty = update_type_variables(env, &mut HashMap::new(), ty);
-            TypedExpr::Ref(ty, name.clone())
+            TypedExpr::Ref(*span, ty, name.clone())
         }
-        Expr::Literal(_, lit) => {
+        Expr::Literal(span, lit) => {
             let value: Value = lit.clone().into();
             if let Value::Number(_) = &value {
-                TypedExpr::Const(env.next_number_type(), value)
+                TypedExpr::Const(*span, env.next_number_type(), value)
             } else {
-                TypedExpr::Const(value.get_type(), value)
+                TypedExpr::Const(*span, value.get_type(), value)
             }
         }
-        Expr::Unit(_) => {
-            TypedExpr::Const(env.next_type(), Value::Unit)
+        Expr::Unit(span) => {
+            TypedExpr::Const(*span, env.next_type(), Value::Unit)
         }
-        Expr::Tuple(_, exprs) => {
-            TypedExpr::Tuple(
-                env.next_type(),
-                vec_map(env, exprs, annotate_expr)?,
+        Expr::Tuple(span, exprs) => {
+            TypedExpr::Tuple(*span,
+                             env.next_type(),
+                             vec_map(env, exprs, annotate_expr)?,
             )
         }
-        Expr::List(_, exprs) => {
-            TypedExpr::List(
-                env.next_type(),
-                vec_map(env, exprs, annotate_expr)?,
+        Expr::List(span, exprs) => {
+            TypedExpr::List(*span,
+                            env.next_type(),
+                            vec_map(env, exprs, annotate_expr)?,
             )
         }
-        Expr::Record(_, exprs) => {
+        Expr::Record(span, exprs) => {
             TypedExpr::Record(
+                *span,
                 env.next_type(),
                 map_pair(exprs, |e| annotate_expr(env, e))?,
             )
         }
-        Expr::RecordUpdate(_, name, exprs) => {
-            let sub = annotate_expr(env, &Expr::Ref((0, 0), name.clone()))?;
+        Expr::RecordUpdate(span, name, exprs) => {
+            let sub = annotate_expr(env, &Expr::Ref(*span, name.clone()))?;
             TypedExpr::RecordUpdate(
+                *span,
                 env.next_type(),
                 Box::new(sub),
                 map_pair(exprs, |e| annotate_expr(env, e))?,
             )
         }
-        Expr::RecordField(_, expr, name) => {
+        Expr::RecordField(span, expr, name) => {
             TypedExpr::RecordField(
+                *span,
                 env.next_type(),
                 Box::new(annotate_expr(env, expr)?),
                 name.clone(),
             )
         }
-        Expr::RecordAccess(_, name) => {
+        Expr::RecordAccess(span, name) => {
             TypedExpr::RecordAccess(
+                *span,
                 env.next_type(),
                 name.clone(),
             )
         }
-        Expr::If(_, a, b, c) => {
+        Expr::If(span, a, b, c) => {
             TypedExpr::If(
+                *span,
                 env.next_type(),
                 Box::new(annotate_expr(env, a)?),
                 Box::new(annotate_expr(env, b)?),
                 Box::new(annotate_expr(env, c)?),
             )
         }
-        Expr::Case(_, expr, branches) => {
+        Expr::Case(span, expr, branches) => {
+            let annotated_expr = annotate_expr(env, expr)?;
             let mut new_branches = vec![];
 
             for (a, b) in branches {
-                new_branches.push((annotate_pattern(env, a)?, annotate_expr(env, b)?));
+                env.block(|env| {
+                    let pat = annotate_pattern(env, a)?;
+                    add_pattern_vars_to_env(env, &pat);
+
+                    new_branches.push((pat, annotate_expr(env, b)?));
+                    Ok(())
+                })?;
             }
 
             TypedExpr::Case(
+                *span,
                 env.next_type(),
-                Box::new(annotate_expr(env, expr)?),
+                Box::new(annotated_expr),
                 new_branches,
             )
         }
-        Expr::Lambda(_, pat, expr) => {
-            TypedExpr::Lambda(
-                env.next_type(),
-                vec_map(env, pat, annotate_pattern)?,
-                Box::new(annotate_expr(env, expr)?),
-            )
-        }
-        Expr::Application(_, a, b) => {
-            TypedExpr::Application(
-                env.next_type(),
-                Box::new(annotate_expr(env, a)?),
-                Box::new(annotate_expr(env, b)?),
-            )
-        }
-        Expr::Let(_, decls, expr) => {
-            env.enter_block();
-            let mut entries = vec![];
+        Expr::Lambda(span, pat, expr) => {
+            let patterns = vec_map(env, pat, annotate_pattern)?;
 
-            for decl in decls {
-                match decl {
-                    LetDeclaration::Def(def) => {
-                        let typed_def = infer_definition_type(env, def)?;
-                        env.set(&def.name, typed_def.header.clone());
-                        entries.push(LetEntry::Definition(typed_def));
-                    }
-                    LetDeclaration::Pattern(pat, expr) => {
-                        let pat = annotate_pattern(env, pat)?;
-                        let expr = annotate_expr(env, expr)?;
-                        // TODO register pat in env
-                        entries.push(LetEntry::Pattern(pat, expr));
+            let expr = env.block(|env| {
+                for pat in &patterns {
+                    add_pattern_vars_to_env(env, pat);
+                }
+                annotate_expr(env, expr)
+            })?;
+
+            TypedExpr::Lambda(
+                *span,
+                env.next_type(),
+                patterns,
+                Box::new(expr),
+            )
+        }
+        Expr::Application(span, a, b) => {
+            TypedExpr::Application(*span,
+                                   env.next_type(),
+                                   Box::new(annotate_expr(env, a)?),
+                                   Box::new(annotate_expr(env, b)?),
+            )
+        }
+        Expr::Let(span, decls, expr) => {
+            let (entries, expr) = env.block(|env| {
+                let mut entries = vec![];
+
+                for decl in decls {
+                    match decl {
+                        LetDeclaration::Def(def) => {
+                            let typed_def = infer_definition_type(env, def)?;
+
+                            env.set(&def.name, typed_def.header.clone());
+                            entries.push(LetEntry::Definition(typed_def));
+                        }
+                        LetDeclaration::Pattern(pat, expr) => {
+                            let pat = annotate_pattern(env, pat)?;
+                            add_pattern_vars_to_env(env, &pat);
+
+                            let expr = annotate_expr(env, expr)?;
+
+                            entries.push(LetEntry::Pattern(pat, expr));
+                        }
                     }
                 }
-            }
-            let expr = annotate_expr(env, expr)?;
-            env.exit_block();
+                Ok((entries, annotate_expr(env, expr)?))
+            })?;
 
-            TypedExpr::Let(
-                expr_type(&expr),
-                entries,
-                Box::new(expr),
+            TypedExpr::Let(*span,
+                           expr_type(&expr),
+                           entries,
+                           Box::new(expr),
             )
         }
         Expr::OpChain(span, exprs, ops) => {
@@ -504,42 +645,83 @@ fn annotate_expr(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
     Ok(te)
 }
 
+fn collect_type_definition_constraints(res: &mut Vec<Constraint>, ty: &Type, patterns: &Vec<TypedPattern>, expr: &TypedExpr) {
+    let list = unpack_types(ty);
+
+    if list.len() <= patterns.len() {
+        panic!("Too many patterns: {} patterns and {} arguments", patterns.len(), list.len());
+    }
+
+    let mut i = 0;
+
+    while i < patterns.len() {
+        res.push(Constraint::new(
+            patterns[i].get_span(),
+            &patterns[i].get_type(),
+            &list[i],
+        ));
+        i += 1;
+    }
+
+    let ret: Vec<_> = list[i..].iter().cloned().collect();
+    res.push(Constraint::new(expr.get_span(), &type_fun(ret), &expr.get_type()));
+}
+
 fn collect_pattern_constraints(res: &mut Vec<Constraint>, pat: &TypedPattern) {
     match pat {
-        TypedPattern::Var(_, _) => {}
-        TypedPattern::Adt(ty, name, items) => {
-            res.push(Constraint::new((0, 0), ty, &Type::Tag(name.clone(), items.map(|e| e.get_type()))));
+        TypedPattern::Var(_, _, _) => {}
+        TypedPattern::Adt(_, ty, ctor_type, items) => {
+            let adt_type = unpack_types(ctor_type).into_iter().last().unwrap();
+            let mut ctor = vec![];
+
+            for arg in items {
+                ctor.push(arg.get_type());
+            }
+            ctor.push(adt_type.clone());
+
+            res.push(Constraint::new(
+                pat.get_span(),
+                ctor_type,
+                &type_fun(ctor),
+            ));
+
+            res.push(Constraint::new(
+                pat.get_span(),
+                ty,
+                &adt_type,
+            ));
+
             items.for_each(|it| collect_pattern_constraints(res, it));
         }
-        TypedPattern::Wildcard => {}
-        TypedPattern::Unit => {}
-        TypedPattern::Tuple(ty, items) => {
-            res.push(Constraint::new((0, 0), ty, &Type::Tuple(items.map(|e| e.get_type()))));
+        TypedPattern::Wildcard(_) => {}
+        TypedPattern::Unit(_) => {}
+        TypedPattern::Tuple(_, ty, items) => {
+            res.push(Constraint::new(pat.get_span(), ty, &Type::Tuple(items.map(|e| e.get_type()))));
             items.for_each(|it| collect_pattern_constraints(res, it));
         }
-        TypedPattern::List(ty, items) => {
+        TypedPattern::List(_, ty, items) => {
             items.for_each(|it| {
-                res.push(Constraint::new((0, 0), ty, &type_list(it.get_type())));
+                res.push(Constraint::new(pat.get_span(), ty, &type_list(it.get_type())));
                 collect_pattern_constraints(res, it);
             });
         }
-        TypedPattern::BinaryOp(ty, op, a, b) => {
+        TypedPattern::BinaryOp(_, ty, op, a, b) => {
             assert_eq!("::", op.as_str());
-            res.push(Constraint::new((0, 0), ty, &type_list(a.get_type())));
-            res.push(Constraint::new((0, 0), &b.get_type(), &type_list(a.get_type())));
+            res.push(Constraint::new(pat.get_span(), ty, &type_list(a.get_type())));
+            res.push(Constraint::new(pat.get_span(), &b.get_type(), &type_list(a.get_type())));
 
             collect_pattern_constraints(res, a);
             collect_pattern_constraints(res, b);
         }
-        TypedPattern::Record(ty, items) => {
-            res.push(Constraint::new((0, 0), ty, &Type::Record(
+        TypedPattern::Record(_, ty, items) => {
+            res.push(Constraint::new(pat.get_span(), ty, &Type::Record(
                 items.map(|it| (it.clone(), type_var(it)))
             )));
         }
-        TypedPattern::LitInt(_) => {}
-        TypedPattern::LitString(_) => {}
-        TypedPattern::LitChar(_) => {}
-        TypedPattern::Alias(_, p, _) => {
+        TypedPattern::LitInt(_, _) => {}
+        TypedPattern::LitString(_, _) => {}
+        TypedPattern::LitChar(_, _) => {}
+        TypedPattern::Alias(_, _, p, _) => {
             collect_pattern_constraints(res, p);
         }
     }
@@ -547,22 +729,22 @@ fn collect_pattern_constraints(res: &mut Vec<Constraint>, pat: &TypedPattern) {
 
 fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
     match expr {
-        TypedExpr::Ref(ty, _) => { /* ignore */ }
-        TypedExpr::Const(ty, val) => { /* ignore */ }
-        TypedExpr::Tuple(ty, exprs) => {
-            res.push(Constraint::new((0, 0), ty, &Type::Tuple(exprs.map(expr_type))));
+        TypedExpr::Ref(_, ty, _) => { /* ignore */ }
+        TypedExpr::Const(_, ty, val) => { /* ignore */ }
+        TypedExpr::Tuple(_, ty, exprs) => {
+            res.push(Constraint::new(expr.get_span(), ty, &Type::Tuple(exprs.map(expr_type))));
             for expr in exprs {
                 collect_expr_constraints(res, expr);
             }
         }
-        TypedExpr::List(ty, exprs) => {
+        TypedExpr::List(_, ty, exprs) => {
             for expr in exprs {
-                res.push(Constraint::new((0, 0), ty, &type_list(expr_type(expr))));
+                res.push(Constraint::new(expr.get_span(), ty, &type_list(expr_type(expr))));
                 collect_expr_constraints(res, expr);
             }
         }
-        TypedExpr::Record(ty, exprs) => {
-            res.push(Constraint::new((0, 0), ty, &Type::Record(
+        TypedExpr::Record(_, ty, exprs) => {
+            res.push(Constraint::new(expr.get_span(), ty, &Type::Record(
                 exprs.map(|(s, e)| (s.clone(), expr_type(e)))
             )));
 
@@ -570,7 +752,7 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
                 collect_expr_constraints(res, expr);
             }
         }
-        TypedExpr::RecordUpdate(ty, rec, exprs) => {
+        TypedExpr::RecordUpdate(_, ty, rec, exprs) => {
             // TODO change RecExt to use TypeExpr instead of String
             let name: String = if let Type::Var(a) = expr_type(rec) {
                 a
@@ -578,7 +760,7 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
                 unreachable!()
             };
 
-            res.push(Constraint::new((0, 0), ty, &Type::RecExt(
+            res.push(Constraint::new(expr.get_span(), ty, &Type::RecExt(
                 name,
                 exprs.map(|(s, e)| (s.clone(), expr_type(e))),
             )));
@@ -588,12 +770,12 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
                 collect_expr_constraints(res, expr);
             }
         }
-        TypedExpr::RecordField(ty, record, name) => {
+        TypedExpr::RecordField(_, ty, record, name) => {
             match record.as_ref() {
-                TypedExpr::Record(_, fields) => {
+                TypedExpr::Record(_, _, fields) => {
                     match fields.iter().find(|(f_name, _)| f_name == name) {
                         Some((_, expr)) => {
-                            res.push(Constraint::new((0, 0), ty, &expr_type(expr)));
+                            res.push(Constraint::new(expr.get_span(), ty, &expr_type(expr)));
                         }
                         None => {
 //                            Err(TypeError::ExpectingRecordWithName { record: record.clone(), name: name.clone() })
@@ -607,95 +789,104 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
 
             collect_expr_constraints(res, record);
         }
-        TypedExpr::RecordAccess(ty, name) => {
+        TypedExpr::RecordAccess(_, ty, name) => {
             // TODO proper input/output generated names
-            res.push(Constraint::new((0, 0), ty, &Type::Fun(
+            res.push(Constraint::new(expr.get_span(), ty, &Type::Fun(
                 Box::new(Type::RecExt("input".to_string(), vec![
                     (name.clone(), Type::Var("output".to_string()))
                 ])),
                 Box::new(Type::Var("output".to_string())),
             )));
         }
-        TypedExpr::If(ty, a, b, c) => {
-            res.push(Constraint::new((0, 0), &expr_type(a), &type_bool()));
-            res.push(Constraint::new((0, 0), ty, &expr_type(b)));
-            res.push(Constraint::new((0, 0), ty, &expr_type(c)));
+        TypedExpr::If(_, ty, a, b, c) => {
+            res.push(Constraint::new(expr.get_span(), &expr_type(a), &type_bool()));
+            res.push(Constraint::new(expr.get_span(), ty, &expr_type(b)));
+            res.push(Constraint::new(expr.get_span(), ty, &expr_type(c)));
             collect_expr_constraints(res, a);
             collect_expr_constraints(res, b);
             collect_expr_constraints(res, c);
         }
-        TypedExpr::Case(ty, expr, cases) => {
+        TypedExpr::Case(_, ty, expr, cases) => {
             collect_expr_constraints(res, expr);
             for (pat, expr) in cases {
-//                collect_pattern_constraints(res, pat);
+                collect_pattern_constraints(res, pat);
                 collect_expr_constraints(res, expr);
             }
         }
-        TypedExpr::Lambda(ty, pat, expr) => {
+        TypedExpr::Lambda(_, ty, pat, expr) => {
             // todo lambda type constraint
-//            for pat in pat {
-//                collect_pattern_constraints(res, pat);
-//            }
+            for pat in pat {
+                collect_pattern_constraints(res, pat);
+            }
             collect_expr_constraints(res, expr);
         }
-        TypedExpr::Application(ty, a, b) => {
-            res.push(Constraint::new((0, 0), &expr_type(a), &Type::Fun(
+        TypedExpr::Application(_, ty, a, b) => {
+            res.push(Constraint::new(expr.get_span(), &expr_type(a), &Type::Fun(
                 Box::new(expr_type(b)),
                 Box::new(ty.clone()),
             )));
             collect_expr_constraints(res, a);
             collect_expr_constraints(res, b);
         }
-        TypedExpr::Let(ty, _, expr) => {
+        TypedExpr::Let(_, ty, _, expr) => {
             collect_expr_constraints(res, expr);
         }
     }
 }
 
-fn unify_constraints(constraints: &[Constraint]) -> Substitution {
+fn unify_constraints(constraints: &[Constraint]) -> Result<Substitution, TypeError> {
     if constraints.is_empty() {
-        return Substitution::empty();
+        return Ok(Substitution::empty());
     }
 
     let mut sub = Substitution::empty();
     let mut vec = constraints.to_vec();
 
     while !vec.is_empty() {
-        let new_sub = unify_one(&vec[0]);
+        let new_sub = unify_one(&vec[0])?;
         vec = apply_substitution_set(&new_sub, &vec[1..]);
         sub = sub.merge(new_sub);
     }
 
-    sub
+    Ok(sub)
 }
 
-fn unify_one(constraint: &Constraint) -> Substitution {
-    match constraint.as_pair() {
+fn unify_one(constraint: &Constraint) -> Result<Substitution, TypeError> {
+    let res = match constraint.as_pair() {
         (Type::Unit, Type::Unit) => Substitution::empty(),
         (Type::Var(a), other) | (other, Type::Var(a)) => {
-            unify_var(a, other)
+            match unify_var(a, other) {
+                Ok(ok) => ok,
+                Err(_) => {
+                    return Err(TypeError::RecursiveTypeDefinition {
+                        span: constraint.span,
+                        var: a.to_string(),
+                        ty: other.clone(),
+                    });
+                }
+            }
         }
         (Type::Tag(n1, param1), Type::Tag(n2, param2))
         if n1 == n2 && param1.len() == param2.len() => {
             let c = param1.iter().zip(param2)
-                .map(|(a, b)| Constraint::new((0, 0), a, b))
+                .map(|(a, b)| Constraint::new(constraint.span, a, b))
                 .collect::<Vec<_>>();
 
-            unify_constraints(&c)
+            unify_constraints(&c)?
         }
         (Type::Fun(arg1, param1), Type::Fun(arg2, param2)) => {
             unify_constraints(&[
-                Constraint::new((0, 0), arg1.as_ref(), arg2.as_ref()),
-                Constraint::new((0, 0), param1.as_ref(), param2.as_ref()),
-            ])
+                Constraint::new(constraint.span, arg1.as_ref(), arg2.as_ref()),
+                Constraint::new(constraint.span, param1.as_ref(), param2.as_ref()),
+            ])?
         }
         (Type::Tuple(param1), Type::Tuple(param2))
         if param1.len() == param2.len() => {
             let c = param1.iter().zip(param2)
-                .map(|(a, b)| Constraint::new((0, 0), a, b))
+                .map(|(a, b)| Constraint::new(constraint.span, a, b))
                 .collect::<Vec<_>>();
 
-            unify_constraints(&c)
+            unify_constraints(&c)?
         }
         (Type::Record(param1), Type::Record(param2))
         if param1.len() == param2.len() => {
@@ -705,7 +896,7 @@ fn unify_one(constraint: &Constraint) -> Substitution {
                 let mut found = false;
                 for (name2, ty2) in param2 {
                     if name1 == name2 {
-                        set.push(Constraint::new((0, 0), ty1, ty2));
+                        set.push(Constraint::new(constraint.span, ty1, ty2));
                         found = true;
                         break;
                     }
@@ -716,7 +907,7 @@ fn unify_one(constraint: &Constraint) -> Substitution {
                 }
             }
 
-            unify_constraints(&set)
+            unify_constraints(&set)?
         }
         (Type::RecExt(n1, param1), Type::RecExt(n2, param2))
         if n1 == n2 && param1.len() == param2.len() => {
@@ -726,7 +917,7 @@ fn unify_one(constraint: &Constraint) -> Substitution {
                 let mut found = false;
                 for (name2, ty2) in param2 {
                     if name1 == name2 {
-                        set.push(Constraint::new((0, 0), ty1, ty2));
+                        set.push(Constraint::new(constraint.span, ty1, ty2));
                         found = true;
                         break;
                     }
@@ -737,18 +928,29 @@ fn unify_one(constraint: &Constraint) -> Substitution {
                 }
             }
 
-            unify_constraints(&set)
+            unify_constraints(&set)?
         }
-        _ => panic!("\nType error:\n expected: {}\n    found: {}\n", constraint.left, constraint.right)
-    }
+        _ => {
+            return Err(TypeError::TypeMatchingError {
+                span: constraint.span,
+                expected: constraint.left.clone(),
+                found: constraint.right.clone(),
+            });
+        }
+    };
+
+    Ok(res)
 }
 
-fn unify_var(var: &str, ty: &Type) -> Substitution {
+fn unify_var(var: &str, ty: &Type) -> Result<Substitution, ()> {
+    if var == "_" {
+        return Ok(Substitution::empty());
+    }
     match ty {
-        Type::Var(var2) if var == var2 => Substitution::empty(),
-        Type::Var(var2) => Substitution::var_pair(var, ty),
-        _ if occurs(var, ty) => panic!("Recursive type"),
-        _ => Substitution::var_pair(var, ty),
+        Type::Var(var2) if var == var2 => Ok(Substitution::empty()),
+        Type::Var(var2) => Ok(Substitution::var_pair(var, ty)),
+        _ if occurs(var, ty) => Err(()),
+        _ => Ok(Substitution::var_pair(var, ty)),
     }
 }
 
@@ -767,15 +969,16 @@ fn apply_substitution_set(sub: &Substitution, cons: &[Constraint]) -> Vec<Constr
 }
 
 fn apply_substitution_constraint(sub: &Substitution, cons: &Constraint) -> Constraint {
-    Constraint::new((0, 0),
-                    &apply_substitution_ty(sub, &cons.left),
-                    &apply_substitution_ty(sub, &cons.right),
+    Constraint::new(
+        cons.span,
+        &apply_substitution_ty(sub, &cons.left),
+        &apply_substitution_ty(sub, &cons.right),
     )
 }
 
 fn apply_substitution_ty(sub: &Substitution, ty: &Type) -> Type {
-    sub.0.iter().fold(ty.clone(), |result, (var, solTy)| {
-        apply_substitution(&result, var, solTy)
+    sub.0.iter().fold(ty.clone(), |result, (var, sol_ty)| {
+        apply_substitution(&result, var, sol_ty)
     })
 }
 
@@ -810,110 +1013,185 @@ fn apply_substitution(ty: &Type, var: &Type, replacement: &Type) -> Type {
     }
 }
 
-fn replace_types(sub: &Substitution, annotated: TypedExpr) -> TypedExpr {
+fn replace_pattern_types(sub: &Substitution, annotated: TypedPattern) -> TypedPattern {
     match annotated {
-        TypedExpr::Const(ty, a) => {
-            TypedExpr::Const(sub.replace(ty), a)
+        TypedPattern::Var(a, b, c) => {
+            TypedPattern::Var(a, sub.replace(b), c)
         }
-        TypedExpr::Tuple(ty, a) => {
+        TypedPattern::Adt(a, b, c, d) => {
+            TypedPattern::Adt(
+                a,
+                sub.replace(b),
+                sub.replace(c),
+                d.into_iter().map(|it| replace_pattern_types(sub, it)).collect(),
+            )
+        }
+        TypedPattern::Wildcard(a) => {
+            TypedPattern::Wildcard(a)
+        }
+        TypedPattern::Unit(a) => {
+            TypedPattern::Unit(a)
+        }
+        TypedPattern::Tuple(a, b, c) => {
+            TypedPattern::Tuple(
+                a,
+                sub.replace(b),
+                c.into_iter().map(|it| replace_pattern_types(sub, it)).collect(),
+            )
+        }
+        TypedPattern::List(a, b, c) => {
+            TypedPattern::List(
+                a,
+                sub.replace(b),
+                c.into_iter().map(|it| replace_pattern_types(sub, it)).collect(),
+            )
+        }
+        TypedPattern::BinaryOp(a, b, c, d, e) => {
+            TypedPattern::BinaryOp(
+                a,
+                sub.replace(b),
+                c,
+                Box::new(replace_pattern_types(sub, *d)),
+                Box::new(replace_pattern_types(sub, *e)),
+            )
+        }
+        TypedPattern::Record(a, b, c) => {
+            TypedPattern::Record(a, sub.replace(b), c)
+        }
+        TypedPattern::LitInt(a, b) => {
+            TypedPattern::LitInt(a, b)
+        }
+        TypedPattern::LitString(a, b) => {
+            TypedPattern::LitString(a, b)
+        }
+        TypedPattern::LitChar(a, b) => {
+            TypedPattern::LitChar(a, b)
+        }
+        TypedPattern::Alias(a, b, c, d) => {
+            TypedPattern::Alias(
+                a,
+                sub.replace(b),
+                Box::new(replace_pattern_types(sub, *c)),
+                d,
+            )
+        }
+    }
+}
+
+fn replace_expr_types(sub: &Substitution, annotated: TypedExpr) -> TypedExpr {
+    match annotated {
+        TypedExpr::Const(span, ty, a) => {
+            TypedExpr::Const(span, sub.replace(ty), a)
+        }
+        TypedExpr::Tuple(span, ty, a) => {
             TypedExpr::Tuple(
+                span,
                 sub.replace(ty),
-                a.into_iter().map(|a| replace_types(sub, a)).to_vec(),
+                a.into_iter().map(|a| replace_expr_types(sub, a)).to_vec(),
             )
         }
-        TypedExpr::List(ty, a) => {
+        TypedExpr::List(span, ty, a) => {
             TypedExpr::List(
+                span,
                 sub.replace(ty),
-                a.into_iter().map(|a| replace_types(sub, a)).to_vec(),
+                a.into_iter().map(|a| replace_expr_types(sub, a)).to_vec(),
             )
         }
-        TypedExpr::Record(ty, a) => {
+        TypedExpr::Record(span, ty, a) => {
             TypedExpr::Record(
+                span,
                 sub.replace(ty),
-                a.into_iter().map(|(s, a)| (s, replace_types(sub, a))).to_vec(),
+                a.into_iter().map(|(s, a)| (s, replace_expr_types(sub, a))).to_vec(),
             )
         }
-        TypedExpr::RecordUpdate(ty, a, b) => {
+        TypedExpr::RecordUpdate(span, ty, a, b) => {
             TypedExpr::RecordUpdate(
+                span,
                 sub.replace(ty),
-                Box::new(replace_types(sub, *a)),
-                b.into_iter().map(|(s, a)| (s, replace_types(sub, a))).to_vec(),
+                Box::new(replace_expr_types(sub, *a)),
+                b.into_iter().map(|(s, a)| (s, replace_expr_types(sub, a))).to_vec(),
             )
         }
-        TypedExpr::Ref(ty, a) => {
-            TypedExpr::Ref(sub.replace(ty), a)
+        TypedExpr::Ref(span, ty, a) => {
+            TypedExpr::Ref(span, sub.replace(ty), a)
         }
-        TypedExpr::RecordField(ty, a, b) => {
-            TypedExpr::RecordField(sub.replace(ty), Box::new(replace_types(sub, *a)), b)
+        TypedExpr::RecordField(span, ty, a, b) => {
+            TypedExpr::RecordField(span, sub.replace(ty), Box::new(replace_expr_types(sub, *a)), b)
         }
-        TypedExpr::RecordAccess(ty, a) => {
-            TypedExpr::RecordAccess(sub.replace(ty), a)
+        TypedExpr::RecordAccess(span, ty, a) => {
+            TypedExpr::RecordAccess(span, sub.replace(ty), a)
         }
-        TypedExpr::If(ty, a, b, c) => {
+        TypedExpr::If(span, ty, a, b, c) => {
             TypedExpr::If(
+                span,
                 sub.replace(ty),
-                Box::new(replace_types(sub, *a)),
-                Box::new(replace_types(sub, *b)),
-                Box::new(replace_types(sub, *c)),
+                Box::new(replace_expr_types(sub, *a)),
+                Box::new(replace_expr_types(sub, *b)),
+                Box::new(replace_expr_types(sub, *c)),
             )
         }
-        TypedExpr::Case(ty, a, b) => {
+        TypedExpr::Case(span, ty, a, b) => {
             TypedExpr::Case(
+                span,
                 sub.replace(ty),
-                Box::new(replace_types(sub, *a)),
-                b.into_iter().map(|(s, a)| (s, replace_types(sub, a))).to_vec(),
+                Box::new(replace_expr_types(sub, *a)),
+                b.into_iter().map(|(s, a)| (s, replace_expr_types(sub, a))).to_vec(),
             )
         }
-        TypedExpr::Lambda(ty, a, b) => {
+        TypedExpr::Lambda(span, ty, a, b) => {
             TypedExpr::Lambda(
+                span,
                 sub.replace(ty),
                 a,
-                Box::new(replace_types(sub, *b)),
+                Box::new(replace_expr_types(sub, *b)),
             )
         }
-        TypedExpr::Application(ty, a, b) => {
+        TypedExpr::Application(span, ty, a, b) => {
             TypedExpr::Application(
+                span,
                 sub.replace(ty),
-                Box::new(replace_types(sub, *a)),
-                Box::new(replace_types(sub, *b)),
+                Box::new(replace_expr_types(sub, *a)),
+                Box::new(replace_expr_types(sub, *b)),
             )
         }
-        TypedExpr::Let(ty, a, b) => {
+        TypedExpr::Let(span, ty, a, b) => {
             TypedExpr::Let(
+                span,
                 sub.replace(ty),
                 a,
-                Box::new(replace_types(sub, *b)))
+                Box::new(replace_expr_types(sub, *b)))
         }
     }
 }
 
 fn add_pattern_vars_to_env(env: &mut Env, pat: &TypedPattern) {
     match pat {
-        TypedPattern::Var(ty, name) => {
+        TypedPattern::Var(_, ty, name) => {
             env.set(name, ty.clone());
         }
-        TypedPattern::Adt(_, _, items) => {
+        TypedPattern::Adt(_, _, _, items) => {
             items.for_each(|it| add_pattern_vars_to_env(env, it));
         }
-        TypedPattern::Wildcard => {}
-        TypedPattern::Unit => {}
-        TypedPattern::Tuple(_, items) => {
+        TypedPattern::Wildcard(_) => {}
+        TypedPattern::Unit(_) => {}
+        TypedPattern::Tuple(_, _, items) => {
             items.for_each(|it| add_pattern_vars_to_env(env, it));
         }
-        TypedPattern::List(_, items) => {
+        TypedPattern::List(_, _, items) => {
             items.for_each(|it| add_pattern_vars_to_env(env, it));
         }
-        TypedPattern::BinaryOp(_, _, a, b) => {
+        TypedPattern::BinaryOp(_, _, _, a, b) => {
             add_pattern_vars_to_env(env, a);
             add_pattern_vars_to_env(env, b);
         }
-        TypedPattern::Record(ty, fields) => {
+        TypedPattern::Record(_, ty, fields) => {
             // TODO change fields type for TypedPattern::Var
         }
-        TypedPattern::LitInt(_) => {}
-        TypedPattern::LitString(_) => {}
-        TypedPattern::LitChar(_) => {}
-        TypedPattern::Alias(ty, _, name) => {
+        TypedPattern::LitInt(_, _) => {}
+        TypedPattern::LitString(_, _) => {}
+        TypedPattern::LitChar(_, _) => {}
+        TypedPattern::Alias(_, ty, pat, name) => {
+            add_pattern_vars_to_env(env, pat.as_ref());
             env.set(name, ty.clone());
         }
     }

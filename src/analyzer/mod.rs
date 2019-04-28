@@ -260,7 +260,7 @@ impl Analyzer {
             Expr::Literal(_, lit) => {
                 self.analyze_expression_literal(expected, lit)
             }
-            Expr::Unit(..) => Ok(TypedExpr::Const(Value::Unit.get_type(), Value::Unit)),
+            Expr::Unit(span) => Ok(TypedExpr::Const(*span, Value::Unit.get_type(), Value::Unit)),
         }
     }
 

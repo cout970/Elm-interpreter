@@ -209,13 +209,13 @@ fn trim(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
 fn trim_left(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
-    Ok(Value::String(string.trim_left().to_string()))
+    Ok(Value::String(string.trim_start().to_string()))
 }
 
 fn trim_right(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
-    Ok(Value::String(string.trim_right().to_string()))
+    Ok(Value::String(string.trim_end().to_string()))
 }
 
 fn words(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {

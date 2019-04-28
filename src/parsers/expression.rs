@@ -402,7 +402,7 @@ mod tests {
     fn check_lambda() {
         test_parser_result(parse_expr, "\\x -> x", Expr::Lambda(
             (0, 0),
-            vec![Pattern::Var("x".s())],
+            vec![Pattern::Var((0, 0), "x".s())],
             Box::new(Expr::Ref((0, 0), "x".s())),
         ));
     }
@@ -413,10 +413,10 @@ mod tests {
             (0, 0),
             Box::new(Expr::Ref((0, 0), "x".s())),
             vec![(
-                     Pattern::List(vec![]),
+                     Pattern::List((0, 0), vec![]),
                      Expr::Literal((0, 0), Literal::Int(0))
                  ), (
-                     Pattern::Wildcard,
+                     Pattern::Wildcard((0, 0)),
                      Expr::Literal((0, 0), Literal::Int(1))
                  )],
         ));
@@ -591,7 +591,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
             Box::new(Expr::Ref((0, 0), "msg".s())),
             vec![
                 (
-                    Pattern::Adt("Increment".s(), vec![]),
+                    Pattern::Adt((0, 0), "Increment".s(), vec![]),
                     Expr::OpChain(
                         (0, 0),
                         vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
@@ -599,7 +599,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     )
                 ),
                 (
-                    Pattern::Adt("Decrement".s(), vec![]),
+                    Pattern::Adt((0, 0), "Decrement".s(), vec![]),
                     Expr::OpChain(
                         (0, 0),
                         vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
@@ -737,7 +737,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     header: None,
                     name: "row".s(),
                     patterns: vec![
-                        Pattern::Var("x".s())
+                        Pattern::Var((0, 0), "x".s())
                     ],
                     expr: Expr::OpChain(
                         (0, 0),
@@ -756,7 +756,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                                 Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "map".s())),
                                 Box::from(Expr::Lambda(
                                     (0, 0),
-                                    vec![Pattern::Var("y".s())],
+                                    vec![Pattern::Var((0, 0), "y".s())],
                                     Box::from(Expr::Application(
                                         (0, 0),
                                         Box::from(Expr::Ref((0, 0), "Cell".s())),
@@ -772,8 +772,8 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     header: None,
                     name: "column".s(),
                     patterns: vec![
-                        Pattern::Var("x".s()),
-                        Pattern::Var("y".s())
+                        Pattern::Var((0, 0), "x".s()),
+                        Pattern::Var((0, 0), "y".s())
                     ],
                     expr: Expr::OpChain(
                         (0, 0),
@@ -792,7 +792,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                                 Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "map".s())),
                                 Box::from(Expr::Lambda(
                                     (0, 0),
-                                    vec![Pattern::Var("s".s())],
+                                    vec![Pattern::Var((0, 0), "s".s())],
                                     Box::from(Expr::Application(
                                         (0, 0),
                                         Box::from(Expr::Ref((0, 0), "row".s())),

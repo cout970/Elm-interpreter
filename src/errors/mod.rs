@@ -73,6 +73,8 @@ pub enum TypeError {
     InvalidFunctionPatternAmount        { expected: usize, found: usize },
     CyclicStatementDependency           { cycle: Vec<String> },
     ExpectingRecordWithName             { record: TypedExpr, name: String },
+    TypeMatchingError { span: Span, expected: Type, found: Type },
+    RecursiveTypeDefinition { span: Span, var: String, ty: Type },
     //@formatter:on
 }
 
@@ -311,6 +313,14 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
         },
         TypeError::ExpectingRecordWithName { record, name } => {
             write!(&mut msg, "Expecting record with field '{}', but found '{}'", name, expr_type(record)).unwrap();
+        },
+        TypeError::TypeMatchingError { span, expected, found } => {
+            write!(&mut msg, "Types doesn't match: \n\nexpected: '{}', \n   found: '{}'\n", expected, found).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
+        TypeError::RecursiveTypeDefinition { span, var, ty } => {
+            write!(&mut msg, "Found recursive type: \n\n var: '{}', \ntype: '{}'\n", var, ty).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },
     }
 

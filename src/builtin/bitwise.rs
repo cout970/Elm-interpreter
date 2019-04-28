@@ -39,27 +39,27 @@ fn xor(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::Int(a ^ b))
 }
 
-fn complement(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn complement(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
 
     Ok(Value::Int(!a))
 }
 
-fn shift_left_by(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn shift_left_by(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
     let b = int_of(&args[1])?;
 
     Ok(Value::Int(b << a))
 }
 
-fn shift_right_by(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn shift_right_by(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
     let b = int_of(&args[1])?;
 
     Ok(Value::Int(b >> a))
 }
 
-fn shift_right_zf_by(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn shift_right_zf_by(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
     let b = int_of(&args[1])?;
 

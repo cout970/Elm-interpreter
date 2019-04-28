@@ -59,7 +59,7 @@ impl Analyzer {
             type_inference_backtrack_expr(&mut self.env, &vars, fun);
             // env: [number => Float]
 
-            Ok(TypedExpr::Application(output, Box::new(function), Box::new(input)))
+            Ok(TypedExpr::Application((0, 0), output, Box::new(function), Box::new(input)))
         } else {
             return Err(TypeError::NotAFunction {
                 span: span(app),
@@ -90,7 +90,7 @@ impl Analyzer {
             }
         };
 
-        Ok(TypedExpr::Ref(new_ty, name.to_string()))
+        Ok(TypedExpr::Ref((0, 0), new_ty, name.to_string()))
     }
 
     pub fn analyze_expression_lambda(&mut self, expected: Option<&Type>, span: Span, patterns: &Vec<Pattern>, expr: &Expr) -> Result<TypedExpr, TypeError> {
@@ -114,12 +114,12 @@ impl Analyzer {
         let mut var = tys.clone();
         var.push(expr_type(&typed_expr));
 
-        Ok(TypedExpr::Lambda(build_fun_type(&var), tmp_map_patterns(patterns), Box::new(typed_expr)))
+        Ok(TypedExpr::Lambda((0, 0), build_fun_type(&var), tmp_map_patterns(patterns), Box::new(typed_expr)))
     }
 
     pub fn analyze_expression_list(&mut self, span: Span, exprs: &Vec<Expr>) -> Result<TypedExpr, TypeError> {
         if exprs.is_empty() {
-            return Ok(TypedExpr::List(Type::Tag("List".to_string(), vec![Type::Var(self.env.next_name())]), vec![]));
+            return Ok(TypedExpr::List((0, 0), Type::Tag("List".to_string(), vec![Type::Var(self.env.next_name())]), vec![]));
         }
 
         let first = self.analyze_expression_helper(None, &exprs[0])?;
@@ -141,7 +141,7 @@ impl Analyzer {
             children.push(elem);
         }
 
-        Ok(TypedExpr::List(Type::Tag("List".to_string(), vec![list_type]), children))
+        Ok(TypedExpr::List((0, 0), Type::Tag("List".to_string(), vec![list_type]), children))
     }
 
     pub fn analyze_expression_let(&mut self, expected: Option<&Type>, span: Span, decls: &Vec<LetDeclaration>, expr: &Expr) -> Result<TypedExpr, TypeError> {
@@ -200,7 +200,7 @@ impl Analyzer {
         self.env.exit_block();
         let expr = res?;
 
-        Ok(TypedExpr::Let(expr_type(&expr), entries, Box::new(expr)))
+        Ok(TypedExpr::Let((0, 0), expr_type(&expr), entries, Box::new(expr)))
     }
 
     pub fn analyze_expression_record(&mut self, entries: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
@@ -214,7 +214,7 @@ impl Analyzer {
                 .collect::<Vec<_>>()
         );
 
-        Ok(TypedExpr::Record(own_type, types))
+        Ok(TypedExpr::Record((0, 0), own_type, types))
     }
 
     pub fn analyze_expression_record_access(&mut self, name: &String) -> Result<TypedExpr, TypeError> {
@@ -228,7 +228,7 @@ impl Analyzer {
             Box::new(Type::Var(output)),
         );
 
-        Ok(TypedExpr::RecordAccess(own_type, name.clone()))
+        Ok(TypedExpr::RecordAccess((0, 0), own_type, name.clone()))
     }
 
     pub fn analyze_expression_record_field(&mut self, expected: Option<&Type>, expr: &Expr, name: &String) -> Result<TypedExpr, TypeError> {
@@ -240,10 +240,10 @@ impl Analyzer {
         let record = self.analyze_expression_helper(Some(&expected_expr_ty), expr)?;
 
         match &record {
-            TypedExpr::Record(_, fields) => {
+            TypedExpr::Record(_, _, fields) => {
                 match fields.iter().find(|(f_name, _)| f_name == name) {
                     Some((_, expr)) => {
-                        Ok(TypedExpr::RecordField(expr_type(expr), Box::new(record.clone()), name.clone()))
+                        Ok(TypedExpr::RecordField((0, 0), expr_type(expr), Box::new(record.clone()), name.clone()))
                     }
                     None => {
                         Err(TypeError::ExpectingRecordWithName { record: record.clone(), name: name.clone() })
@@ -265,7 +265,7 @@ impl Analyzer {
             sub_items.iter().map(expr_type).collect::<Vec<_>>()
         );
 
-        Ok(TypedExpr::Tuple(own_type, sub_items))
+        Ok(TypedExpr::Tuple((0, 0), own_type, sub_items))
     }
 
     pub fn analyze_expression_record_update(&mut self, span: Span, name: &String, updates: &Vec<(String, Expr)>) -> Result<TypedExpr, TypeError> {
@@ -303,7 +303,7 @@ impl Analyzer {
             }
         }
 
-        Ok(TypedExpr::RecordUpdate(own_type, Box::new(ref_expr), update_types))
+        Ok(TypedExpr::RecordUpdate((0, 0), own_type, Box::new(ref_expr), update_types))
     }
 
     pub fn analyze_expression_case(&mut self, expected: Option<&Type>, span: Span, expr: &Expr, branches: &Vec<(Pattern, Expr)>) -> Result<TypedExpr, TypeError> {
@@ -385,7 +385,7 @@ impl Analyzer {
             branches.push((tmp_map_pattern(pattern), ret));
         }
 
-        Ok(TypedExpr::Case(first_type, Box::new(cond_type), branches))
+        Ok(TypedExpr::Case((0, 0), first_type, Box::new(cond_type), branches))
     }
 
     pub fn analyze_expression_if(&mut self, expected: Option<&Type>, span: Span, cond: &Expr, a: &Expr, b: &Expr) -> Result<TypedExpr, TypeError> {
@@ -400,7 +400,7 @@ impl Analyzer {
         let branches = vec![expr_type(&true_branch), expr_type(&false_branch)];
 
         match calculate_common_type(&branches) {
-            Ok(ty) => Ok(TypedExpr::If(ty.clone(), Box::new(cond), Box::new(true_branch), Box::new(false_branch))),
+            Ok(ty) => Ok(TypedExpr::If((0, 0), ty.clone(), Box::new(cond), Box::new(true_branch), Box::new(false_branch))),
             Err((a, b)) => Err(
                 TypeError::IfBranchesDoesntMatch { span, true_branch, false_branch }
             )
@@ -443,7 +443,7 @@ impl Analyzer {
             Literal::Char(i) => Value::Char(*i),
         };
 
-        Ok(TypedExpr::Const(value.get_type(), value))
+        Ok(TypedExpr::Const((0, 0), value.get_type(), value))
     }
 }
 

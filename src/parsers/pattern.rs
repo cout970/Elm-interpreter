@@ -9,6 +9,7 @@ use tokenizer::Token;
 use util::create_vec;
 
 pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> {
+    let start = input.pos();
     let (mut patt, mut i) = parse_pattern(input)?;
 
     if let Token::BinaryOperator(_) = i.read() {
@@ -24,11 +25,11 @@ pub fn parse_pattern_expr(input: Input) -> Result<(Pattern, Input), ParseError> 
         }
 
         patt = chain.into_iter().rev().fold(last_patt, |accum, (p, op)| {
-            Pattern::BinaryOp(op, Box::from(p), Box::from(accum))
+            Pattern::BinaryOp((p.get_span().0, accum.get_span().1), op, Box::from(p), Box::from(accum))
         });
     } else if let Token::As = i.read() {
         let (alias, i) = expect_id(i.next())?;
-        return Ok((Pattern::Alias(Box::from(patt), alias), i));
+        return Ok((Pattern::Alias((start, i.pos_end()), Box::from(patt), alias), i));
     }
 
     Ok((patt, i))
@@ -43,14 +44,15 @@ pub fn parse_pattern_without_adt(input: Input) -> Result<(Pattern, Input), Parse
 }
 
 fn parse_pattern_helper(input: Input, adt: bool) -> Result<(Pattern, Input), ParseError> {
+    let start = input.pos();
     let (patt, i) = match input.read() {
-        Token::Id(name) => (Pattern::Var(name.to_owned()), input.next()),
+        Token::Id(name) => (Pattern::Var(input.span(), name.to_owned()), input.next()),
         Token::UpperId(name) => {
             if adt {
                 let (params, i) = many0(&parse_pattern_without_adt, input.next())?;
-                (Pattern::Adt(name.to_owned(), params), i)
+                (Pattern::Adt((start, i.pos_end()), name.to_owned(), params), i)
             } else {
-                (Pattern::Adt(name.to_owned(), vec![]), input.next())
+                (Pattern::Adt(input.span(), name.to_owned(), vec![]), input.next())
             }
         }
         Token::LeftParen => {
@@ -62,7 +64,7 @@ fn parse_pattern_helper(input: Input, adt: bool) -> Result<(Pattern, Input), Par
             match input.read() {
                 Token::RightParen => {
                     // Unit ()
-                    (Pattern::Unit, input.next())
+                    (Pattern::Unit((start, start + 2)), input.next())
                 }
                 _ => {
                     let (first, i) = parse_pattern_expr(input)?;
@@ -76,7 +78,7 @@ fn parse_pattern_helper(input: Input, adt: bool) -> Result<(Pattern, Input), Par
                             let i = expect(Token::Comma, i)?;
                             let (rest, i) = comma0(&parse_pattern_expr, i)?;
                             let i = expect(Token::RightParen, i)?;
-                            (Pattern::Tuple(create_vec(first, rest)), i)
+                            (Pattern::Tuple((start, i.pos_end()), create_vec(first, rest)), i)
                         }
                     }
                 }
@@ -85,17 +87,17 @@ fn parse_pattern_helper(input: Input, adt: bool) -> Result<(Pattern, Input), Par
         Token::LeftBracket => {
             let (values, i) = comma0(&parse_pattern_expr, input.next())?;
             let i = expect(Token::RightBracket, i)?;
-            (Pattern::List(values), i)
+            (Pattern::List((start, i.pos_end()), values), i)
         }
         Token::LeftBrace => {
             let (values, i) = comma0(&expect_id, input.next())?;
             let i = expect(Token::RightBrace, i)?;
-            (Pattern::Record(values), i)
+            (Pattern::Record((start, i.pos_end()), values), i)
         }
-        Token::Underscore => (Pattern::Wildcard, input.next()),
-        Token::LitInt(value) => (Pattern::LitInt(value), input.next()),
-        Token::LitChar(value) => (Pattern::LitChar(value), input.next()),
-        Token::LitString(value) => (Pattern::LitString(value), input.next()),
+        Token::Underscore => (Pattern::Wildcard((start, input.next().pos_end())), input.next()),
+        Token::LitInt(value) => (Pattern::LitInt((start, input.next().pos_end()), value), input.next()),
+        Token::LitChar(value) => (Pattern::LitChar((start, input.next().pos_end()), value), input.next()),
+        Token::LitString(value) => (Pattern::LitString((start, input.next().pos_end()), value), input.next()),
         _ => {
             let found = input.read();
             return Err(ParseError::UnmatchedToken { span: input.span(), found, options: vec![] });
@@ -145,70 +147,77 @@ mod tests {
 
     #[test]
     fn check_literal() {
-        test_parser_result(parse_pattern, "1", Pattern::LitInt(1));
+        test_parser_result(parse_pattern, "1", Pattern::LitInt((0, 1), 1));
     }
 
     #[test]
     fn check_variable() {
-        test_parser_result(parse_pattern, "variable", Pattern::Var("variable".s()));
+        test_parser_result(parse_pattern, "variable", Pattern::Var((0, 0), "variable".s()));
     }
 
     #[test]
     fn check_algebraic_data_type() {
         test_parser_result(parse_pattern, "List a", Pattern::Adt(
+            (0, 0),
             "List".s(),
-            vec![Pattern::Var("a".s())],
+            vec![Pattern::Var((0, 0), "a".s())],
         ));
     }
 
     #[test]
     fn check_wildcard() {
-        test_parser_result(parse_pattern, "_", Pattern::Wildcard);
+        test_parser_result(parse_pattern, "_", Pattern::Wildcard((0, 0)));
     }
 
     #[test]
     fn check_unit() {
-        test_parser_result(parse_pattern, "()", Pattern::Unit);
+        test_parser_result(parse_pattern, "()", Pattern::Unit((0, 0)));
     }
 
     #[test]
     fn check_tuple() {
-        test_parser_result(parse_pattern, "(a, b)", Pattern::Tuple(vec![
-            Pattern::Var("a".s()), Pattern::Var("b".s())
-        ]));
+        test_parser_result(parse_pattern, "(a, b)", Pattern::Tuple(
+            (0, 0), vec![
+                Pattern::Var((0, 0), "a".s()), Pattern::Var((0, 0), "b".s())
+            ]));
     }
 
     #[test]
     fn check_empty_list() {
-        test_parser_result(parse_pattern, "[]", Pattern::List(vec![]));
+        test_parser_result(parse_pattern, "[]", Pattern::List((0, 0), vec![]));
     }
 
     #[test]
     fn check_list() {
-        test_parser_result(parse_pattern, "[a, b]", Pattern::List(vec![
-            Pattern::Var("a".s()), Pattern::Var("b".s())
-        ]));
+        test_parser_result(parse_pattern, "[a, b]", Pattern::List(
+            (0, 0), vec![
+                Pattern::Var((0, 0), "a".s()), Pattern::Var((0, 0), "b".s())
+            ]));
     }
 
     #[test]
     fn check_record() {
         test_parser_result(parse_pattern, "{ a, b }", Pattern::Record(
-            vec!["a".s(), "b".s()]
+            (0, 0),
+            vec!["a".s(), "b".s()],
         ));
     }
 
     #[test]
     fn check_operator_associativity() {
         test_parser_result(parse_pattern_expr, "a::b::c::d", Pattern::BinaryOp(
+            (0, 0),
             "::".s(),
-            Box::from(Pattern::Var("a".s())),
+            Box::from(Pattern::Var((0, 0), "a".s())),
             Box::from(Pattern::BinaryOp(
+                (0, 0),
                 "::".s(),
-                Box::from(Pattern::Var("b".s())),
+                Box::from(Pattern::Var((0, 0), "b".s())),
                 Box::from(Pattern::BinaryOp(
+                    (0, 0),
                     "::".s(),
-                    Box::from(Pattern::Var("c".s())),
-                    Box::from(Pattern::Var("d".s())),
+                    Box::from(Pattern::Var((0, 0), "c".s())),
+                    Box::from(Pattern::Var((0, 0), "d".s())),
                 )),
             )),
         ));

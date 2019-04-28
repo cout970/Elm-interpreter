@@ -55,46 +55,46 @@ impl Interpreter {
     fn traverse_expr(result: &mut HashMap<String, Value>, env: &mut RuntimeStack, expr: &TypedExpr) {
         // TODO avoid capturing internal definitions
         match expr {
-            TypedExpr::Ref(_, name) => {
+            TypedExpr::Ref(_, _, name) => {
                 if let Some(value) = env.find(name) {
                     result.insert(name.to_string(), value);
                 }
             }
-            TypedExpr::Tuple(_, list)
-            | TypedExpr::List(_, list) => {
+            TypedExpr::Tuple(_, _, list)
+            | TypedExpr::List(_, _, list) => {
                 for expr in list {
                     Self::traverse_expr(result, env, expr);
                 }
             }
-            TypedExpr::Record(_, records)
-            | TypedExpr::RecordUpdate(_, _, records) => {
+            TypedExpr::Record(_, _, records)
+            | TypedExpr::RecordUpdate(_, _, _, records) => {
                 for (_, expr) in records {
                     Self::traverse_expr(result, env, expr);
                 }
             }
-            TypedExpr::RecordField(_, box_expr, _) => {
+            TypedExpr::RecordField(_, _, box_expr, _) => {
                 Self::traverse_expr(result, env, box_expr.as_ref());
             }
-            TypedExpr::If(_, a, b, c) => {
+            TypedExpr::If(_, _, a, b, c) => {
                 Self::traverse_expr(result, env, a.as_ref());
                 Self::traverse_expr(result, env, b.as_ref());
                 Self::traverse_expr(result, env, c.as_ref());
             }
-            TypedExpr::Application(_, a, b) => {
+            TypedExpr::Application(_, _, a, b) => {
                 Self::traverse_expr(result, env, a.as_ref());
                 Self::traverse_expr(result, env, b.as_ref());
             }
             // TODO removed defined variables from captures, case, lambda and let
-            TypedExpr::Case(_, a, entries) => {
+            TypedExpr::Case(_, _, a, entries) => {
                 Self::traverse_expr(result, env, a.as_ref());
                 for (_, expr) in entries {
                     Self::traverse_expr(result, env, expr);
                 }
             }
-            TypedExpr::Lambda(_, _, box_expr) => {
+            TypedExpr::Lambda(_, _, _, box_expr) => {
                 Self::traverse_expr(result, env, box_expr.as_ref());
             }
-            TypedExpr::Let(_, decls, box_expr) => {
+            TypedExpr::Let(_, _, decls, box_expr) => {
                 Self::traverse_expr(result, env, box_expr.as_ref());
                 for decl in decls {
                     match decl {

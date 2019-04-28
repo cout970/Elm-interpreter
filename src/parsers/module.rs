@@ -326,7 +326,7 @@ mod tests {
                 Statement::Def(Definition {
                     header: None,
                     name: "func".s(),
-                    patterns: vec![Pattern::Var("a".s())],
+                    patterns: vec![Pattern::Var((0, 0), "a".s())],
                     expr: Expr::OpChain(
                         (0, 0),
                         vec![Expr::Ref((0, 0), "a".s()), Expr::Literal((0, 0), Literal::Int(1))],

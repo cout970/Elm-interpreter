@@ -14,24 +14,43 @@ impl NameSequence {
         let index = self.last as usize;
         self.last += 1;
 
-        if index < ALPHABET.len() {
-            let mut name = String::with_capacity(1);
+//        if index < ALPHABET.len() {
+//            let mut name = String::with_capacity(1);
+//
+//            name.push(ALPHABET[index] as char);
+//
+//            return name;
+//        } else if index / ALPHABET.len() < ALPHABET.len() {
+//            let first = index / ALPHABET.len();
+//            let second = index % ALPHABET.len();
+//            let mut name = String::with_capacity(2);
+//
+//            name.push(ALPHABET[first] as char);
+//            name.push(ALPHABET[second] as char);
+//
+//            return name;
+//        } else {
+//            panic!("To many names!");
+//        }
 
-            name.push(ALPHABET[index] as char);
+        Self::format_radix(index as u32, 26)
+    }
 
-            return name;
-        } else if index / ALPHABET.len() < ALPHABET.len() {
-            let first = index / ALPHABET.len();
-            let second = index % ALPHABET.len();
-            let mut name = String::with_capacity(2);
+    // https://stackoverflow.com/questions/50277050/is-there-a-built-in-function-that-converts-a-number-to-a-string-in-any-base
+    fn format_radix(mut x: u32, radix: u32) -> String {
+        let mut result = vec![];
 
-            name.push(ALPHABET[first] as char);
-            name.push(ALPHABET[second] as char);
+        loop {
+            let m = x % radix;
+            x = x / radix;
 
-            return name;
-        } else {
-            panic!("To many names!");
+            result.push(b"abcdefghijklmnopqrstuvwxyz"[m as usize]);
+            if x == 0 {
+                break;
+            }
         }
+
+        String::from_utf8_lossy(&result.into_iter().rev().collect::<Vec<_>>()).to_string()
     }
 
     /// Generates a sequence of names with a prefix and number at the end

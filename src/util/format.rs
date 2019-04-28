@@ -49,7 +49,11 @@ impl Display for Type {
                 }
             }
             Type::Fun(a, b) => {
-                write!(f, "{} -> {}", a, b)?;
+                if let Type::Fun(..) = a.as_ref() {
+                    write!(f, "({}) -> {}", a, b)?;
+                } else {
+                    write!(f, "{} -> {}", a, b)?;
+                }
             }
             Type::Unit => {
                 write!(f, "()")?;
@@ -105,13 +109,13 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
     }
 
     match expr {
-        TypedExpr::Const(ty, val) => {
+        TypedExpr::Const(_, ty, val) => {
             write!(f, "{nl}Const {{ {}, {} }}", ty, val, nl = newline)?;
         }
-        TypedExpr::Ref(ty, val) => {
+        TypedExpr::Ref(_, ty, val) => {
             write!(f, "{nl}Ref {{ {}, {:?} }}", ty, val, nl = newline)?;
         }
-        TypedExpr::Tuple(ty, val) => {
+        TypedExpr::Tuple(_, ty, val) => {
             write!(f, "{nl}Tuple {{ {},\n{nl}", ty, nl = newline)?;
             for i in val {
                 print_tree(f, i, indent + 1)?;
@@ -119,7 +123,7 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
             }
             write!(f, "{nl}}}", nl = newline)?;
         }
-        TypedExpr::List(ty, val) => {
+        TypedExpr::List(_, ty, val) => {
             write!(f, "{nl}List {{ {},\n{nl}", ty, nl = newline)?;
             for i in val {
                 print_tree(f, i, indent + 1)?;
@@ -127,7 +131,7 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
             }
             write!(f, "{nl}}}", nl = newline)?;
         }
-        TypedExpr::Record(ty, val) => {
+        TypedExpr::Record(_, ty, val) => {
             write!(f, "{nl}Record {{ {},\n{nl}", ty, nl = newline)?;
             for (pat, expr) in val {
                 write!(f, "{:?} => ", pat)?;
@@ -136,7 +140,7 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
             }
             write!(f, "{nl}}}", nl = newline)?;
         }
-        TypedExpr::RecordUpdate(ty, val1, val2) => {
+        TypedExpr::RecordUpdate(_, ty, val1, val2) => {
             write!(f, "{nl}RecordUpdate {{ {},\n{nl}", ty, nl = newline)?;
             print_tree(f, val1, indent + 1)?;
             write!(f, ",\n{nl}", nl = newline)?;
@@ -147,15 +151,15 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
             }
             write!(f, "{nl}}}", nl = newline)?;
         }
-        TypedExpr::RecordField(ty, val1, val2) => {
+        TypedExpr::RecordField(_, ty, val1, val2) => {
             write!(f, "{nl}RecordField {{ {},\n{nl}", ty, nl = newline)?;
             print_tree(f, val1.as_ref(), indent + 1)?;
             write!(f, ",\n{nl}{}\n{nl}}}", val2, nl = newline)?;
         }
-        TypedExpr::RecordAccess(ty, val) => {
+        TypedExpr::RecordAccess(_, ty, val) => {
             write!(f, "{nl}RecordAccess {{ {},\n{nl}{}\n{nl}}}", ty, val, nl = newline)?;
         }
-        TypedExpr::If(ty, val1, val2, val3) => {
+        TypedExpr::If(_, ty, val1, val2, val3) => {
             write!(f, "{nl}If {{ {},\n{nl}", ty, nl = newline)?;
             print_tree(f, val1.as_ref(), indent + 1)?;
             write!(f, ",\n{nl}", nl = newline)?;
@@ -164,7 +168,7 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
             print_tree(f, val3.as_ref(), indent + 1)?;
             write!(f, "\n{nl}}}", nl = newline)?;
         }
-        TypedExpr::Case(ty, val1, val2) => {
+        TypedExpr::Case(_, ty, val1, val2) => {
             write!(f, "{nl}Case {{ {},\n{nl}", ty, nl = newline)?;
             print_tree(f, val1.as_ref(), indent + 1)?;
             write!(f, ",\n{nl}", nl = newline)?;
@@ -175,19 +179,19 @@ fn print_tree(f: &mut Formatter, expr: &TypedExpr, indent: u32) -> Result<(), Er
             }
             write!(f, "{nl}}}", nl = newline)?;
         }
-        TypedExpr::Lambda(ty, val1, val2) => {
+        TypedExpr::Lambda(_, ty, val1, val2) => {
             write!(f, "{nl}Lambda {{ {},\n {:?}\n", ty, val1, nl = newline)?;
             print_tree(f, val2.as_ref(), indent + 1)?;
             write!(f, "\n{nl}}}", nl = newline)?;
         }
-        TypedExpr::Application(ty, val1, val2) => {
+        TypedExpr::Application(_, ty, val1, val2) => {
             write!(f, "{nl}Application {{ {},\n{nl}", ty, nl = newline)?;
             print_tree(f, val1.as_ref(), indent + 1)?;
             write!(f, ",\n{nl}", nl = newline)?;
             print_tree(f, val2.as_ref(), indent + 1)?;
             write!(f, "\n{nl}}}", nl = newline)?;
         }
-        TypedExpr::Let(ty, val1, val2) => {
+        TypedExpr::Let(_, ty, val1, val2) => {
             write!(f, "{nl}Let {{ {},\n{nl}{:?}\n{nl}", ty, val1, nl = newline)?;
             print_tree(f, val2.as_ref(), indent + 1)?;
             write!(f, "\n{nl}}}", nl = newline)?;

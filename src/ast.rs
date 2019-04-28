@@ -106,18 +106,18 @@ pub struct Definition {
 // A pattern that represents 1 or more function arguments
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Pattern {
-    Var(String),
-    Adt(String, Vec<Pattern>),
-    Wildcard,
-    Unit,
-    Tuple(Vec<Pattern>),
-    List(Vec<Pattern>),
-    BinaryOp(String, Box<Pattern>, Box<Pattern>),
-    Record(Vec<String>),
-    LitInt(Int),
-    LitString(String),
-    LitChar(char),
-    Alias(Box<Pattern>, String),
+    Var(Span, String),
+    Adt(Span, String, Vec<Pattern>),
+    Wildcard(Span),
+    Unit(Span),
+    Tuple(Span, Vec<Pattern>),
+    List(Span, Vec<Pattern>),
+    BinaryOp(Span, String, Box<Pattern>, Box<Pattern>),
+    Record(Span, Vec<String>),
+    LitInt(Span, Int),
+    LitString(Span, String),
+    LitChar(Span, char),
+    Alias(Span, Box<Pattern>, String),
 }
 
 pub type Span = (u32, u32);
@@ -176,6 +176,48 @@ pub enum Literal {
     Float(Float),
     String(String),
     Char(char),
+}
+
+impl Expr {
+    pub fn get_span(&self) -> Span {
+        *match self {
+            Expr::Unit(span) => span,
+            Expr::Tuple(span, _) => span,
+            Expr::List(span, _) => span,
+            Expr::Record(span, _) => span,
+            Expr::RecordUpdate(span, _, _) => span,
+            Expr::QualifiedRef(span, _, _) => span,
+            Expr::RecordField(span, _, _) => span,
+            Expr::RecordAccess(span, _) => span,
+            Expr::If(span, _, _, _) => span,
+            Expr::Case(span, _, _) => span,
+            Expr::Lambda(span, _, _) => span,
+            Expr::Application(span, _, _) => span,
+            Expr::Let(span, _, _) => span,
+            Expr::OpChain(span, _, _) => span,
+            Expr::Literal(span, _) => span,
+            Expr::Ref(span, _) => span,
+        }
+    }
+}
+
+impl Pattern {
+    pub fn get_span(&self) -> Span {
+        *match self {
+            Pattern::Var(span, _) => span,
+            Pattern::Adt(span, _, _) => span,
+            Pattern::Wildcard(span) => span,
+            Pattern::Unit(span) => span,
+            Pattern::Tuple(span, _) => span,
+            Pattern::List(span, _) => span,
+            Pattern::BinaryOp(span, _, _, _) => span,
+            Pattern::Record(span, _) => span,
+            Pattern::LitInt(span, _) => span,
+            Pattern::LitString(span, _) => span,
+            Pattern::LitChar(span, _) => span,
+            Pattern::Alias(span, _, _) => span,
+        }
+    }
 }
 
 pub fn span(a: &Expr) -> Span {

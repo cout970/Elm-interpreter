@@ -116,47 +116,48 @@ pub fn pattern_of(code: &str) -> Pattern {
 
 
 pub fn pattern_var(name: &str) -> Pattern {
-    Pattern::Var(String::from(name))
+    Pattern::Var((0, 0), String::from(name))
 }
 
 pub fn pattern_tag(var: &str) -> Pattern {
-    Pattern::Adt(String::from(var), vec![])
+    Pattern::Adt((0, 0), String::from(var), vec![])
 }
 
 pub fn pattern_tag_args(var: &str, args: Vec<Pattern>) -> Pattern {
-    Pattern::Adt(String::from(var), args)
+    Pattern::Adt((0, 0), String::from(var), args)
 }
 
 pub fn pattern_wildcard() -> Pattern {
-    Pattern::Wildcard
+    Pattern::Wildcard((0, 0))
 }
 
 pub fn pattern_unit() -> Pattern {
-    Pattern::Unit
+    Pattern::Unit((0, 0))
 }
 
 pub fn pattern_int(value: Int) -> Pattern {
-    Pattern::LitInt(value)
+    Pattern::LitInt((0, 0), value)
 }
 
 pub fn pattern_cons(left: Pattern, right: Pattern) -> Pattern {
-    Pattern::BinaryOp("::".to_owned(), Box::from(left), Box::from(right))
+    Pattern::BinaryOp((0, 0), "::".to_owned(), Box::from(left), Box::from(right))
 }
 
 pub fn pattern_tuple<T>(values: T) -> Pattern
     where T: IntoIterator<Item=Pattern, IntoIter=IntoIter<Pattern>>
 {
-    Pattern::Tuple(values.into_iter().collect())
+    Pattern::Tuple((0, 0), values.into_iter().collect())
 }
 
 pub fn pattern_list<T>(values: T) -> Pattern
     where T: IntoIterator<Item=Pattern, IntoIter=IntoIter<Pattern>>
 {
-    Pattern::List(values.into_iter().collect())
+    Pattern::List((0, 0), values.into_iter().collect())
 }
 
 pub fn pattern_record(entries: Vec<&str>) -> Pattern {
     Pattern::Record(
+        (0, 0),
         entries.into_iter()
             .map(|s| String::from(s))
             .collect()
@@ -164,5 +165,5 @@ pub fn pattern_record(entries: Vec<&str>) -> Pattern {
 }
 
 pub fn pattern_alias(value: Pattern, alias: &str) -> Pattern {
-    Pattern::Alias(Box::from(value), String::from(alias))
+    Pattern::Alias((0, 0), Box::from(value), String::from(alias))
 }

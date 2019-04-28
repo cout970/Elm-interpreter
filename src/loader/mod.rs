@@ -252,7 +252,7 @@ fn get_packed_module(inner_path: &str, abs_path: &str) -> Result<PackedModule, E
     Ok(packed_module)
 }
 
-pub fn save_as_packed_module(abs_path: &str, name: &str, ast: &Module) -> Result<(), ElmError> {
+pub fn save_as_packed_module(abs_path: &str, _name: &str, ast: &Module) -> Result<(), ElmError> {
     let file_contents = serde_json::to_string_pretty(ast)
         .expect("Module to packed failed");
 
