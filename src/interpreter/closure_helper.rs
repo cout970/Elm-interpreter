@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use ast::Pattern;
 use ast::Type;
-use interpreter::dynamic_env::RuntimeStack;
 use interpreter::Interpreter;
+use interpreter::runtime_stack::RuntimeStack;
 use Runtime;
 use typed_ast::{LetEntry, TypedPattern};
 use typed_ast::TypedDefinition;

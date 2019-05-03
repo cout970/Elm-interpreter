@@ -4,7 +4,6 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::fmt::Write;
 
-use analyzer::static_env::StaticEnv;
 use ast::Type;
 use Runtime;
 use types::ExternalFunc;

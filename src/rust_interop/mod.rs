@@ -74,8 +74,8 @@ impl FunctionRegister for Runtime {
             fun: function,
         };
 
-        // TODO
-//        self.env.add(&name, value, ty);
+        self.analyzer.add_port(&name, ty);
+        self.interpreter.stack.add(&name, value);
         Ok(())
     }
 }

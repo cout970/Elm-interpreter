@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use analyzer::static_env::StaticEnv;
 use ast::Module;
 use ast::ModuleExposing;
 use ast::ModuleHeader;

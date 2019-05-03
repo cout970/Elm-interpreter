@@ -72,18 +72,18 @@ pub enum TypedPattern {
 impl TypedPattern {
     pub fn get_span(&self) -> Span {
         *match self {
-            TypedPattern::Var(span, ty, _) => span,
-            TypedPattern::Adt(span, ty, _, _) => span,
+            TypedPattern::Var(span, _, _) => span,
+            TypedPattern::Adt(span, _, _, _) => span,
             TypedPattern::Wildcard(span) => span,
             TypedPattern::Unit(span) => span,
-            TypedPattern::Tuple(span, ty, _) => span,
-            TypedPattern::List(span, ty, _) => span,
-            TypedPattern::BinaryOp(span, ty, _, _, _) => span,
-            TypedPattern::Record(span, ty, _) => span,
+            TypedPattern::Tuple(span, _, _) => span,
+            TypedPattern::List(span, _, _) => span,
+            TypedPattern::BinaryOp(span, _, _, _, _) => span,
+            TypedPattern::Record(span, _, _) => span,
             TypedPattern::LitInt(span, _) => span,
             TypedPattern::LitString(span, _) => span,
             TypedPattern::LitChar(span, _) => span,
-            TypedPattern::Alias(span, ty, _, _) => span,
+            TypedPattern::Alias(span, _, _, _) => span,
         }
     }
     pub fn get_type(&self) -> Type {

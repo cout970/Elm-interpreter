@@ -4,8 +4,13 @@ use std::sync::Arc;
 /// Internal container for ELM source code,
 /// the main use of this container is to avoid duplication of large files
 #[derive(Clone, Debug, PartialEq)]
-pub struct SourceCode {
-    code: Arc<String>
+pub struct SourceCode(Arc<SourceCodeImpl>);
+
+#[derive(Clone, Debug, PartialEq)]
+struct SourceCodeImpl {
+    // file path or 'inline'
+    source: String,
+    code: String,
 }
 
 /// Identifies a position in the stream of chars in the source code
@@ -24,9 +29,10 @@ impl SourceCode {
             code.push('\0');
         }
 
-        SourceCode {
-            code: Arc::new(code)
-        }
+        SourceCode(Arc::new(SourceCodeImpl {
+            code,
+            source: "from_string".to_string(),
+        }))
     }
 
     /// Creates a SourceCode instance cloning a string slice
@@ -53,27 +59,27 @@ impl SourceCode {
 
     /// Returns a real size of the source code
     pub fn len(&self) -> usize {
-        self.code.len() - SOURCE_CODE_PADDING
+        self.0.code.len() - SOURCE_CODE_PADDING
     }
 
     /// Returns a character iterator for the code
     pub fn chars(&self) -> Chars {
-        self.code.chars()
+        self.0.code.chars()
     }
 
     /// Returns a byte slice of the code
     pub fn as_bytes(&self) -> &[u8] {
-        self.code.as_bytes()
+        self.0.code.as_bytes()
     }
 
     /// Returns a string slice of the code
     pub fn as_str(&self) -> &str {
-        self.code.as_str()
+        self.0.code.as_str()
     }
 
     // TODO this will be removed because it causes a copy of the original code
     /// Creates a string from the code
     pub fn to_string(&self) -> String {
-        self.code.as_str().to_owned()
+        self.0.code.as_str().to_owned()
     }
 }

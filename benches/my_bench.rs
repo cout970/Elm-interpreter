@@ -5,13 +5,13 @@ extern crate nom;
 
 use criterion::Criterion;
 
-use elm_interpreter::interpreter::dynamic_env::DynamicEnv;
 use elm_interpreter::interpreter::eval_expression;
 use elm_interpreter::interpreter::eval_statement;
-use elm_interpreter::tokenizer::tokenize;
+use elm_interpreter::interpreter::runtime_stack::DynamicEnv;
 use elm_interpreter::parsers;
-use elm_interpreter::parsers::old::TokenStream;
 use elm_interpreter::parsers::new::util::from;
+use elm_interpreter::parsers::old::TokenStream;
+use elm_interpreter::tokenizer::tokenize;
 
 fn bench_tokenize_small_file(c: &mut Criterion) {
     let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");

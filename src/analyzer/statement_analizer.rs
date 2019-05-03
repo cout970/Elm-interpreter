@@ -4,7 +4,7 @@ use std::sync::Arc;
 use analyzer::Analyzer;
 use ast::{Definition, Span, TypeAlias};
 use ast::Type;
-use errors::TypeError;
+use errors::{ElmError, TypeError};
 use loader::Declaration;
 use types::Adt;
 use types::AdtVariant;
@@ -13,7 +13,7 @@ use util::create_vec_inv;
 use util::visitors::type_visitor;
 
 impl Analyzer {
-    pub fn analyze_statement_typealias(&mut self, name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
+    pub fn analyze_statement_typealias(&mut self, name: &str, decl_vars: &Vec<String>, ty: &Type) -> Result<Vec<Declaration>, ElmError> {
         let mut used_vars: HashSet<String> = HashSet::new();
 
         type_visitor(&mut used_vars, ty, &|set, node| {
@@ -31,7 +31,10 @@ impl Analyzer {
                 .map(|t| t.clone())
                 .collect::<Vec<String>>();
 
-            return Err(TypeError::UnusedTypeVariables { name: name.to_string(), values: unused_vars });
+            return Err(ElmError::Analyser(
+                self.source.clone(),
+                TypeError::UnusedTypeVariables { name: name.to_string(), values: unused_vars },
+            ));
         }
 
         if used_vars.len() > decl_vars.len() {
@@ -40,9 +43,11 @@ impl Analyzer {
                 .map(|t| t.clone())
                 .collect::<Vec<String>>();
 
-            return Err(TypeError::UndeclaredTypeVariables { name: name.to_string(), values: unknown_vars });
+            return Err(ElmError::Analyser(
+                self.source.clone(),
+                TypeError::UndeclaredTypeVariables { name: name.to_string(), values: unknown_vars },
+            ));
         }
-
 
         let mut decls: Vec<Declaration> = vec![
             Declaration::Alias(TypeAlias {
@@ -66,20 +71,23 @@ impl Analyzer {
         Ok(decls)
     }
 
-    pub fn analyze_statement_adt(&mut self, name: &String, decl_vars: &Vec<String>, variants: &Vec<(Span, String, Vec<Type>)>) -> Result<Vec<Declaration>, TypeError> {
+    pub fn analyze_statement_adt(&mut self, name: &String, decl_vars: &Vec<String>, variants: &Vec<(Span, String, Vec<Type>)>) -> Result<Vec<Declaration>, ElmError> {
         let mut decls = vec![];
         let vars: Vec<Type> = decl_vars.iter()
             .map(|v| Type::Var(v.to_owned()))
             .collect();
 
         let adt_type = Type::Tag(name.to_owned(), vars);
-        let mut adt_variants: Vec<(Span, AdtVariant)> = vec![];
 
+        // Any error inside the block should be returned after exit_block()
+        // We cannot use self.e.block(), because we call self.check_type,
+        // it needs a immutable reference to self and self.e.block() already
+        // has a mutable reference to self
         self.e.enter_block();
-
-        let res = {
+        let adt_variants = {
             // Register own name to allow recursive definitions
-            self.e.set_canonical_type_name(name, name.clone());
+            self.add_canonical_type_name(name, name);
+            let mut adt_variants: Vec<(Span, AdtVariant)> = vec![];
 
             for (span, name, types) in variants {
                 let mut new_types = vec![];
@@ -97,10 +105,11 @@ impl Analyzer {
                 ));
             }
 
-            Ok(())
+            Ok(adt_variants)
         };
         self.e.exit_block();
-        res?;
+        // Return if Err(_)
+        let adt_variants: Vec<(Span, AdtVariant)> = adt_variants?;
 
         // For each variant a definition is added, this definition is a constructor.
         for (span, variant) in &adt_variants {
@@ -130,12 +139,18 @@ impl Analyzer {
         Ok(decls)
     }
 
-    pub fn analyze_statement_port(&mut self, span: Span, name: &String, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
-        Ok(vec![Declaration::Port(name.to_owned(), self.check_type(span, ty.clone())?)])
+    pub fn analyze_statement_port(&mut self, span: Span, name: &String, ty: &Type) -> Result<Vec<Declaration>, ElmError> {
+        let checked_type = self.check_type(span, ty.clone())?;
+        Ok(vec![
+            Declaration::Port(name.to_owned(), checked_type)
+        ])
     }
 
-    pub fn analyze_statement_definition(&mut self, def: &Definition) -> Result<Vec<Declaration>, TypeError> {
-        Ok(vec![Declaration::Definition(def.name.clone(), self.analyze_definition(def)?)])
+    pub fn analyze_statement_definition(&mut self, def: &Definition) -> Result<Vec<Declaration>, ElmError> {
+        let typed_def = self.analyze_definition(def)?;
+        Ok(vec![
+            Declaration::Definition(def.name.clone(), typed_def)
+        ])
     }
 }
 
@@ -177,20 +192,28 @@ mod tests {
     #[test]
     fn check_type_alias_missing_var() {
         let ty = Type::Var("a".s());
-        let mut analyzer = Analyzer::new(SourceCode::from_str("typealias A = a"));
+        let code = SourceCode::from_str("typealias A = a");
+        let mut analyzer = Analyzer::new(code.clone());
         assert_eq!(
             analyzer.analyze_statement_typealias("A", &vec![], &ty),
-            Err(TypeError::UndeclaredTypeVariables { name: "A".to_string(), values: vec!["a".s()] })
+            Err(ElmError::Analyser(
+                code,
+                TypeError::UndeclaredTypeVariables { name: "A".to_string(), values: vec!["a".s()] },
+            ))
         );
     }
 
     #[test]
     fn check_type_alias_extra_var() {
         let ty = Type::Var("a".s());
-        let mut analyzer = Analyzer::new(SourceCode::from_str("typealias A a b = a"));
+        let code = SourceCode::from_str("typealias A a b = a");
+        let mut analyzer = Analyzer::new(code.clone());
         assert_eq!(
             analyzer.analyze_statement_typealias("A", &vec!["a".s(), "b".s()], &ty),
-            Err(TypeError::UnusedTypeVariables { name: "A".to_string(), values: vec!["b".s()] })
+            Err(ElmError::Analyser(
+                code,
+                TypeError::UnusedTypeVariables { name: "A".to_string(), values: vec!["b".s()] },
+            ))
         );
     }
 }

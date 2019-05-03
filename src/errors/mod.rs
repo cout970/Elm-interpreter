@@ -52,6 +52,7 @@ pub enum ParseError {
     //@formatter:on
 }
 
+// TODO remove unused error types
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeError {
     //@formatter:off
@@ -146,19 +147,6 @@ pub enum LoaderError {
     CyclicDependency { cycle: Vec<String> },
     MissingModule { module: String },
     ModulePacking { msg: String, path: String },
-}
-
-pub fn err_list<T, F: Fn(SourceCode, T) -> ElmError>(code: &SourceCode, info: Vec<T>, func: F) -> ElmError {
-    assert!(!info.is_empty());
-    if info.len() == 1 {
-        func(code.clone(), info.into_iter().next().unwrap())
-    } else {
-        let list = info.into_iter()
-            .map(|err| func(code.clone(), err))
-            .collect::<Vec<_>>();
-
-        ElmError::List(list)
-    }
 }
 
 pub fn format_error(error: &ElmError) -> String {
@@ -273,7 +261,7 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },
         TypeError::NotAFunction { span, function, input, output } => {
-            write!(&mut msg, "Attempt to call a non-function: '{}', \n", function).unwrap();
+            write!(&mut msg, "Attempt to call a non-function '{}' with input: \n'{:#?}'\n", function, input).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },
         TypeError::InvalidOperandChain { span, msg: msg_ } => {
@@ -467,7 +455,7 @@ pub fn format_loader_error(error: &LoaderError) -> String {
         LoaderError::CyclicDependency { cycle } => {
             write!(&mut msg, "Found cyclic dependencies: \n|\n|    ").unwrap();
 
-            for (i, item) in cycle.iter().enumerate() {
+            for item in cycle {
                 write!(&mut msg, "{}", item).unwrap();
                 write!(&mut msg, " -> ").unwrap();
             }

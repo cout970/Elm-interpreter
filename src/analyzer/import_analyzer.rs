@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use analyzer::Analyzer;
-use analyzer::dependency_sorter::sort_statements;
 use ast::{AdtExposing, TypeAlias};
 use ast::Exposing;
 use ast::Import;
@@ -93,8 +92,7 @@ impl Analyzer {
             source_name: "__internal__minus".to_string(),
             destine_name: "__internal__minus".to_string(),
         });
-        self.e.set("__internal__minus", type_unary_minus());
-        self.env.add_definition("__internal__minus", type_unary_minus());
+        self.add_port("__internal__minus", type_unary_minus());
 
         // Add rest of imports
         for import in imports {
@@ -141,8 +139,7 @@ impl Analyzer {
                     source_name: name.clone(),
                     destine_name: aliased_name.clone(),
                 });
-                self.e.set(&aliased_name, ty.clone());
-                self.env.add_definition(&aliased_name, ty.clone());
+                self.add_port(&aliased_name, ty.clone());
             }
             Declaration::Definition(name, def) => {
                 result.push(ModuleImport {
@@ -150,16 +147,14 @@ impl Analyzer {
                     source_name: name.clone(),
                     destine_name: aliased_name.clone(),
                 });
-                self.e.set(&aliased_name, def.header.clone());
-                self.env.add_definition(&aliased_name, def.header.clone());
+                self.add_port(&aliased_name, def.header.clone());
             }
             Declaration::Alias(alias) => {
-                self.e.set_type_alias(alias.clone());
+                self.add_type_alias(alias.clone());
             }
             Declaration::Adt(name, adt) => {
-                self.e.set_canonical_type_name(&aliased_name, name.clone());
-                self.e.set_canonical_type_name(name, name.clone());
-                self.env.add_adt(&aliased_name, adt.clone())
+                self.add_canonical_type_name(&aliased_name, name);
+                self.add_canonical_type_name(name, name);
             }
             Declaration::Infix(name, _, ty) => {
                 result.push(ModuleImport {
@@ -167,8 +162,7 @@ impl Analyzer {
                     source_name: name.clone(),
                     destine_name: name.clone(),
                 });
-                self.e.set(name, ty.clone());
-                self.env.add_definition(name, ty.clone());
+                self.add_port(name, ty.clone());
             }
         }
     }
@@ -189,7 +183,7 @@ impl Analyzer {
         Ok(())
     }
 
-    pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<TypeError>> {
+    pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<ElmError>> {
         let mut statements = statements.iter().collect::<Vec<_>>();
 
         // Sort by type
@@ -222,23 +216,19 @@ impl Analyzer {
                 declarations.push(decl.clone());
                 match decl {
                     Declaration::Definition(name, def) => {
-                        self.e.set(&name, def.header.clone());
-                        self.env.add_definition(&name, def.header.clone());
+                        self.add_port(&name, def.header.clone());
                     }
                     Declaration::Port(name, ty) => {
-                        self.e.set(&name, ty.clone());
-                        self.env.add_definition(&name, ty);
+                        self.add_port(&name, ty.clone());
                     }
                     Declaration::Alias(alias) => {
-                        self.e.set_type_alias(alias.clone());
+                        self.add_type_alias(alias.clone());
                     }
                     Declaration::Adt(name, adt) => {
-                        self.e.set_canonical_type_name(&name, adt.name.clone());
-                        self.env.add_adt(&name, adt);
+                        self.add_canonical_type_name(&name, &adt.name);
                     }
                     Declaration::Infix(name, _, ty) => {
-                        self.e.set(&name, ty.clone());
-                        self.env.add_definition(&name, ty.clone());
+                        self.add_port(&name, ty.clone());
                     }
                 }
             }

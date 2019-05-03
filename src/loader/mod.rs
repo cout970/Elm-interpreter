@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
-use std::io::Error;
 use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use analyzer::Analyzer;
 use ast::{Module, TypeAlias};
 use ast::Type;
 use errors::ElmError;
@@ -229,7 +227,7 @@ fn get_packed_module(inner_path: &str, abs_path: &str) -> Result<PackedModule, E
     let path = Path::new(abs_path);
     let file_name = path.file_name().unwrap().to_str().unwrap();
 
-    let module_name = if inner_path.is_empty() {
+    let _module_name = if inner_path.is_empty() {
         file_name.to_string()
     } else {
         format!("{}.{}", inner_path, file_name)

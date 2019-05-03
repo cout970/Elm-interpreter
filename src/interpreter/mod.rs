@@ -8,7 +8,7 @@ use builtin::builtin_adt_constructor;
 use builtin::record_access;
 use constructors::type_bool;
 use errors::*;
-use interpreter::dynamic_env::RuntimeStack;
+use interpreter::runtime_stack::RuntimeStack;
 use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::LoadedModule;
@@ -26,7 +26,7 @@ use types::next_fun_id;
 use types::Value;
 use util::VecExt;
 
-pub mod dynamic_env;
+pub mod runtime_stack;
 //mod builtins;
 mod closure_helper;
 
@@ -290,7 +290,6 @@ impl Interpreter {
             let argc = args.len() as u32 + 1;
 
             if *arg_count < argc {
-//                eprintln!("arg_count = {}, argc = {}, fun_value = {}, input = {}, args = {:#?}", arg_count, argc, fun_value, input, args);
                 return Err(InterpreterError::FunArgumentSizeMismatch(*arg_count, argc, fun.clone()).wrap());
             }
 

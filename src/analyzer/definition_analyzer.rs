@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Error, Formatter};
 
 use analyzer::{Analyzer, unpack_types};
-use analyzer::static_env::StaticEnv;
-use analyzer::type_inference::expr_tree_to_expr;
+use analyzer::env::Env;
 use ast::{Definition, LetDeclaration, Span, TypeAlias};
 use ast::Expr;
 use ast::Literal;
@@ -11,20 +10,20 @@ use ast::Pattern;
 use ast::Type;
 use constructors::{type_bool, type_fun, type_record, type_var};
 use constructors::type_list;
-use errors::TypeError;
+use errors::{ElmError, TypeError};
 use typed_ast::{expr_type, LetEntry, TypedPattern};
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;
 use types::Value;
-use util::expression_fold::create_expr_tree;
+use util::expression_fold::{create_expr_tree, ExprTree};
 use util::expression_fold::ExprTreeError;
 use util::name_sequence::NameSequence;
 use util::qualified_name;
 use util::ToVec;
 use util::VecExt;
 
-// https://youtu.be/oPVTNxiMcSU?t=4301
-//type Constraint = (Type, Type);
+// Algorithm inspired by
+// https://youtu.be/oPVTNxiMcSU
 
 #[derive(Debug, Clone)]
 struct Constraint {
@@ -32,6 +31,9 @@ struct Constraint {
     left: Type,
     right: Type,
 }
+
+#[derive(Debug)]
+struct Substitution(HashMap<Type, Type>);
 
 impl Constraint {
     fn new(span: Span, left: &Type, right: &Type) -> Self {
@@ -43,18 +45,9 @@ impl Constraint {
     }
 }
 
-#[derive(Debug)]
-struct Substitution(HashMap<Type, Type>);
-
 impl Substitution {
     fn empty() -> Self {
         Substitution(HashMap::new())
-    }
-
-    fn pair(a: &Type, b: &Type) -> Self {
-        let mut map = HashMap::new();
-        map.insert(a.clone(), b.clone());
-        Substitution(map)
     }
 
     fn var_pair(var: &str, ty: &Type) -> Self {
@@ -77,128 +70,23 @@ impl Substitution {
     }
 }
 
-#[derive(Debug)]
-pub struct Env {
-    blocks: Vec<HashMap<String, Type>>,
-    type_alias: HashMap<String, TypeAlias>,
-    canonical_type_names: HashMap<String, String>,
-    generator: NameSequence,
-    number: NameSequence,
-    save: Vec<(u32, u32)>,
-}
-
-impl Env {
-    pub fn new() -> Self {
-        Env {
-            blocks: vec![HashMap::new()],
-            type_alias: HashMap::new(),
-            canonical_type_names: HashMap::new(),
-            generator: NameSequence::new(),
-            number: NameSequence::new(),
-            save: vec![],
-        }
-    }
-
-    pub fn set_type_alias(&mut self, alias: TypeAlias) {
-        self.type_alias.insert(alias.name.clone(), alias);
-    }
-
-    pub fn get_type_alias(&self, name: &str) -> Option<&TypeAlias> {
-        self.type_alias.get(name)
-    }
-
-    pub fn set_canonical_type_name(&mut self, name: &str, canonical: String) {
-        self.canonical_type_names.insert(name.to_string(), canonical);
-    }
-
-    pub fn get_canonical_type_name(&self, name: &str) -> Option<&str> {
-        self.canonical_type_names.get(name).map(|it| it.as_str())
-    }
-
-    pub fn get(&self, name: &str) -> Option<&Type> {
-        for block in self.blocks.iter().rev() {
-            if let Some(ty) = block.get(name) {
-                return Some(ty);
-            }
-        }
-
-        None
-    }
-
-    pub fn set(&mut self, name: &str, ty: Type) {
-        self.blocks.last_mut().unwrap().insert(name.to_string(), ty);
-    }
-
-    fn next_type(&mut self) -> Type {
-        Type::Var(self.generator.next())
-    }
-
-    fn next_number_type(&mut self) -> Type {
-        Type::Var(self.number.next_with_prefix("number"))
-    }
-
-    fn next_comparable_type(&mut self) -> Type {
-        Type::Var(self.number.next_with_prefix("comparable"))
-    }
-    fn next_appendable_type(&mut self) -> Type {
-        Type::Var(self.number.next_with_prefix("appendable"))
-    }
-
-    pub fn block<T, F>(&mut self, mut func: F) -> Result<T, TypeError>
-        where F: FnMut(&mut Self) -> Result<T, TypeError>
-    {
-        self.enter_block();
-        let i = func(self);
-        self.exit_block();
-        i
-    }
-
-    pub fn enter_block(&mut self) {
-//        let save0 = self.generator.save();
-//        let save1 = self.number.save();
-//        self.save.push((save0, save1));
-        self.blocks.push(HashMap::new());
-    }
-
-    pub fn exit_block(&mut self) {
-        self.blocks.pop().expect("Tried to pop the global environment");
-//        let (save0, save1) = self.save.pop().unwrap();
-//        self.generator.restore(save0);
-//        self.number.restore(save1);
-    }
-}
-
-impl From<Literal> for Value {
-    fn from(lit: Literal) -> Self {
-        match lit {
-            Literal::Int(i) => Value::Number(i),
-            Literal::Float(i) => Value::Float(i),
-            Literal::String(i) => Value::String(i.clone()),
-            Literal::Char(i) => Value::Char(i),
-        }
-    }
-}
-
-impl Display for Env {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        writeln!(f, "Env:")?;
-        for (i, block) in self.blocks.iter().enumerate() {
-            let mut pad = String::new();
-
-            for _ in 0..(i * 2) {
-                pad.push(' ');
-            }
-
-            writeln!(f, "# Block {}", i)?;
-            for (k, v) in block {
-                writeln!(f, "{}{} => {}", pad, k, v)?;
-            }
-        }
-        Ok(())
-    }
-}
-
 impl Analyzer {
+    pub fn analyze_definition(&mut self, fun: &Definition) -> Result<TypedDefinition, ElmError> {
+        infer_definition_type(&mut self.e, fun)
+            .map_err(|e| ElmError::Analyser(self.source.clone(), e))
+    }
+
+    pub fn analyze_expression(&mut self, expr: &Expr) -> Result<TypedExpr, ElmError> {
+        infer_expression_type(&mut self.e, expr)
+            .map_err(|e| ElmError::Analyser(self.source.clone(), e))
+    }
+
+    pub fn check_type(&self, span: Span, ty: Type) -> Result<Type, ElmError> {
+        let ty = self.replace_type_alias(ty);
+        self.get_canonical_type(span, ty)
+            .map_err(|e| ElmError::Analyser(self.source.clone(), e))
+    }
+
     pub fn get_canonical_type(&self, span: Span, ty: Type) -> Result<Type, TypeError> {
         let new_ty = match ty {
             Type::Unit => Type::Unit,
@@ -241,11 +129,6 @@ impl Analyzer {
         };
 
         Ok(new_ty)
-    }
-
-    pub fn check_type(&self, span: Span, ty: Type) -> Result<Type, TypeError> {
-        let ty = self.replace_type_alias(ty);
-        self.get_canonical_type(span, ty)
     }
 
     pub fn replace_type_alias(&self, ty: Type) -> Type {
@@ -291,7 +174,35 @@ impl Analyzer {
     }
 }
 
-pub fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDefinition, TypeError> {
+fn infer_expression_type(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
+    let mut constraints = vec![];
+
+    let (substitution, annotated_expr) = env.block(|env| {
+
+        // Type Annotation
+        let annotated_expr = annotate_expr(env, expr)?;
+
+        // Collect constraints
+        collect_expr_constraints(&mut constraints, &annotated_expr);
+
+        // Constraint solutions
+        let substitution = match unify_constraints(&constraints) {
+            Ok(sub) => sub,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+
+        Ok((substitution, annotated_expr))
+    })?;
+
+    // Apply solution
+    let res_expr = replace_expr_types(&substitution, annotated_expr);
+
+    Ok(res_expr)
+}
+
+fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDefinition, TypeError> {
     let mut constraints = vec![];
 
     // exhaustive patterns?
@@ -337,7 +248,6 @@ pub fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDef
 
         func_types.push(annotated_expr.get_type());
 
-
         constraints.push(Constraint::new(
             annotated_expr.get_span(),
             &func_type,
@@ -348,19 +258,19 @@ pub fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDef
         let substitution = match unify_constraints(&constraints) {
             Ok(sub) => sub,
             Err(e) => {
-                // Debug
-                eprintln!("\nFunc {}:\n  type: {}\n", &fun.name, safe_ty);
-                for pat in &annotated_patterns {
-                    eprintln!("  pattern:\n{}\n", pat);
-                }
-
-                eprintln!("  expr:\n{}\n", &annotated_expr);
-
-                eprintln!("Constraints: ");
-                for p in &constraints {
-                    eprintln!("{} => {}", p.left, p.right);
-                }
-                eprintln!();
+//                // Debug
+//                eprintln!("\nFunc {}:\n  type: {}\n", &fun.name, safe_ty);
+//                for pat in &annotated_patterns {
+//                    eprintln!("  pattern:\n{}\n", pat);
+//                }
+//
+//                eprintln!("  expr:\n{}\n", &annotated_expr);
+//
+//                eprintln!("Constraints: ");
+//                for p in &constraints {
+//                    eprintln!("{} => {}", p.left, p.right);
+//                }
+//                eprintln!();
 
                 return Err(e);
             }
@@ -377,16 +287,6 @@ pub fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDef
 
     let def_type = substitution.replace(func_type);
 
-    // Debug
-//    if let Some(ty) = &fun.header {
-//        eprintln!("------\nTypedDefinition {}: {}\n inferred: {}\n\n{}\n------\n", &fun.name, ty, def_type, res_expr);
-//        if ty != &def_type {
-//            println!("Wait a second!");
-//        }
-//    } else {
-//        eprintln!("------\nTypedDefinition {}: ?\n inferred: {}\n\n{}\n------\n", &fun.name, def_type, res_expr);
-//    }
-
     Ok(TypedDefinition {
         header: def_type,
         name: fun.name.to_string(),
@@ -394,35 +294,6 @@ pub fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDef
         expr: res_expr,
     })
 }
-
-//fn infer_types(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
-//    let annotated = annotate_expr(env, expr)?;
-//    let mut constraints = vec![];
-//
-//    collect_expr_constraints(&mut constraints, &annotated);
-//
-//    eprintln!("Tree: \n{}\n", &annotated);
-//
-//    eprintln!("Constraints: ");
-//    for p in &constraints {
-//        eprintln!("{} => {}", p.left, p.right);
-//    }
-//    eprintln!();
-//
-//    let substitution = unify_constraints(&constraints)?;
-//
-//    eprintln!("Substitutions: ");
-//    for (a, b) in &substitution.0 {
-//        eprintln!("{} => {}", a, b);
-//    }
-//    eprintln!();
-//
-//    let res = replace_expr_types(&substitution, annotated);
-//
-//    eprintln!("Tree: \n{}\n", &res);
-//
-//    Ok(res)
-//}
 
 fn update_type_variables(env: &mut Env, dup: &mut HashMap<String, Type>, ty: Type) -> Type {
     match ty {
@@ -468,53 +339,6 @@ fn update_type_variables(env: &mut Env, dup: &mut HashMap<String, Type>, ty: Typ
         }
         Type::Unit => Type::Unit,
     }
-}
-
-fn vec_map<ENV, F, A, B, E>(env: &mut ENV, vec: &Vec<A>, mut func: F) -> Result<Vec<B>, E>
-    where F: FnMut(&mut ENV, &A) -> Result<B, E> {
-    let mut result = vec![];
-
-    for a in vec {
-        result.push(func(env, a)?);
-    }
-
-    Ok(result)
-}
-
-fn vec_pair_map<ENV, F, A, B, E, S>(env: &mut ENV, vec: &Vec<(S, A)>, mut func: F) -> Result<Vec<(S, B)>, E>
-    where F: FnMut(&mut ENV, &A) -> Result<B, E>,
-          S: Clone
-{
-    let mut result = vec![];
-
-    for (s, a) in vec {
-        result.push((s.clone(), func(env, a)?));
-    }
-
-    Ok(result)
-}
-
-fn map_pair<A, B, E, S, F>(vec: &Vec<(S, A)>, mut func: F) -> Result<Vec<(S, B)>, E>
-    where F: FnMut(&A) -> Result<B, E>,
-          S: Clone
-{
-    let mut result = vec![];
-
-    for (s, a) in vec {
-        let b = func(a)?;
-
-        result.push((s.clone(), b));
-    }
-
-    Ok(result)
-}
-
-pub fn tmp_map_patterns(vec: &Vec<Pattern>) -> Vec<TypedPattern> {
-    vec.iter().map(|it| annotate_pattern(&mut Env::new(), it).unwrap()).collect()
-}
-
-pub fn tmp_map_pattern(it: &Pattern) -> TypedPattern {
-    annotate_pattern(&mut Env::new(), it).unwrap()
 }
 
 fn annotate_pattern(env: &mut Env, pat: &Pattern) -> Result<TypedPattern, TypeError> {
@@ -599,7 +423,10 @@ fn annotate_expr(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
         Expr::QualifiedRef(span, base, name) => {
             let name = qualified_name(base, name);
             let ty = env.get(&name).cloned()
-                .ok_or_else(|| TypeError::MissingDefinition { span: *span, name: name.to_string() })?;
+                .ok_or_else(|| {
+                    eprintln!("{}", env);
+                    TypeError::MissingDefinition { span: *span, name: name.to_string() }
+                })?;
 
             let ty = update_type_variables(env, &mut HashMap::new(), ty);
             TypedExpr::Ref(*span, ty, name.clone())
@@ -641,7 +468,7 @@ fn annotate_expr(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
             TypedExpr::Record(
                 *span,
                 env.next_type(),
-                map_pair(exprs, |e| annotate_expr(env, e))?,
+                vec_pair_map(env, exprs, annotate_expr)?,
             )
         }
         Expr::RecordUpdate(span, name, exprs) => {
@@ -650,7 +477,7 @@ fn annotate_expr(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
                 *span,
                 env.next_type(),
                 Box::new(sub),
-                map_pair(exprs, |e| annotate_expr(env, e))?,
+                vec_pair_map(env, exprs, annotate_expr)?,
             )
         }
         Expr::RecordField(span, expr, name) => {
@@ -1324,11 +1151,81 @@ fn add_pattern_vars_to_env(env: &mut Env, pat: &TypedPattern) {
     }
 }
 
+fn is_exhaustive(pattern: &Pattern) -> bool {
+    match pattern {
+        Pattern::Var(_, _) => true,
+        Pattern::Adt(_, _, _) => true,
+        Pattern::Wildcard(_, ) => true,
+        Pattern::Unit(_, ) => true,
+        Pattern::Tuple(_, sub_patterns) => {
+            sub_patterns.iter().all(|p| is_exhaustive(p))
+        }
+        Pattern::List(_, _) => false,
+        Pattern::Alias(_, pat, _) => is_exhaustive(pat),
+        Pattern::BinaryOp(_, _, _, _) => false,
+        Pattern::Record(_, _) => true,
+        Pattern::LitInt(_, _) => false,
+        Pattern::LitString(_, _) => false,
+        Pattern::LitChar(_, _) => false,
+    }
+}
+
+pub fn expr_tree_to_expr(tree: ExprTree) -> Expr {
+    match tree {
+        ExprTree::Leaf(e) => e,
+        ExprTree::Branch(op, left, right) => {
+            let left_expr = expr_tree_to_expr(*left);
+            let right_expr = expr_tree_to_expr(*right);
+            let span = (left_expr.get_span().0, right_expr.get_span().1);
+
+            Expr::Application(
+                span,
+                Box::new(Expr::Application(
+                    span,
+                    Box::new(Expr::Ref(span, op)),
+                    Box::new(left_expr),
+                )),
+                Box::new(right_expr),
+            )
+        }
+    }
+}
+
+fn vec_map<ENV, F, A, B, E>(env: &mut ENV, vec: &Vec<A>, mut func: F) -> Result<Vec<B>, E>
+    where F: FnMut(&mut ENV, &A) -> Result<B, E> {
+    let mut result = vec![];
+
+    for a in vec {
+        result.push(func(env, a)?);
+    }
+
+    Ok(result)
+}
+
+fn vec_pair_map<ENV, F, A, B, E, S>(env: &mut ENV, vec: &Vec<(S, A)>, mut func: F) -> Result<Vec<(S, B)>, E>
+    where F: FnMut(&mut ENV, &A) -> Result<B, E>,
+          S: Clone
+{
+    let mut result = vec![];
+
+    for (s, a) in vec {
+        result.push((s.clone(), func(env, a)?));
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
+    use constructors::type_char;
+    use constructors::type_int;
+    use constructors::type_number;
     use constructors::type_of;
+    use constructors::type_string;
     use test_utils::Test;
+    use util::StringConversion;
 
+    use super::*;
     use super::*;
 
     #[test]
@@ -1378,6 +1275,53 @@ mod tests {
         let typed_expr = infer_definition_type(&mut env, &expr).unwrap();
 
         assert_eq!(type_of("(number -> number -> number, number1 -> number1 -> number1)"), typed_expr.header.clone());
+    }
+
+    fn analyze_expression(analyzer: &mut Analyzer, expr: &Expr) -> Result<Type, TypeError> {
+        let expr = analyzer.analyze_expression(expr).unwrap();
+        Ok(expr_type(&expr))
+    }
+
+    #[test]
+    fn check_record_update() {
+        let (expr, mut analyzer) = Test::expr_analyzer("{ x | a = 0 }");
+
+        // Type of x
+        let record_type = Type::Record(vec![
+            ("a".s(), Type::Var("number".s())),
+            ("b".s(), Type::Var("number".s())),
+        ]);
+
+        // Type of expr
+        let result_type = Type::RecExt("x".s(), vec![
+            ("a".s(), Type::Var("number".s()))
+        ]);
+
+        analyzer.add_port("x", record_type.clone());
+
+        let result = analyze_expression(&mut analyzer, &expr);
+        assert_eq!(result, Ok(result_type));
+    }
+
+    #[test]
+    fn check_case() {
+        let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> \"a\"\n _ -> \"b\"");
+
+        assert_eq!(analyze_expression(&mut analyzer, &expr), Ok(Type::Tag("String".s(), vec![])));
+    }
+
+    #[test]
+    fn check_case2() {
+        let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> 1\n _ -> \"b\"");
+
+        assert_eq!(
+            analyze_expression(&mut analyzer, &expr),
+            Err(TypeError::CaseBranchDontMatchReturnType {
+                span: (24, 27),
+                expected: type_number(),
+                found: type_string(),
+            })
+        );
     }
 }
 

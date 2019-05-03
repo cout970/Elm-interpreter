@@ -109,6 +109,17 @@ pub struct AdtVariant {
     pub types: Vec<Type>,
 }
 
+impl From<Literal> for Value {
+    fn from(lit: Literal) -> Self {
+        match lit {
+            Literal::Int(i) => Value::Number(i),
+            Literal::Float(i) => Value::Float(i),
+            Literal::String(i) => Value::String(i.clone()),
+            Literal::Char(i) => Value::Char(i),
+        }
+    }
+}
+
 // Fun are compared using only the FunId
 impl Eq for Function {}
 

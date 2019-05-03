@@ -140,8 +140,7 @@ impl Runtime {
         let tokenizer = Tokenizer::new(&code);
         let mut parser = Parser::new(tokenizer);
         let stm = parser.parse_statement()?;
-        let declarations = self.analyzer.with(code.clone()).analyze_statement(&stm)
-            .map_err(|e| ElmError::Analyser(code, e))?;
+        let declarations = self.analyzer.with(code.clone()).analyze_statement(&stm)?;
 
         let mut opt_value = None;
 
@@ -149,7 +148,7 @@ impl Runtime {
             opt_value = self.interpreter.eval_declaration(decl)?;
 
             if let Some(ty) = declaration_type(decl) {
-                self.analyzer.add_definition(declaration_name(decl), ty.clone());
+                self.analyzer.add_port(declaration_name(decl), ty.clone());
             }
         }
 
@@ -238,7 +237,7 @@ impl Runtime {
             fun: function,
         };
 
-        self.analyzer.add_definition(name, function_type);
+        self.analyzer.add_port(name, function_type);
         self.interpreter.stack.add(name, function_value);
         Ok(())
     }
@@ -258,7 +257,7 @@ impl Runtime {
                 format!("{}.{}", alias, def_name)
             };
 
-            self.analyzer.add_definition(&name, val.get_type());
+            self.analyzer.add_port(&name, val.get_type());
             self.interpreter.stack.add(&name, val.clone());
         }
 
