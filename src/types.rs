@@ -161,13 +161,13 @@ impl Hash for Value {
 }
 
 impl Serialize for Function {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         panic!("ExternalFunc cannot be serialized");
     }
 }
 
 impl<'de> Deserialize<'de> for Function {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error> where
         D: Deserializer<'de> {
         panic!("ExternalFunc cannot be deserialized");
     }

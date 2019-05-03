@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::{Display, Error, Formatter};
 
 use ast::{Type, TypeAlias};
-use errors::TypeError;
 use util::name_sequence::NameSequence;
 
 #[derive(Debug, Clone)]

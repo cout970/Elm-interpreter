@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ast::Pattern;
 use ast::Type;
 use interpreter::Interpreter;
 use interpreter::runtime_stack::RuntimeStack;
-use Runtime;
 use typed_ast::{LetEntry, TypedPattern};
 use typed_ast::TypedDefinition;
 use typed_ast::TypedExpr;

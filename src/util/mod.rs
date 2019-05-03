@@ -2,7 +2,6 @@ use std::intrinsics::transmute;
 use std::sync::Arc;
 
 use ast::*;
-use errors::ElmError;
 use types::*;
 
 pub mod name_sequence;

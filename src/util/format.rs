@@ -6,8 +6,8 @@ use std::fmt::Write;
 
 use ast::*;
 use tokenizer::Token;
-use typed_ast::{expr_type, TypedPattern};
 use typed_ast::TypedExpr;
+use typed_ast::TypedPattern;
 use types::ExternalFunc;
 use types::Value;
 use types::WrapperFunc;

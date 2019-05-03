@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ast::Module;
-use ast::ModuleExposing;
-use ast::ModuleHeader;
-use ast::Statement;
 use ast::Type;
 use builtin::basics::get_basics_funs;
 use builtin::bitwise::get_bitwise_funs;
@@ -163,7 +159,7 @@ fn func_of(name: &'static str, ty: &'static str, fun: ElmFn) -> (&'static str, T
     (name, func_type, func)
 }
 
-fn ignore(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn ignore(_: &mut Interpreter, _args: &[Value]) -> Result<Value, ElmError> {
     unreachable!()
 }
 

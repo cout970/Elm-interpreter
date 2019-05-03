@@ -1,6 +1,5 @@
 use ast::Type;
 use builtin::func_of;
-use constructors::*;
 use errors::ElmError;
 use interpreter::Interpreter;
 use rust_interop::conversions::int_of;
@@ -18,21 +17,21 @@ pub fn get_bitwise_funs() -> Vec<(&'static str, Type, Value)> {
     ]
 }
 
-fn and(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn and(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
     let b = int_of(&args[1])?;
 
     Ok(Value::Int(a & b))
 }
 
-fn or(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn or(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
     let b = int_of(&args[1])?;
 
     Ok(Value::Int(a | b))
 }
 
-fn xor(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn xor(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let a = int_of(&args[0])?;
     let b = int_of(&args[1])?;
 

@@ -134,6 +134,10 @@ impl ModuleLoader {
             return Err(LoaderError::MissingDependencies { dependencies: missing_deps, src: src.clone() }.wrap());
         }
 
+//        // Save modules to pck files
+//        let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
+//        save_as_packed_module(&path, &name, &ast);
+
         let module = LoadedModule { src, ast, dependencies: deps };
 
         run.loaded_modules.insert(name, module);
@@ -217,7 +221,7 @@ fn get_source_file(inner_path: &str, abs_path: &str) -> Result<SourceFile, ElmEr
     let loaded_module = SourceFile {
         name: module_name.trim_end_matches(".elm").to_string(),
         path: abs_path.to_string(),
-        source: SourceCode::from_bytes(file_contents),
+        source: SourceCode::from_bytes(file_contents, abs_path),
     };
 
     Ok(loaded_module)

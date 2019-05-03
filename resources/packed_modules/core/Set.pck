@@ -123,6 +123,10 @@
         ],
         [
           [
+            [
+              893,
+              925
+            ],
             "Set_elm_builtin",
             [
               {
@@ -208,7 +212,13 @@
         "name": "singleton",
         "patterns": [
           {
-            "Var": "key"
+            "Var": [
+              [
+                1096,
+                1099
+              ],
+              "key"
+            ]
           }
         ],
         "expr": {
@@ -309,14 +319,30 @@
         "name": "insert",
         "patterns": [
           {
-            "Var": "key"
+            "Var": [
+              [
+                1243,
+                1246
+              ],
+              "key"
+            ]
           },
           {
             "Adt": [
+              [
+                1248,
+                1268
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      1264,
+                      1268
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -437,14 +463,30 @@
         "name": "remove",
         "patterns": [
           {
-            "Var": "key"
+            "Var": [
+              [
+                1463,
+                1466
+              ],
+              "key"
+            ]
           },
           {
             "Adt": [
+              [
+                1468,
+                1488
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      1484,
+                      1488
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -541,10 +583,20 @@
         "patterns": [
           {
             "Adt": [
+              [
+                1604,
+                1624
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      1620,
+                      1624
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -613,14 +665,30 @@
         "name": "member",
         "patterns": [
           {
-            "Var": "key"
+            "Var": [
+              [
+                1744,
+                1747
+              ],
+              "key"
+            ]
           },
           {
             "Adt": [
+              [
+                1749,
+                1769
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      1765,
+                      1769
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -700,10 +768,20 @@
         "patterns": [
           {
             "Adt": [
+              [
+                1874,
+                1894
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      1890,
+                      1894
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -784,20 +862,40 @@
         "patterns": [
           {
             "Adt": [
+              [
+                2034,
+                2055
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict1"
+                  "Var": [
+                    [
+                      2050,
+                      2055
+                    ],
+                    "dict1"
+                  ]
                 }
               ]
             ]
           },
           {
             "Adt": [
+              [
+                2058,
+                2079
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict2"
+                  "Var": [
+                    [
+                      2074,
+                      2079
+                    ],
+                    "dict2"
+                  ]
                 }
               ]
             ]
@@ -912,20 +1010,40 @@
         "patterns": [
           {
             "Adt": [
+              [
+                2282,
+                2303
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict1"
+                  "Var": [
+                    [
+                      2298,
+                      2303
+                    ],
+                    "dict1"
+                  ]
                 }
               ]
             ]
           },
           {
             "Adt": [
+              [
+                2306,
+                2327
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict2"
+                  "Var": [
+                    [
+                      2322,
+                      2327
+                    ],
+                    "dict2"
+                  ]
                 }
               ]
             ]
@@ -1040,20 +1158,40 @@
         "patterns": [
           {
             "Adt": [
+              [
+                2559,
+                2580
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict1"
+                  "Var": [
+                    [
+                      2575,
+                      2580
+                    ],
+                    "dict1"
+                  ]
                 }
               ]
             ]
           },
           {
             "Adt": [
+              [
+                2583,
+                2604
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict2"
+                  "Var": [
+                    [
+                      2599,
+                      2604
+                    ],
+                    "dict2"
+                  ]
                 }
               ]
             ]
@@ -1154,10 +1292,20 @@
         "patterns": [
           {
             "Adt": [
+              [
+                2750,
+                2770
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      2766,
+                      2770
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -1223,7 +1371,13 @@
         "name": "fromList",
         "patterns": [
           {
-            "Var": "list"
+            "Var": [
+              [
+                2906,
+                2910
+              ],
+              "list"
+            ]
           }
         ],
         "expr": {
@@ -1341,17 +1495,39 @@
         "name": "foldl",
         "patterns": [
           {
-            "Var": "func"
+            "Var": [
+              [
+                3064,
+                3068
+              ],
+              "func"
+            ]
           },
           {
-            "Var": "initialState"
+            "Var": [
+              [
+                3069,
+                3081
+              ],
+              "initialState"
+            ]
           },
           {
             "Adt": [
+              [
+                3083,
+                3103
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      3099,
+                      3103
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -1395,11 +1571,28 @@
                         ],
                         [
                           {
-                            "Var": "key"
+                            "Var": [
+                              [
+                                3122,
+                                3125
+                              ],
+                              "key"
+                            ]
                           },
-                          "Wildcard",
                           {
-                            "Var": "state"
+                            "Wildcard": [
+                              3126,
+                              3127
+                            ]
+                          },
+                          {
+                            "Var": [
+                              [
+                                3128,
+                                3133
+                              ],
+                              "state"
+                            ]
                           }
                         ],
                         {
@@ -1523,17 +1716,39 @@
         "name": "foldr",
         "patterns": [
           {
-            "Var": "func"
+            "Var": [
+              [
+                3291,
+                3295
+              ],
+              "func"
+            ]
           },
           {
-            "Var": "initialState"
+            "Var": [
+              [
+                3296,
+                3308
+              ],
+              "initialState"
+            ]
           },
           {
             "Adt": [
+              [
+                3310,
+                3330
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      3326,
+                      3330
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -1577,11 +1792,28 @@
                         ],
                         [
                           {
-                            "Var": "key"
+                            "Var": [
+                              [
+                                3349,
+                                3352
+                              ],
+                              "key"
+                            ]
                           },
-                          "Wildcard",
                           {
-                            "Var": "state"
+                            "Wildcard": [
+                              3353,
+                              3354
+                            ]
+                          },
+                          {
+                            "Var": [
+                              [
+                                3355,
+                                3360
+                              ],
+                              "state"
+                            ]
                           }
                         ],
                         {
@@ -1698,10 +1930,22 @@
         "name": "map",
         "patterns": [
           {
-            "Var": "func"
+            "Var": [
+              [
+                3548,
+                3552
+              ],
+              "func"
+            ]
           },
           {
-            "Var": "set"
+            "Var": [
+              [
+                3553,
+                3556
+              ],
+              "set"
+            ]
           }
         ],
         "expr": {
@@ -1754,10 +1998,22 @@
                             ],
                             [
                               {
-                                "Var": "x"
+                                "Var": [
+                                  [
+                                    3579,
+                                    3580
+                                  ],
+                                  "x"
+                                ]
                               },
                               {
-                                "Var": "xs"
+                                "Var": [
+                                  [
+                                    3581,
+                                    3583
+                                  ],
+                                  "xs"
+                                ]
                               }
                             ],
                             {
@@ -1884,14 +2140,30 @@
         "name": "filter",
         "patterns": [
           {
-            "Var": "isGood"
+            "Var": [
+              [
+                3957,
+                3963
+              ],
+              "isGood"
+            ]
           },
           {
             "Adt": [
+              [
+                3965,
+                3985
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      3981,
+                      3985
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -1944,9 +2216,20 @@
                         ],
                         [
                           {
-                            "Var": "key"
+                            "Var": [
+                              [
+                                4022,
+                                4025
+                              ],
+                              "key"
+                            ]
                           },
-                          "Wildcard"
+                          {
+                            "Wildcard": [
+                              4026,
+                              4027
+                            ]
+                          }
                         ],
                         {
                           "Application": [
@@ -2053,14 +2336,30 @@
         "name": "partition",
         "patterns": [
           {
-            "Var": "isGood"
+            "Var": [
+              [
+                4295,
+                4301
+              ],
+              "isGood"
+            ]
           },
           {
             "Adt": [
+              [
+                4303,
+                4323
+              ],
               "Set_elm_builtin",
               [
                 {
-                  "Var": "dict"
+                  "Var": [
+                    [
+                      4319,
+                      4323
+                    ],
+                    "dict"
+                  ]
                 }
               ]
             ]
@@ -2077,12 +2376,30 @@
                 "Pattern": [
                   {
                     "Tuple": [
-                      {
-                        "Var": "dict1"
-                      },
-                      {
-                        "Var": "dict2"
-                      }
+                      [
+                        4337,
+                        4351
+                      ],
+                      [
+                        {
+                          "Var": [
+                            [
+                              4338,
+                              4343
+                            ],
+                            "dict1"
+                          ]
+                        },
+                        {
+                          "Var": [
+                            [
+                              4345,
+                              4350
+                            ],
+                            "dict2"
+                          ]
+                        }
+                      ]
                     ]
                   },
                   {
@@ -2117,9 +2434,20 @@
                               ],
                               [
                                 {
-                                  "Var": "key"
+                                  "Var": [
+                                    [
+                                      4377,
+                                      4380
+                                    ],
+                                    "key"
+                                  ]
                                 },
-                                "Wildcard"
+                                {
+                                  "Wildcard": [
+                                    4381,
+                                    4382
+                                  ]
+                                }
                               ],
                               {
                                 "Application": [

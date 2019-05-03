@@ -20,7 +20,7 @@ pub const SOURCE_CODE_PADDING: usize = 4;
 
 impl SourceCode {
     /// Creates a SourceCode instance wrapping a string
-    pub fn from_string(code: String) -> Self {
+    pub fn from_string(code: String, path: &str) -> Self {
         let mut code = code;
 
         // Padding to detect the end of code while tokenizing, this avoids having to check for
@@ -31,22 +31,22 @@ impl SourceCode {
 
         SourceCode(Arc::new(SourceCodeImpl {
             code,
-            source: "from_string".to_string(),
+            source: path.to_string(),
         }))
     }
 
     /// Creates a SourceCode instance cloning a string slice
     /// This method is not recommended for large strings, use [from_string] instead
     pub fn from_str(code: &str) -> Self {
-        Self::from_string(code.to_string())
+        Self::from_string(code.to_string(), "inline")
     }
 
     /// Creates a SourceCode instance from an vector of bytes.
     ///
     /// If the vec contains any invalid UTF-8 sequences the function will replace them with
     /// a replacement character: �
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        Self::from_string(String::from_utf8_lossy(&bytes).to_string())
+    pub fn from_bytes(bytes: Vec<u8>, path: &str) -> Self {
+        Self::from_string(String::from_utf8_lossy(&bytes).to_string(), path)
     }
 
     /// Creates a SourceCode instance from an slice of bytes.
@@ -54,7 +54,7 @@ impl SourceCode {
     /// If the vec contains any invalid UTF-8 sequences the function will replace them with
     /// a replacement character: �
     pub fn from_slice(bytes: &[u8]) -> Self {
-        Self::from_string(String::from_utf8_lossy(&bytes).to_string())
+        Self::from_string(String::from_utf8_lossy(&bytes).to_string(), "inline")
     }
 
     /// Returns a real size of the source code
@@ -75,11 +75,5 @@ impl SourceCode {
     /// Returns a string slice of the code
     pub fn as_str(&self) -> &str {
         self.0.code.as_str()
-    }
-
-    // TODO this will be removed because it causes a copy of the original code
-    /// Creates a string from the code
-    pub fn to_string(&self) -> String {
-        self.0.code.as_str().to_owned()
     }
 }

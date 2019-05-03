@@ -3,7 +3,6 @@ use std::cmp::Ordering;
 use ast::Type;
 use builtin::func_of;
 use builtin::ignore;
-use constructors::*;
 use errors::ElmError;
 use interpreter::Interpreter;
 use rust_interop::conversions::string_of;

@@ -2,27 +2,20 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ast::*;
 use builtin::adt_constructor;
-use builtin::builtin_adt_constructor;
 use builtin::record_access;
 use constructors::type_bool;
 use errors::*;
 use interpreter::runtime_stack::RuntimeStack;
 use loader::AnalyzedModule;
 use loader::Declaration;
-use loader::LoadedModule;
-use loader::ModuleLoader;
 use loader::RuntimeModule;
-use Runtime;
 use rust_interop::call_function;
 use typed_ast::{TypedDefinition, TypedPattern};
 use typed_ast::TypedExpr;
 use types::Adt;
 use types::AdtVariant;
-use types::FunCall;
 use types::Function;
-use types::next_fun_id;
 use types::Value;
 use util::VecExt;
 
@@ -61,7 +54,7 @@ impl Interpreter {
         self.eval_expr(&TypedExpr::Ref((0, 0), type_bool(), "False".to_string())).unwrap()
     }
 
-    pub fn eval_constants(&mut self, run: &mut Runtime, module: RuntimeModule) -> Result<RuntimeModule, ElmError> {
+    pub fn eval_constants(&mut self, module: RuntimeModule) -> Result<RuntimeModule, ElmError> {
         let RuntimeModule { name, definitions: old_definitions, imports } = module;
         let mut definitions = HashMap::new();
 
@@ -351,7 +344,7 @@ fn matches_pattern(pattern: &TypedPattern, value: &Value) -> bool {
         TypedPattern::Alias(_, _, pat, _) => matches_pattern(pat, value),
         TypedPattern::Adt(_, _, p_ty, p_sub) => {
             let val_ty = value.get_type();
-            if let Value::Adt(v_name, v_sub, _) = value {
+            if let Value::Adt(_, v_sub, _) = value {
                 p_ty == &val_ty && p_sub.iter().zip(v_sub).all(|(a, b)| matches_pattern(a, b))
             } else {
                 false
@@ -500,12 +493,9 @@ pub fn add_pattern_values(env: &mut Interpreter, pattern: &TypedPattern, value: 
 
 #[cfg(test)]
 mod tests {
-    use ast::Type;
     use interpreter::Interpreter;
     use test_utils::Test;
     use types::Value;
-
-    use super::*;
 
     #[test]
     fn check_unit() {
@@ -527,20 +517,20 @@ mod tests {
         ])));
     }
 
-    #[test]
-    fn check_lambda() {
-        let expr = Test::typed_expr("\\x -> 1");
-        let mut env = Interpreter::new();
-
-        let value = env.eval_expr(&expr).unwrap();
-        match value {
-            Value::Fun { args, fun, .. } => {
-                assert_eq!(args, vec![]);
-                // TODO
-            }
-            _ => panic!("Not a function: {}", value)
-        }
-    }
+//    #[test]
+//    fn check_lambda() {
+//        let expr = Test::typed_expr("\\x -> 1");
+//        let mut env = Interpreter::new();
+//
+//        let value = env.eval_expr(&expr).unwrap();
+//        match value {
+//            Value::Fun { args, fun, .. } => {
+//                assert_eq!(args, vec![]);
+//                // TODO
+//            }
+//            _ => panic!("Not a function: {}", value)
+//        }
+//    }
 
     #[test]
     fn check_record() {

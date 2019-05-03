@@ -1,18 +1,7 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
-use std::fmt::Error;
-use std::fmt::Formatter;
 use std::fmt::Write;
 
-use ast::Type;
-use Runtime;
-use types::ExternalFunc;
-use types::FunCall;
 use types::Value;
-use util::build_fun_type;
-use util::builtin_fun_of;
-use util::OptionExt;
-use util::StringConversion;
 
 #[derive(Clone, Debug)]
 pub struct RuntimeStack {

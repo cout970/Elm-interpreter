@@ -260,7 +260,7 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
             write!(&mut msg, "Function call with incorrect argument types: \n\nexpected: '{}', \n\n   found: '{}'\n", expected, found).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },
-        TypeError::NotAFunction { span, function, input, output } => {
+        TypeError::NotAFunction { span, function, input, .. } => {
             write!(&mut msg, "Attempt to call a non-function '{}' with input: \n'{:#?}'\n", function, input).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },

@@ -1,6 +1,5 @@
 use ast::Type;
 use builtin::func_of;
-use constructors::*;
 use errors::ElmError;
 use errors::InterpreterError;
 use errors::Wrappable;
@@ -16,17 +15,17 @@ pub fn get_debug_funs() -> Vec<(&'static str, Type, Value)> {
     ]
 }
 
-fn to_string(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn to_string(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::String(format!("{}", &args[0])))
 }
 
-fn log(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn log(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = string_of(&args[0])?;
     println!("[log] {}", string);
     Ok(args[1].clone())
 }
 
-fn todo(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn todo(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = string_of(&args[0])?;
 
     Err(InterpreterError::FunctionTODO(string).wrap())

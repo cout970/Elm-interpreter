@@ -3,7 +3,6 @@ use std::f32::consts::PI;
 use std::ops::Add;
 use std::ops::Mul;
 use std::ops::Sub;
-use std::sync::Arc;
 
 use ast::Type;
 use builtin::func_of;
@@ -17,11 +16,6 @@ use rust_interop::conversions::float_of;
 use rust_interop::conversions::int_of;
 use rust_interop::conversions::number_op;
 use rust_interop::conversions::string_of;
-use typed_ast::TypedExpr;
-use types::ElmFn;
-use types::ExternalFunc;
-use types::Function;
-use types::next_fun_id;
 use types::Value;
 
 pub fn get_basics_funs() -> Vec<(&'static str, Type, Value)> {

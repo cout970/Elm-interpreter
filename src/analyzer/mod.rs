@@ -2,24 +2,13 @@ use std::collections::HashMap;
 
 use analyzer::env::Env;
 use ast::*;
-use ast::Definition;
-use ast::Expr;
 use builtin::ELM_CORE_MODULES;
 use errors::*;
-use interpreter::runtime_stack::RuntimeStack;
 use loader::AnalyzedModule;
 use loader::Declaration;
-use loader::declaration_type;
 use loader::LoadedModule;
-use loader::ModuleImport;
 use source::SourceCode;
-use typed_ast::expr_type;
-use typed_ast::TypedDefinition;
-use typed_ast::TypedExpr;
 use types::*;
-use util::build_fun_type;
-use util::create_vec_inv;
-use util::qualified_name;
 
 mod statement_analizer;
 mod import_analyzer;
@@ -140,7 +129,7 @@ fn declared_statement_type(stm: &Statement) -> Option<&Type> {
         Statement::Alias(_, _, _) => None,
         Statement::Adt(_, _, _) => None,
         Statement::Infix(_, _, _, _) => None,
-        Statement::Port(_, name, ty) => Some(ty),
+        Statement::Port(_, _, ty) => Some(ty),
         Statement::Def(def) => {
             if let Some(ty) = &def.header {
                 Some(ty)
@@ -156,7 +145,7 @@ fn declared_statement_name(stm: &Statement) -> Option<&str> {
         Statement::Alias(_, _, _) => None,
         Statement::Adt(_, _, _) => None,
         Statement::Infix(_, _, name, _) => Some(name),
-        Statement::Port(_, name, ty) => Some(name),
+        Statement::Port(_, name, _) => Some(name),
         Statement::Def(def) => Some(&def.name)
     }
 }
@@ -207,9 +196,7 @@ pub fn type_of_value(value: &Value) -> Type {
         Value::Record(items) => {
             Type::Record(items.iter().map(|(s, i)| (s.to_owned(), type_of_value(i))).collect())
         }
-        Value::Adt(name, vars, adt) => {
-            let variant = adt.variants.iter().find(|var| &var.name == name).unwrap();
-
+        Value::Adt(_, _, adt) => {
             let final_types = adt.types.iter()
                 .map(|ty| Type::Var(ty.clone()))
                 .collect();
@@ -237,9 +224,8 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 #[cfg(test)]
 mod tests {
     use ast::Statement;
-    use constructors::*;
     use test_utils::Test;
-    use util::StringConversion;
+    use util::{build_fun_type, StringConversion};
 
     use super::*;
 

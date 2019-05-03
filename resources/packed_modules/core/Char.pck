@@ -94,6 +94,10 @@
         [],
         [
           [
+            [
+              1315,
+              1319
+            ],
             "Char",
             []
           ]
@@ -121,7 +125,13 @@
         "name": "isUpper",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                1656,
+                1660
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
@@ -245,7 +255,13 @@
         "name": "isLower",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                1995,
+                1999
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
@@ -369,7 +385,13 @@
         "name": "isAlpha",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                2340,
+                2344
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
@@ -460,7 +482,13 @@
         "name": "isAlphaNum",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                2696,
+                2700
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
@@ -578,7 +606,13 @@
         "name": "isDigit",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                2974,
+                2978
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
@@ -702,7 +736,13 @@
         "name": "isOctDigit",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                3306,
+                3310
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
@@ -826,7 +866,13 @@
         "name": "isHexDigit",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                3483,
+                3487
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {

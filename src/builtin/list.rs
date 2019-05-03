@@ -3,10 +3,8 @@ use std::cmp::Ordering;
 use ast::Type;
 use builtin::func_of;
 use builtin::utils::compare_values;
-use constructors::type_of;
 use errors::*;
 use interpreter::Interpreter;
-use Runtime;
 use rust_interop::conversions::list_of;
 use types::Value;
 

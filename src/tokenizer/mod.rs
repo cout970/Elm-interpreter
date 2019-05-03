@@ -64,7 +64,7 @@ pub struct TokenInfo {
 
 #[deprecated(since = "0.0.0", note = "please use `Tokenizer::tokenize` instead")]
 pub fn tokenize<'a>(stream: &[u8]) -> Result<Vec<TokenInfo>, ElmError> {
-    let code = SourceCode::from_string(String::from_utf8_lossy(stream).to_string());
+    let code = SourceCode::from_str(String::from_utf8_lossy(stream).as_ref());
     Tokenizer::new(&code).tokenize()
 }
 

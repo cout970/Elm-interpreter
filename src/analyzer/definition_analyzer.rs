@@ -1,15 +1,11 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Error, Formatter};
 
 use analyzer::{Analyzer, unpack_types};
 use analyzer::env::Env;
-use ast::{Definition, LetDeclaration, Span, TypeAlias};
-use ast::Expr;
-use ast::Literal;
+use ast::{Definition, Expr, LetDeclaration, Span};
 use ast::Pattern;
 use ast::Type;
-use constructors::{type_bool, type_fun, type_record, type_var};
-use constructors::type_list;
+use constructors::{type_bool, type_fun, type_list, type_var};
 use errors::{ElmError, TypeError};
 use typed_ast::{expr_type, LetEntry, TypedPattern};
 use typed_ast::TypedDefinition;
@@ -17,7 +13,6 @@ use typed_ast::TypedExpr;
 use types::Value;
 use util::expression_fold::{create_expr_tree, ExprTree};
 use util::expression_fold::ExprTreeError;
-use util::name_sequence::NameSequence;
 use util::qualified_name;
 use util::ToVec;
 use util::VecExt;
@@ -225,14 +220,10 @@ fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDefinit
 
         // Collect constraints
         // replace_type_alias?
-        let safe_ty = if let Some(ty) = &fun.header {
+        if let Some(ty) = &fun.header {
             let safe_ty = update_type_variables(env, &mut HashMap::new(), ty.clone());
 
             collect_type_definition_constraints(&mut constraints, &safe_ty, &annotated_patterns, &annotated_expr);
-
-            safe_ty
-        } else {
-            Type::Var("_".to_string())
         };
 
         for pat in &annotated_patterns {
@@ -683,8 +674,8 @@ fn collect_pattern_constraints(res: &mut Vec<Constraint>, pat: &TypedPattern) {
 
 fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
     match expr {
-        TypedExpr::Ref(_, ty, _) => { /* ignore */ }
-        TypedExpr::Const(_, ty, val) => { /* ignore */ }
+        TypedExpr::Ref(_, _, _) => { /* ignore */ }
+        TypedExpr::Const(_, _, _) => { /* ignore */ }
         TypedExpr::Tuple(_, ty, exprs) => {
             res.push(Constraint::new(expr.get_span(), ty, &Type::Tuple(exprs.map(expr_type))));
             for expr in exprs {
@@ -760,14 +751,14 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
             collect_expr_constraints(res, b);
             collect_expr_constraints(res, c);
         }
-        TypedExpr::Case(_, ty, expr, cases) => {
+        TypedExpr::Case(_, _, expr, cases) => {
             collect_expr_constraints(res, expr);
             for (pat, expr) in cases {
                 collect_pattern_constraints(res, pat);
                 collect_expr_constraints(res, expr);
             }
         }
-        TypedExpr::Lambda(_, ty, pat, expr) => {
+        TypedExpr::Lambda(_, _, pat, expr) => {
             // todo lambda type constraint
             for pat in pat {
                 collect_pattern_constraints(res, pat);
@@ -782,7 +773,7 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
             collect_expr_constraints(res, a);
             collect_expr_constraints(res, b);
         }
-        TypedExpr::Let(_, ty, _, expr) => {
+        TypedExpr::Let(_, _, _, expr) => {
             collect_expr_constraints(res, expr);
         }
     }
@@ -902,7 +893,7 @@ fn unify_var(var: &str, ty: &Type) -> Result<Substitution, ()> {
     }
     match ty {
         Type::Var(var2) if var == var2 => Ok(Substitution::empty()),
-        Type::Var(var2) => Ok(Substitution::var_pair(var, ty)),
+        Type::Var(_) => Ok(Substitution::var_pair(var, ty)),
         _ if occurs(var, ty) => Err(()),
         _ => Ok(Substitution::var_pair(var, ty)),
     }
@@ -959,7 +950,7 @@ fn apply_substitution(ty: &Type, var: &Type, replacement: &Type) -> Type {
                 (s.clone(), apply_substitution(i, var, replacement))
             ))
         }
-        Type::RecExt(name, items) => {
+        Type::RecExt(_, items) => {
             Type::Record(items.map(|(s, i)|
                 (s.clone(), apply_substitution(i, var, replacement))
             ))
@@ -1138,7 +1129,7 @@ fn add_pattern_vars_to_env(env: &mut Env, pat: &TypedPattern) {
             add_pattern_vars_to_env(env, a);
             add_pattern_vars_to_env(env, b);
         }
-        TypedPattern::Record(_, ty, fields) => {
+        TypedPattern::Record(_, _ty, _fields) => {
             // TODO change fields type for TypedPattern::Var
         }
         TypedPattern::LitInt(_, _) => {}
@@ -1217,15 +1208,12 @@ fn vec_pair_map<ENV, F, A, B, E, S>(env: &mut ENV, vec: &Vec<(S, A)>, mut func: 
 
 #[cfg(test)]
 mod tests {
-    use constructors::type_char;
-    use constructors::type_int;
     use constructors::type_number;
     use constructors::type_of;
     use constructors::type_string;
     use test_utils::Test;
     use util::StringConversion;
 
-    use super::*;
     use super::*;
 
     #[test]

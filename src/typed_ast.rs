@@ -125,7 +125,7 @@ impl TypedExpr {
 
     pub fn get_type(&self) -> Type {
         match self {
-            TypedExpr::Const(_, ty, value) => ty.clone(),
+            TypedExpr::Const(_, ty, _) => ty.clone(),
             TypedExpr::Tuple(_, ty, _) => ty.clone(),
             TypedExpr::List(_, ty, _) => ty.clone(),
             TypedExpr::Record(_, ty, _) => ty.clone(),

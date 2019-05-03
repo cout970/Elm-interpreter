@@ -2,7 +2,6 @@ use ast::Float;
 use ast::Int;
 use ast::Type;
 use builtin::func_of;
-use constructors::*;
 use errors::ElmError;
 use errors::InterpreterError;
 use errors::Wrappable;
@@ -12,12 +11,10 @@ use rust_interop::conversions::char_of;
 use rust_interop::conversions::int_of;
 use rust_interop::conversions::list_of;
 use rust_interop::conversions::str_of;
-use rust_interop::conversions::string_of;
 use types::Value;
 
 pub fn get_string_funs() -> Vec<(&'static str, Type, Value)> {
     vec![
-        // TODO
         func_of("cons", "Char -> String -> String", cons),
         func_of("uncons", "String -> Maybe (Char, String)", uncons),
         func_of("append", "String -> String -> String", append),
@@ -76,7 +73,7 @@ fn uncons(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(i.adt_value("Just", &[tuple])?)
 }
 
-fn append(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn append(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let base = str_of(&args[0])?;
     let suffix = str_of(&args[1])?;
 
@@ -87,7 +84,7 @@ fn append(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::String(result))
 }
 
-fn length(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn length(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let base = str_of(&args[0])?;
 
     Ok(Value::Int(base.len() as Int))
@@ -188,7 +185,7 @@ fn join(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::String(result))
 }
 
-fn slice(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn slice(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let start = int_of(&args[0])?;
     let end = int_of(&args[1])?;
     let string = str_of(&args[2])?;
@@ -200,25 +197,25 @@ fn slice(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::String(result))
 }
 
-fn trim(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn trim(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
     Ok(Value::String(string.trim().to_string()))
 }
 
-fn trim_left(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn trim_left(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
     Ok(Value::String(string.trim_start().to_string()))
 }
 
-fn trim_right(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn trim_right(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
     Ok(Value::String(string.trim_end().to_string()))
 }
 
-fn words(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn words(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
     let mut result = vec![];
 
@@ -229,7 +226,7 @@ fn words(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::List(result))
 }
 
-fn lines(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn lines(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
     let mut result = vec![];
 
@@ -240,13 +237,13 @@ fn lines(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     Ok(Value::List(result))
 }
 
-fn to_upper(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn to_upper(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
     Ok(Value::String(string.to_uppercase()))
 }
 
-fn to_lower(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn to_lower(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let string = str_of(&args[0])?;
 
     Ok(Value::String(string.to_lowercase()))
@@ -366,7 +363,7 @@ fn to_float(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     }
 }
 
-fn from_list(i: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
+fn from_list(_: &mut Interpreter, args: &[Value]) -> Result<Value, ElmError> {
     let list = list_of(&args[0])?;
     let mut result = String::new();
 

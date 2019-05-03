@@ -1,25 +1,21 @@
 use std::collections::HashMap;
 
 use analyzer::Analyzer;
-use ast::{AdtExposing, TypeAlias};
+use ast::AdtExposing;
 use ast::Exposing;
 use ast::Import;
 use ast::ModuleExposing;
 use ast::Statement;
 use ast::Type;
-use constructors::type_number;
 use constructors::type_unary_minus;
 use errors::ElmError;
 use errors::InterpreterError;
 use errors::LoaderError;
-use errors::TypeError;
 use errors::Wrappable;
 use loader::AnalyzedModule;
 use loader::Declaration;
 use loader::declaration_name;
-use loader::LoadedModule;
 use loader::ModuleImport;
-use typed_ast::TypedDefinition;
 
 impl Analyzer {
     pub fn get_default_imports(&mut self, modules: &HashMap<String, AnalyzedModule>) -> Result<Vec<ModuleImport>, ElmError> {
@@ -152,7 +148,7 @@ impl Analyzer {
             Declaration::Alias(alias) => {
                 self.add_type_alias(alias.clone());
             }
-            Declaration::Adt(name, adt) => {
+            Declaration::Adt(name, _) => {
                 self.add_canonical_type_name(&aliased_name, name);
                 self.add_canonical_type_name(name, name);
             }

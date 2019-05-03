@@ -37,8 +37,7 @@ use types::ExternalFunc;
 use types::Function;
 use types::next_fun_id;
 use types::Value;
-use util::build_fun_type;
-use util::create_vec_inv;
+use util::{build_fun_type, create_vec_inv, resource_path};
 
 pub mod ast;
 pub mod typed_ast;
@@ -68,33 +67,33 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    /// Creates a new Interpreter
+    /// Creates a new Runtime instance
     pub fn new() -> Runtime {
         let mut run = Self::empty_runtime();
 
         // Add kernel modules, in the standard compiler those modules are written in JS,
-        // the here they are in Rust
+        // but here they are in Rust
         for (name, analyzed, runtime) in get_core_kernel_modules() {
             run.analyzed_modules.insert(name.to_string(), analyzed);
             run.runtime_modules.insert(name.to_string(), runtime);
         }
 
-        // Load Elm-core modules, except Array, Process, Task and Platform
+        // Load Elm-core modules, except Array, Process, Task and Platform as they doesn't make sense
+        // outside JS and a browser sandbox
 
         // Load from packed modules
-//        for name in ELM_CORE_MODULES.iter() {
-//            let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
-//            run.include_packed_module(&path).unwrap();
-//        }
+        for name in ELM_CORE_MODULES.iter() {
+            let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
+            run.include_packed_module(&path).unwrap();
+        }
 
-//
-//        /* DEBUG ONLY
+        /* DEBUG ONLY
         // Load from elm-core source files (to get nice error messages when debugging, just download the git repo and update the path)
         for name in ELM_CORE_MODULES.iter() {
-            let path = format!("/Data/Dev/Elm/core-master/src/{}.elm", name);
+            let path = format!("/Data/Dev/Elm/core/src/{}.elm", name);
             run.include_file(&path).unwrap();
         }
-//        */
+        */
 
         // Analyze and evaluate all core modules
         for name in ELM_CORE_MODULES.iter() {
@@ -309,7 +308,7 @@ impl Runtime {
 
             interpreter.eval_module(&self.runtime_modules, module)?
         };
-        let runtime_module = interpreter.eval_constants(self, runtime_module)?;
+        let runtime_module = interpreter.eval_constants(runtime_module)?;
 
         self.runtime_modules.insert(module_name.to_string(), runtime_module);
         Ok(())

@@ -234,6 +234,10 @@
         [],
         [
           [
+            [
+              2472,
+              2478
+            ],
             "String",
             []
           ]
@@ -261,7 +265,13 @@
         "name": "isEmpty",
         "patterns": [
           {
-            "Var": "string"
+            "Var": [
+              [
+                2666,
+                2672
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -402,10 +412,22 @@
         "name": "repeat",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                3075,
+                3076
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "chunk"
+            "Var": [
+              [
+                3077,
+                3082
+              ],
+              "chunk"
+            ]
           }
         ],
         "expr": {
@@ -513,13 +535,31 @@
         "name": "repeatHelp",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                3169,
+                3170
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "chunk"
+            "Var": [
+              [
+                3171,
+                3176
+              ],
+              "chunk"
+            ]
           },
           {
-            "Var": "result"
+            "Var": [
+              [
+                3177,
+                3183
+              ],
+              "result"
+            ]
           }
         ],
         "expr": {
@@ -852,13 +892,31 @@
         "name": "replace",
         "patterns": [
           {
-            "Var": "before"
+            "Var": [
+              [
+                3774,
+                3780
+              ],
+              "before"
+            ]
           },
           {
-            "Var": "after"
+            "Var": [
+              [
+                3781,
+                3786
+              ],
+              "after"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                3787,
+                3793
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -1014,7 +1072,13 @@
         "name": "concat",
         "patterns": [
           {
-            "Var": "strings"
+            "Var": [
+              [
+                4200,
+                4207
+              ],
+              "strings"
+            ]
           }
         ],
         "expr": {
@@ -1102,10 +1166,22 @@
         "name": "split",
         "patterns": [
           {
-            "Var": "sep"
+            "Var": [
+              [
+                4451,
+                4454
+              ],
+              "sep"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                4455,
+                4461
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -1218,10 +1294,22 @@
         "name": "join",
         "patterns": [
           {
-            "Var": "sep"
+            "Var": [
+              [
+                4804,
+                4807
+              ],
+              "sep"
+            ]
           },
           {
-            "Var": "chunks"
+            "Var": [
+              [
+                4808,
+                4814
+              ],
+              "chunks"
+            ]
           }
         ],
         "expr": {
@@ -1469,10 +1557,22 @@
         "name": "left",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                5801,
+                5802
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                5803,
+                5809
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -1622,10 +1722,22 @@
         "name": "right",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                5993,
+                5994
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                5995,
+                6001
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -1807,10 +1919,22 @@
         "name": "dropLeft",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                6228,
+                6229
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                6230,
+                6236
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -1973,10 +2097,22 @@
         "name": "dropRight",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                6482,
+                6483
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                6484,
+                6490
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -2467,13 +2603,31 @@
         "name": "pad",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                8238,
+                8239
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "char"
+            "Var": [
+              [
+                8240,
+                8244
+              ],
+              "char"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                8245,
+                8251
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -2805,13 +2959,31 @@
         "name": "padLeft",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                8631,
+                8632
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "char"
+            "Var": [
+              [
+                8633,
+                8637
+              ],
+              "char"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                8638,
+                8644
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -2978,13 +3150,31 @@
         "name": "padRight",
         "patterns": [
           {
-            "Var": "n"
+            "Var": [
+              [
+                8927,
+                8928
+              ],
+              "n"
+            ]
           },
           {
-            "Var": "char"
+            "Var": [
+              [
+                8929,
+                8933
+              ],
+              "char"
+            ]
           },
           {
-            "Var": "string"
+            "Var": [
+              [
+                8934,
+                8940
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -3404,7 +3594,13 @@
         "name": "toList",
         "patterns": [
           {
-            "Var": "string"
+            "Var": [
+              [
+                11426,
+                11432
+              ],
+              "string"
+            ]
           }
         ],
         "expr": {
@@ -3533,7 +3729,13 @@
         "name": "fromChar",
         "patterns": [
           {
-            "Var": "char"
+            "Var": [
+              [
+                11904,
+                11908
+              ],
+              "char"
+            ]
           }
         ],
         "expr": {
