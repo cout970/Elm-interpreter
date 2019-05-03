@@ -1,4 +1,4 @@
-use ast::Definition;
+use ast::{Definition, Span};
 use ast::Statement;
 use ast::Type;
 use parsers::expression::parse_expr;
@@ -18,6 +18,7 @@ use parsers::util::pipe1;
 use tokenizer::Token;
 
 pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
+    let start = input.pos();
     let (stm, i) = match input.read() {
         Token::TypeTk => {
             let i = input.next();
@@ -44,7 +45,7 @@ pub fn parse_statement(input: Input) -> Result<(Statement, Input), ParseError> {
             let i = expect(Token::Colon, i)?;
             let (ty, i) = parse_type(i)?;
 
-            (Statement::Port(name, ty), i)
+            (Statement::Port((start, i.pos_end()), name, ty), i)
         }
         Token::Id(_) => {
             let (def, i) = parse_definition(0, input)?;
@@ -93,11 +94,12 @@ pub fn parse_definition(indent: u32, input: Input) -> Result<(Definition, Input)
     Ok((Definition { header, name, patterns, expr }, i))
 }
 
-fn parse_adt_branch(input: Input) -> Result<((String, Vec<Type>), Input), ParseError> {
+fn parse_adt_branch(input: Input) -> Result<((Span, String, Vec<Type>), Input), ParseError> {
+    let start = input.pos();
     let (name, i) = expect_upper(input)?;
     let (params, i) = many0(&parse_type_without_adt, i)?;
 
-    Ok(((name, params), i))
+    Ok((((start, i.pos_end()), name, params), i))
 }
 
 #[cfg(test)]
@@ -156,13 +158,14 @@ mod tests {
     fn check_adt() {
         test_parser_result(parse_statement, "type Boolean = True | False", Statement::Adt(
             "Boolean".s(), vec![],
-            vec![("True".s(), vec![]), ("False".s(), vec![])],
+            vec![((0, 0), "True".s(), vec![]), ((0, 0), "False".s(), vec![])],
         ));
     }
 
     #[test]
     fn check_port() {
         test_parser_result(parse_statement, "port js_function : Int -> Int", Statement::Port(
+            (0, 0),
             "js_function".s(),
             Type::Fun(
                 Box::new(Type::Tag("Int".s(), vec![])),

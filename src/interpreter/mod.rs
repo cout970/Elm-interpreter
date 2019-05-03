@@ -111,7 +111,7 @@ impl Interpreter {
                     let (name, value) = self.eval_definition(def);
                     definitions.insert(name, value);
                 }
-                Declaration::Alias(_, _) => {}
+                Declaration::Alias(_) => {}
                 Declaration::Adt(_, adt) => {
                     for variant in &adt.variants {
                         let (name, value) = self.eval_adt_variant(adt.clone(), variant);
@@ -290,7 +290,8 @@ impl Interpreter {
             let argc = args.len() as u32 + 1;
 
             if *arg_count < argc {
-                return Err(InterpreterError::FunArgumentSizeMismatch(*arg_count, argc).wrap());
+//                eprintln!("arg_count = {}, argc = {}, fun_value = {}, input = {}, args = {:#?}", arg_count, argc, fun_value, input, args);
+                return Err(InterpreterError::FunArgumentSizeMismatch(*arg_count, argc, fun.clone()).wrap());
             }
 
             let mut arg_vec = args.clone();

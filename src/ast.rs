@@ -75,10 +75,17 @@ pub struct Import {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Statement {
     Alias(String, Vec<String>, Type),
-    Adt(String, Vec<String>, Vec<(String, Vec<Type>)>),
-    Port(String, Type),
+    Adt(String, Vec<String>, Vec<(Span, String, Vec<Type>)>),
+    Port(Span, String, Type),
     Def(Definition),
     Infix(String, Int, String, String),
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TypeAlias {
+    pub name: String,
+    pub variables: Vec<String>,
+    pub replacement: Type,
 }
 
 /// The representation of a type

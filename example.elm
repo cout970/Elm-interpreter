@@ -15,7 +15,7 @@ update msg model =
 main =
   Browser.sandbox { init = 0, update = update, view = view }
 
-type alias Model = Int
+type alias Model a b c = Int (List a)
 
 type Msg
     = Increment

@@ -125,7 +125,7 @@ pub fn adt_constructor(adt: Arc<Adt>, variant: &AdtVariant) -> Value {
     func_types.push(type_tag_args(&variant.name, variant.types.clone()));
 
     Value::Fun {
-        arg_count: 1,
+        arg_count: func_types.len() as u32,
         args: vec![Value::Adt(variant.name.to_string(), vec![], adt)],
         fun: Arc::new(Function::External(next_fun_id(), builtin_adt_constructor(), type_fun(func_types))),
     }

@@ -2,13 +2,13 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use analyzer::Analyzer;
-use ast::Definition;
+use ast::{Definition, Span, TypeAlias};
 use ast::Type;
 use errors::TypeError;
 use loader::Declaration;
 use types::Adt;
 use types::AdtVariant;
-use util::build_fun_type;
+use util::{build_fun_type, VecExt};
 use util::create_vec_inv;
 use util::visitors::type_visitor;
 
@@ -18,6 +18,9 @@ impl Analyzer {
 
         type_visitor(&mut used_vars, ty, &|set, node| {
             if let Type::Var(var) = &node {
+                set.insert(var.clone());
+            }
+            if let Type::RecExt(var, ..) = &node {
                 set.insert(var.clone());
             }
         });
@@ -42,7 +45,11 @@ impl Analyzer {
 
 
         let mut decls: Vec<Declaration> = vec![
-            Declaration::Alias(name.to_owned(), ty.clone())
+            Declaration::Alias(TypeAlias {
+                name: name.to_string(),
+                variables: decl_vars.clone(),
+                replacement: ty.clone(),
+            })
         ];
 
         // If the type alias is for an record, a auxiliary constructor function is created
@@ -59,45 +66,72 @@ impl Analyzer {
         Ok(decls)
     }
 
-    pub fn analyze_statement_adt(&mut self, name: &String, decl_vars: &Vec<String>, variants: &Vec<(String, Vec<Type>)>) -> Result<Vec<Declaration>, TypeError> {
+    pub fn analyze_statement_adt(&mut self, name: &String, decl_vars: &Vec<String>, variants: &Vec<(Span, String, Vec<Type>)>) -> Result<Vec<Declaration>, TypeError> {
+        let mut decls = vec![];
         let vars: Vec<Type> = decl_vars.iter()
             .map(|v| Type::Var(v.to_owned()))
             .collect();
 
-        let adt_variants = variants.iter()
-            .map(|(name, types)| {
-                AdtVariant {
-                    name: name.clone(),
-                    types: types.clone(),
-                }
-            })
-            .collect();
-
-        let adt = Arc::new(Adt {
-            name: name.to_owned(),
-            types: decl_vars.clone(),
-            variants: adt_variants,
-        });
-
         let adt_type = Type::Tag(name.to_owned(), vars);
-        let mut decls = vec![Declaration::Adt(name.to_owned(), adt.clone())];
+        let mut adt_variants: Vec<(Span, AdtVariant)> = vec![];
+
+        self.e.enter_block();
+
+        let res = {
+            // Register own name to allow recursive definitions
+            self.e.set_canonical_type_name(name, name.clone());
+
+            for (span, name, types) in variants {
+                let mut new_types = vec![];
+
+                for ty in types {
+                    new_types.push(self.check_type(*span, ty.clone())?);
+                }
+
+                adt_variants.push((
+                    *span,
+                    AdtVariant {
+                        name: name.clone(),
+                        types: new_types,
+                    }
+                ));
+            }
+
+            Ok(())
+        };
+        self.e.exit_block();
+        res?;
 
         // For each variant a definition is added, this definition is a constructor.
-        for (variant_name, params) in variants {
-            let variant_type = if !params.is_empty() {
-                build_fun_type(&create_vec_inv(params, adt_type.clone()))
+        for (span, variant) in &adt_variants {
+            let mut new_variant_types = vec![];
+
+            for ty in &variant.types {
+                new_variant_types.push(self.check_type(*span, ty.clone())?);
+            }
+
+            let variant_type = if !new_variant_types.is_empty() {
+                build_fun_type(&create_vec_inv(&new_variant_types, adt_type.clone()))
             } else {
                 adt_type.clone()
             };
 
-            decls.push(Declaration::Port(variant_name.clone(), variant_type));
+            decls.push(Declaration::Port(variant.name.clone(), variant_type));
         }
+
+        let adt = Arc::new(Adt {
+            name: name.to_owned(),
+            types: decl_vars.clone(),
+            variants: adt_variants.map(|(_, a)| a.clone()),
+        });
+
+        decls.push(Declaration::Adt(name.to_owned(), adt.clone()));
 
         Ok(decls)
     }
 
-    pub fn analyze_statement_port(&mut self, name: &String, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
-        Ok(vec![Declaration::Port(name.to_owned(), ty.clone())])
+    pub fn analyze_statement_port(&mut self, span: Span, name: &String, ty: &Type) -> Result<Vec<Declaration>, TypeError> {
+        Ok(vec![Declaration::Port(name.to_owned(), self.check_type(span, ty.clone())?)])
     }
 
     pub fn analyze_statement_definition(&mut self, def: &Definition) -> Result<Vec<Declaration>, TypeError> {
@@ -118,7 +152,11 @@ mod tests {
         let mut analyzer = Analyzer::new(SourceCode::from_str("typealias A = ()"));
         assert_eq!(
             analyzer.analyze_statement_typealias("A", &vec![], &ty),
-            Ok(vec![Declaration::Alias("A".s(), ty)])
+            Ok(vec![Declaration::Alias(TypeAlias {
+                name: "A".s(),
+                variables: vec![],
+                replacement: ty,
+            })])
         );
     }
 
@@ -128,7 +166,11 @@ mod tests {
         let mut analyzer = Analyzer::new(SourceCode::from_str("typealias A a = a"));
         assert_eq!(
             analyzer.analyze_statement_typealias("A", &vec!["a".s()], &ty),
-            Ok(vec![Declaration::Alias("A".s(), ty)])
+            Ok(vec![Declaration::Alias(TypeAlias {
+                name: "A".s(),
+                variables: vec!["a".to_string()],
+                replacement: ty,
+            })])
         );
     }
 

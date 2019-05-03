@@ -316,7 +316,6 @@ impl Display for Value {
     }
 }
 
-
 impl Display for Pattern {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{:?}", self)
@@ -325,8 +324,85 @@ impl Display for Pattern {
 
 impl Display for TypedPattern {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{:?}", self)
+        print_pattern(f, self, 0)
     }
+}
+
+fn print_pattern(f: &mut Formatter, pat: &TypedPattern, indent: u32) -> Result<(), Error> {
+    let mut newline = String::new();
+    for _ in 0..indent {
+        newline.push(' ');
+    }
+
+    match pat {
+        TypedPattern::Var(_, ty, name) => {
+            write!(f, "{nl}Var {{ {}, {} }}", ty, name, nl = newline)?;
+        }
+        TypedPattern::Adt(_, ty, own_ty, items) => {
+            write!(f, "{nl}Adt {{ {},\n{nl} {},\n{nl}", ty, own_ty, nl = newline)?;
+            for item in items {
+                print_pattern(f, item, indent + 1)?;
+                write!(f, ",\n{nl}", nl = newline)?;
+            }
+            write!(f, "}}")?;
+        }
+        TypedPattern::Wildcard(_) => {
+            write!(f, "{nl}Wildcard", nl = newline)?;
+        }
+        TypedPattern::Unit(_) => {
+            write!(f, "{nl}Unit", nl = newline)?;
+        }
+        TypedPattern::Tuple(_, ty, items) => {
+            write!(f, "{nl}Tuple {{ {},\n{nl}", ty, nl = newline)?;
+            for item in items {
+                print_pattern(f, item, indent + 1)?;
+                write!(f, ",\n{nl}", nl = newline)?;
+            }
+            write!(f, "}}")?;
+        }
+        TypedPattern::List(_, ty, items) => {
+            write!(f, "{nl}List {{ {},\n{nl}", ty, nl = newline)?;
+            for item in items {
+                print_pattern(f, item, indent + 1)?;
+                write!(f, ",\n{nl}", nl = newline)?;
+            }
+            write!(f, "}}")?;
+        }
+        TypedPattern::BinaryOp(_, ty, op, a, b) => {
+            write!(f, "{nl}BinaryOp {{ {},\n{nl} {}\n{nl}", ty, op, nl = newline)?;
+
+            print_pattern(f, a, indent + 1)?;
+            write!(f, ",\n{nl}", nl = newline)?;
+            print_pattern(f, b, indent + 1)?;
+            write!(f, ",\n{nl}", nl = newline)?;
+
+            write!(f, "}}")?;
+        }
+        TypedPattern::Record(_, ty, items) => {
+            write!(f, "{nl}Record {{ {},\n{nl}", ty, nl = newline)?;
+            for item in items {
+                write!(f, "{},\n{nl}", item, nl = newline)?;
+            }
+            write!(f, "}}")?;
+        }
+        TypedPattern::LitInt(_, value) => {
+            write!(f, "{nl}Int {{ {} }}", value, nl = newline)?;
+        }
+        TypedPattern::LitString(_, value) => {
+            write!(f, "{nl}String {{ {} }}", value, nl = newline)?;
+        }
+        TypedPattern::LitChar(_, value) => {
+            write!(f, "{nl}Char {{ {} }}", value, nl = newline)?;
+        }
+        TypedPattern::Alias(_, ty, pat, alias) => {
+            write!(f, "{nl}Alias {{ {},\n{nl} {}\n{nl}", ty, alias, nl = newline)?;
+            print_pattern(f, pat.as_ref(), indent + 1)?;
+            write!(f, ",\n{nl}", nl = newline)?;
+            write!(f, "}}")?;
+        }
+    }
+
+    Ok(())
 }
 
 impl Display for Definition {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use analyzer::Analyzer;
 use analyzer::dependency_sorter::sort_statements;
-use ast::AdtExposing;
+use ast::{AdtExposing, TypeAlias};
 use ast::Exposing;
 use ast::Import;
 use ast::ModuleExposing;
@@ -26,14 +26,52 @@ impl Analyzer {
     pub fn get_default_imports(&mut self, modules: &HashMap<String, AnalyzedModule>) -> Result<Vec<ModuleImport>, ElmError> {
         let mut module_imports = vec![];
 
-        let basic = Import { path: vec!["Basics".to_string()], alias: None, exposing: Some(ModuleExposing::All) };
-        let list = Import { path: vec!["List".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("List".to_string(), AdtExposing::All)])) };
-        let maybe = Import { path: vec!["Maybe".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Maybe".to_string(), AdtExposing::All)])) };
-        let result = Import { path: vec!["Result".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Result".to_string(), AdtExposing::All)])) };
-        let string = Import { path: vec!["String".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("String".to_string())])) };
-        let char_ = Import { path: vec!["Char".to_string()], alias: None, exposing: Some(ModuleExposing::Just(vec![Exposing::Type("Char".to_string())])) };
-        let tuple = Import { path: vec!["Tuple".to_string()], alias: None, exposing: None };
-        let debug = Import { path: vec!["Debug".to_string()], alias: None, exposing: None };
+        let basic = Import {
+            path: vec!["Basics".to_string()],
+            alias: None,
+            exposing: Some(ModuleExposing::All),
+        };
+
+        let list = Import {
+            path: vec!["List".to_string()],
+            alias: None,
+            exposing: Some(ModuleExposing::Just(vec![Exposing::Type("List".to_string()), Exposing::BinaryOperator("::".to_string())])),
+        };
+        let maybe = Import {
+            path: vec!["Maybe".to_string()],
+            alias: None,
+            exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Maybe".to_string(), AdtExposing::All)])),
+        };
+
+        let result = Import {
+            path: vec!["Result".to_string()],
+            alias: None,
+            exposing: Some(ModuleExposing::Just(vec![Exposing::Adt("Result".to_string(), AdtExposing::All)])),
+        };
+
+        let string = Import {
+            path: vec!["String".to_string()],
+            alias: None,
+            exposing: Some(ModuleExposing::Just(vec![Exposing::Type("String".to_string())])),
+        };
+
+        let char_ = Import {
+            path: vec!["Char".to_string()],
+            alias: None,
+            exposing: Some(ModuleExposing::Just(vec![Exposing::Type("Char".to_string())])),
+        };
+
+        let tuple = Import {
+            path: vec!["Tuple".to_string()],
+            alias: None,
+            exposing: None,
+        };
+
+        let debug = Import {
+            path: vec!["Debug".to_string()],
+            alias: None,
+            exposing: None,
+        };
 
         self.analyze_import(modules, &mut module_imports, &basic)?;
         self.analyze_import(modules, &mut module_imports, &list)?;
@@ -115,10 +153,12 @@ impl Analyzer {
                 self.e.set(&aliased_name, def.header.clone());
                 self.env.add_definition(&aliased_name, def.header.clone());
             }
-            Declaration::Alias(name, ty) => {
-                self.env.add_alias(&aliased_name, ty.clone())
+            Declaration::Alias(alias) => {
+                self.e.set_type_alias(alias.clone());
             }
             Declaration::Adt(name, adt) => {
+                self.e.set_canonical_type_name(&aliased_name, name.clone());
+                self.e.set_canonical_type_name(name, name.clone());
                 self.env.add_adt(&aliased_name, adt.clone())
             }
             Declaration::Infix(name, _, ty) => {
@@ -150,7 +190,18 @@ impl Analyzer {
     }
 
     pub fn analyze_module_declarations(&mut self, statements: &Vec<Statement>) -> Result<Vec<Declaration>, Vec<TypeError>> {
-        let statements = statements.iter().collect::<Vec<_>>();
+        let mut statements = statements.iter().collect::<Vec<_>>();
+
+        // Sort by type
+        statements.sort_by_key(|stm| {
+            match *stm {
+                Statement::Adt(_, _, _) => 1,
+                Statement::Alias(_, _, _) => 2,
+                Statement::Port(_, _, _) => 3,
+                Statement::Infix(_, _, _, _) => 4,
+                Statement::Def(_) => 5,
+            }
+        });
         // TODO find a better solution, that sorts only the type-inferred statements
 //            sort_statements(statements)
 //            .map_err(|cycle| vec![TypeError::CyclicStatementDependency { cycle }])?;
@@ -158,45 +209,43 @@ impl Analyzer {
         let mut declarations = vec![];
         let mut errors = vec![];
 
-        let mut internal_declarations = vec![];
-
         for stm in statements {
-            match self.analyze_statement(stm) {
-                Ok(decls) => {
-                    internal_declarations.extend(decls.clone());
-
-                    for decl in decls.into_iter() {
-                        declarations.push(decl.clone());
-                        match decl {
-                            Declaration::Definition(name, def) => {
-                                self.e.set(&name, def.header.clone());
-                                self.env.add_definition(&name, def.header.clone());
-                            }
-                            Declaration::Port(name, ty) => {
-                                self.e.set(&name, ty.clone());
-                                self.env.add_definition(&name, ty);
-                            }
-                            Declaration::Alias(name, ty) => {
-                                self.env.add_alias(&name, ty);
-                            }
-                            Declaration::Adt(name, adt) => {
-                                self.env.add_adt(&name, adt);
-                            }
-                            Declaration::Infix(name, _, ty) => {
-                                self.e.set(&name, ty.clone());
-                                self.env.add_definition(&name, ty.clone());
-                            }
-                        }
-                    }
-                }
+            let decls = match self.analyze_statement(stm) {
+                Ok(decls) => decls,
                 Err(e) => {
                     errors.push(e);
+                    vec![]
+                }
+            };
+
+            for decl in decls.into_iter() {
+                declarations.push(decl.clone());
+                match decl {
+                    Declaration::Definition(name, def) => {
+                        self.e.set(&name, def.header.clone());
+                        self.env.add_definition(&name, def.header.clone());
+                    }
+                    Declaration::Port(name, ty) => {
+                        self.e.set(&name, ty.clone());
+                        self.env.add_definition(&name, ty);
+                    }
+                    Declaration::Alias(alias) => {
+                        self.e.set_type_alias(alias.clone());
+                    }
+                    Declaration::Adt(name, adt) => {
+                        self.e.set_canonical_type_name(&name, adt.name.clone());
+                        self.env.add_adt(&name, adt);
+                    }
+                    Declaration::Infix(name, _, ty) => {
+                        self.e.set(&name, ty.clone());
+                        self.env.add_definition(&name, ty.clone());
+                    }
                 }
             }
         }
 
         // Replace infix definitions for copies of the referenced function
-        for decl in internal_declarations {
+        for decl in declarations.clone() {
             if let Declaration::Infix(name, infix_def, _) = decl {
                 let mut new_declaration = vec![];
 
@@ -277,8 +326,8 @@ impl Analyzer {
                 Exposing::Type(name) => {
                     let decl = all_decls.iter()
                         .find(|decl| {
-                            if let Declaration::Alias(alias_name, _) = decl {
-                                alias_name == name
+                            if let Declaration::Alias(alias) = decl {
+                                &alias.name == name
                             } else if let Declaration::Adt(adt_name, _) = decl {
                                 adt_name == name
                             } else {

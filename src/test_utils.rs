@@ -1,5 +1,5 @@
 use analyzer::Analyzer;
-use ast::Expr;
+use ast::{Definition, Expr};
 use ast::Module;
 use ast::Statement;
 use parsers::Parser;
@@ -69,6 +69,23 @@ impl Test {
 
         match res {
             Ok(res) => res,
+            Err(error) => {
+                println!("Error: {}\n", error);
+                panic!();
+            }
+        }
+    }
+    #[cfg(test)]
+    pub fn definition(code: &str) -> Definition {
+        let mut parser = Parser::new(Tokenizer::new(&SourceCode::from_str(code)));
+        let res = parser.parse_statement();
+
+        match res {
+            Ok(Statement::Def(res)) => res,
+            Ok(other) => {
+                println!("Statement: {:?}\n", other);
+                panic!("Not a definition");
+            },
             Err(error) => {
                 println!("Error: {}\n", error);
                 panic!();

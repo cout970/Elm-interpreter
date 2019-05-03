@@ -8,7 +8,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use analyzer::Analyzer;
-use ast::Module;
+use ast::{Module, TypeAlias};
 use ast::Type;
 use errors::ElmError;
 use errors::LoaderError;
@@ -71,7 +71,7 @@ pub struct ModuleImport {
 pub enum Declaration {
     Port(String, Type),
     Definition(String, TypedDefinition),
-    Alias(String, Type),
+    Alias(TypeAlias),
     Adt(String, Arc<Adt>),
     Infix(String, String, Type),
 }
@@ -147,7 +147,7 @@ pub fn declaration_name(decl: &Declaration) -> &str {
     match decl {
         Declaration::Port(name, ..) => name,
         Declaration::Definition(name, ..) => name,
-        Declaration::Alias(name, ..) => name,
+        Declaration::Alias(alias, ..) => &alias.name,
         Declaration::Adt(name, ..) => name,
         Declaration::Infix(name, ..) => name,
     }
@@ -157,7 +157,7 @@ pub fn declaration_type(decl: &Declaration) -> Option<&Type> {
     match decl {
         Declaration::Port(_, ty) => Some(ty),
         Declaration::Definition(_, ty) => Some(&ty.header),
-        Declaration::Alias(_, _) => None,
+        Declaration::Alias(_) => None,
         Declaration::Adt(_, _) => None,
         Declaration::Infix(_, _, ty) => Some(ty),
     }

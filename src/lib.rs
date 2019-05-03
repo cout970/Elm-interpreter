@@ -28,9 +28,7 @@ use loader::declaration_name;
 use loader::declaration_type;
 use loader::LoadedModule;
 use loader::ModuleLoader;
-use loader::PackedModule;
 use loader::RuntimeModule;
-use loader::save_as_packed_module;
 use loader::SourceFile;
 use parsers::Parser;
 use source::SourceCode;
@@ -41,7 +39,6 @@ use types::next_fun_id;
 use types::Value;
 use util::build_fun_type;
 use util::create_vec_inv;
-use util::resource_path;
 
 pub mod ast;
 pub mod typed_ast;
@@ -85,18 +82,19 @@ impl Runtime {
         // Load Elm-core modules, except Array, Process, Task and Platform
 
         // Load from packed modules
-        for name in ELM_CORE_MODULES.iter() {
-            let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
-            run.include_packed_module(&path).unwrap();
-        }
+//        for name in ELM_CORE_MODULES.iter() {
+//            let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
+//            run.include_packed_module(&path).unwrap();
+//        }
 
-        /* DEBUG ONLY
+//
+//        /* DEBUG ONLY
         // Load from elm-core source files (to get nice error messages when debugging, just download the git repo and update the path)
         for name in ELM_CORE_MODULES.iter() {
             let path = format!("/Data/Dev/Elm/core-master/src/{}.elm", name);
             run.include_file(&path).unwrap();
         }
-        */
+//        */
 
         // Analyze and evaluate all core modules
         for name in ELM_CORE_MODULES.iter() {
@@ -105,7 +103,7 @@ impl Runtime {
         }
 
         // Import the default modules into the current environment
-        run.analyzer.get_default_imports(&HashMap::new()).expect("Default imports cannot be included");
+        run.analyzer.get_default_imports(&run.analyzed_modules).expect("Default imports cannot be included");
 
         run
     }

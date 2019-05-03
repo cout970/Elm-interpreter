@@ -62,13 +62,13 @@ pub fn sort_statements(stms: &Vec<Statement>) -> Result<Vec<&Statement>, Vec<Str
 fn get_stm_dependencies(def: &Statement) -> Vec<String> {
     match def {
         Statement::Alias(_, _, ty) => { get_type_dependencies(ty) }
-        Statement::Port(_, ty) => { get_type_dependencies(ty) }
+        Statement::Port(_, _, ty) => { get_type_dependencies(ty) }
         Statement::Def(def) => {
             get_def_dependencies(&mut Analyzer::new(SourceCode::from_str("")), def)
         }
         Statement::Adt(_, _, branches) =>
             branches.iter()
-                .map(|(_, tys)| {
+                .map(|(_, _, tys)| {
                     tys.iter().map(|ty| get_type_dependencies(ty)).flatten()
                 })
                 .flatten()
@@ -222,7 +222,7 @@ fn get_stm_name(stm: &Statement) -> &str {
     match stm {
         Statement::Alias(name, _, _) => { name }
         Statement::Adt(name, _, _) => { name }
-        Statement::Port(name, _) => { name }
+        Statement::Port(_, name, _) => { name }
         Statement::Def(def) => { &def.name }
         Statement::Infix(_, _, op, _) => { op }
     }
@@ -232,11 +232,11 @@ fn get_provided_names(stm: &Statement) -> Vec<String> {
     match stm {
         Statement::Alias(name, _, _) => { vec![name.to_owned()] }
         Statement::Adt(name, _, variants) => {
-            let mut var_names = variants.iter().map(|(n, _)| n.to_owned()).collect::<Vec<_>>();
+            let mut var_names = variants.iter().map(|(_, n, _)| n.to_owned()).collect::<Vec<_>>();
             var_names.push(name.to_owned());
             var_names
         }
-        Statement::Port(name, _) => { vec![name.to_owned()] }
+        Statement::Port(_, name, _) => { vec![name.to_owned()] }
         Statement::Def(def) => { vec![def.name.to_owned()] }
         Statement::Infix(_, _, op, fun) => { vec![op.to_owned()] }
     }

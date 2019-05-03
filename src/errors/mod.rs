@@ -17,7 +17,7 @@ use source::SourceCode;
 use tokenizer::Token;
 use typed_ast::{expr_type, TypedPattern};
 use typed_ast::TypedExpr;
-use types::Value;
+use types::{Function, Value};
 use util::expression_fold::ExprTreeError;
 use util::format::print_vec;
 
@@ -75,6 +75,7 @@ pub enum TypeError {
     ExpectingRecordWithName             { record: TypedExpr, name: String },
     TypeMatchingError { span: Span, expected: Type, found: Type },
     RecursiveTypeDefinition { span: Span, var: String, ty: Type },
+    UnknownType { span: Span, name: String },
     //@formatter:on
 }
 
@@ -103,7 +104,7 @@ pub enum InterpreterError {
     InvalidExpressionChain(ExprTreeError),
     RecordFieldNotFound(String, Value),
     CaseExpressionNonExhaustive(Value, Vec<TypedPattern>),
-    FunArgumentSizeMismatch(u32, u32),
+    FunArgumentSizeMismatch(u32, u32, Arc<Function>),
     ExpectedRecord(Value),
     ExpectedFunction(Value),
     ExpectedAdt(Value),
@@ -322,6 +323,10 @@ pub fn format_type_error(code: &SourceCode, error: &TypeError) -> String {
             write!(&mut msg, "Found recursive type: \n\n var: '{}', \ntype: '{}'\n", var, ty).unwrap();
             write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
         },
+        TypeError::UnknownType { span, name } => {
+            write!(&mut msg, "Found unknown type: {}\n", name).unwrap();
+            write!(&mut msg, "{}\n\n", print_code_location(code.as_str(), span)).unwrap();
+        },
     }
 
     write!(&mut msg, "\n").unwrap();
@@ -398,9 +403,9 @@ pub fn format_runtime_error(error: &InterpreterError) -> String {
             write!(&mut msg, "-- TYPE MISMATCH ----------------------------------------------------------- elm\n\n").unwrap();
             write!(&mut msg, "I was expecting a number but found:\n\n{}\n\n", value).unwrap();
         }
-        InterpreterError::FunArgumentSizeMismatch(expected, found) => {
+        InterpreterError::FunArgumentSizeMismatch(expected, found, func) => {
             write!(&mut msg, "-- TOO MANY ARGS ----------------------------------------------------------- elm\n\n").unwrap();
-            write!(&mut msg, "The `fun` function expects {} argument, but it got {} instead.\n", expected, found).unwrap();
+            write!(&mut msg, "The `{}` function expects {} argument, but it got {} instead.\n{:?}\n", func.get_type(), expected, found, func).unwrap();
             write!(&mut msg, "Are there any missing commas? Or missing parentheses?").unwrap();
         }
         InterpreterError::ExpectedNonEmptyList(value) => {

@@ -18,7 +18,6 @@ pub struct StaticEnv {
 #[derive(Clone, Debug, PartialEq)]
 struct Block {
     functions: HashMap<String, Type>,
-    alias: HashMap<String, Type>,
     adts: HashMap<String, Arc<Adt>>,
     adt_variants: HashMap<String, Arc<Adt>>,
 }
@@ -29,7 +28,6 @@ impl StaticEnv {
             blocks: vec![
                 Block {
                     functions: HashMap::new(),
-                    alias: HashMap::new(),
                     adts: HashMap::new(),
                     adt_variants: HashMap::new(),
                 }
@@ -54,16 +52,6 @@ impl StaticEnv {
 
     pub fn find_definition(&self, name: &str) -> Option<Type> {
         self.search(name, |block| &block.functions)
-    }
-
-    pub fn add_alias(&mut self, name: &str, var: Type) {
-        let block = self.blocks.last_mut().unwrap();
-
-        block.alias.insert(name.to_owned(), var);
-    }
-
-    pub fn find_alias(&self, name: &str) -> Option<Type> {
-        self.search(name, |block| &block.alias)
     }
 
     pub fn add_adt(&mut self, name: &str, var: Arc<Adt>) {
@@ -109,7 +97,6 @@ impl StaticEnv {
     pub fn enter_block(&mut self) {
         self.blocks.push(Block {
             functions: HashMap::new(),
-            alias: HashMap::new(),
             adts: HashMap::new(),
             adt_variants: HashMap::new(),
         });
@@ -126,10 +113,6 @@ impl Debug for StaticEnv {
         for i in 0..self.blocks.len() {
             let spaces = " ".repeat(i);
             let block = &self.blocks[i];
-
-            for (name, ty) in &block.alias {
-                write!(f, "{}Alias '{}' : {}\n", spaces, name, ty)?;
-            }
 
             for (name, adt) in &block.adts {
                 write!(f, "{}Adt '{}' : {:?}\n", spaces, name, adt)?;
