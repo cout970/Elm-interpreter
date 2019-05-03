@@ -70,12 +70,12 @@ mod tests {
 
     #[test]
     fn test_bench_1() {
-        Test::module(include_str!("../../benches/data/tokenizer_1.elm"));
+        Test::module(include_str!("../../resources/benches/tokenizer_1.elm"));
     }
 
     #[test]
     fn test_bench_2() {
-        Test::module(include_str!("../../benches/data/tokenizer_2.elm"));
+        Test::module(include_str!("../../resources/benches/tokenizer_2.elm"));
     }
 
     #[test]

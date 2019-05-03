@@ -5,93 +5,71 @@ extern crate nom;
 
 use criterion::Criterion;
 
-use elm_interpreter::interpreter::eval_expression;
-use elm_interpreter::interpreter::eval_statement;
-use elm_interpreter::interpreter::runtime_stack::DynamicEnv;
-use elm_interpreter::parsers;
-use elm_interpreter::parsers::new::util::from;
-use elm_interpreter::parsers::old::TokenStream;
-use elm_interpreter::tokenizer::tokenize;
+use elm_interpreter::parsers::Parser;
+use elm_interpreter::Runtime;
+use elm_interpreter::source::SourceCode;
+use elm_interpreter::tokenizer::Tokenizer;
 
 fn bench_tokenize_small_file(c: &mut Criterion) {
-    let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
-    c.bench_function("tokenizer_1", move |b| b.iter(|| tokenize(code)));
+    let code = SourceCode::from_slice(include_bytes!("../resources/benches/tokenizer_1.elm"));
+
+    c.bench_function("tokenizer_1", move |b| b.iter(|| {
+        Tokenizer::new(&code).tokenize().expect("Test error")
+    }));
 }
 
 fn bench_tokenize_medium_file(c: &mut Criterion) {
-    let code: &'static [u8] = include_bytes!("data/tokenizer_2.elm");
-    c.bench_function("tokenizer_2", move |b| b.iter(|| tokenize(code)));
+    let code = SourceCode::from_slice(include_bytes!("../resources/benches/tokenizer_2.elm"));
+    c.bench_function("tokenizer_2", move |b| b.iter(|| {
+        Tokenizer::new(&code).tokenize().expect("Test error")
+    }));
 }
 
 fn bench_parser_small_file(c: &mut Criterion) {
-    let code: &'static [u8] = include_bytes!("data/tokenizer_1.elm");
-    let tokens = tokenize(code).unwrap();
-    c.bench_function("parser_1", move |b| {
-        b.iter(|| parsers::old::module::read_module(TokenStream::new(&tokens)))
-    });
+    let code = SourceCode::from_slice(include_bytes!("../resources/benches/tokenizer_1.elm"));
+
+    c.bench_function("parser_1", move |b| b.iter(|| {
+        Parser::new(Tokenizer::new(&code)).parse_module().expect("Test error")
+    }));
 }
 
 fn bench_parser_medium_file(c: &mut Criterion) {
-    let code: &'static [u8] = include_bytes!("data/tokenizer_2.elm");
-    let tokens = tokenize(code).unwrap();
-    c.bench_function("parser_2", move |b| {
-        b.iter(|| parsers::old::module::read_module(TokenStream::new(&tokens)))
-    });
-}
+    let code = SourceCode::from_slice(include_bytes!("../resources/benches/tokenizer_2.elm"));
 
-fn bench_new_parser_small_file(c: &mut Criterion) {
-    let input = from(include_str!("data/tokenizer_1.elm"));
-    c.bench_function("new_parser_1", move |b| {
-        b.iter(|| parsers::new::module::parse_module(input.clone()))
-    });
-}
-
-fn bench_new_parser_medium_file(c: &mut Criterion) {
-    let input = from(include_str!("data/tokenizer_2.elm"));
-    c.bench_function("new_parser_2", move |b| {
-        b.iter(|| parsers::new::module::parse_module(input.clone()))
-    });
+    c.bench_function("parser_2", move |b| b.iter(|| {
+        Parser::new(Tokenizer::new(&code)).parse_module().expect("Test error")
+    }));
 }
 
 fn bench_eval_expr_1(c: &mut Criterion) {
-    let mut env = DynamicEnv::default_lang_env();
-    eval_statement(&mut env, "fib num = case num of \n 0 -> 0 \n 1 -> 1 \n _ -> fib (num - 1) + fib (num - 2)").unwrap();
+    let mut runtime = Runtime::new();
+    let function = "fib num = case num of \n 0 -> 0 \n 1 -> 1 \n _ -> fib (num - 1) + fib (num - 2)";
 
-    c.bench_function("eval_1", move |b| b.iter(|| eval_expression(&mut env, "fib 50")));
+    runtime.eval_statement(function).unwrap();
+
+    c.bench_function("eval_1", move |b| b.iter(|| {
+        runtime.eval_expr("fib 50").expect("Test error")
+    }));
 }
 
 fn bench_eval_expr_2(c: &mut Criterion) {
-    let mut env = DynamicEnv::default_lang_env();
+    let mut runtime = Runtime::new();
     let code = "1 + 2 * 3 / 4 + 5 * 4 / 5 - 6 + 7 * 123 / 234 - 876 + 938 * 2 / 3";
 
-    c.bench_function("eval_2", move |b| b.iter(|| eval_expression(&mut env, code)));
+    c.bench_function("eval_2", move |b| b.iter(|| {
+        runtime.eval_expr(code).expect("Test error")
+    }));
 }
 
-fn check_copy_cost(c: &mut Criterion) {
-    c.bench_function("input_copy_cost", move |b| {
-        let input = from("a long stream of tokens");
-        b.iter(|| input.clone())
-    });
-    c.bench_function("token_stream_copy_cost", move |b| {
-        let tokens = tokenize(b"a long stream of tokens").unwrap();
-        let stream = TokenStream::new(&tokens);
-        b.iter(|| stream.clone())
-    });
-    c.bench_function("input_next_cost", move |b| {
-        let input = from("a long stream of tokens");
-        b.iter(|| input.next())
-    });
-    c.bench_function("token_stream_next_cost", move |b| {
-        let tokens = tokenize(b"a long stream of tokens").unwrap();
-        let stream = TokenStream::new(&tokens);
-        b.iter(|| stream.next(1))
-    });
+fn bench_runtime_init(c: &mut Criterion) {
+    c.bench_function("runtime_init_1", move |b| b.iter(|| {
+        Runtime::new()
+    }));
 }
 
 criterion_group!(tokenizer_benches, bench_tokenize_small_file, bench_tokenize_medium_file);
 criterion_group!(parser_benches, bench_parser_small_file, bench_parser_medium_file);
-criterion_group!(new_parser_benches, bench_new_parser_small_file, bench_new_parser_medium_file);
-criterion_group!(eval_benches, bench_eval_expr_1, bench_eval_expr_2);
-criterion_group!(internal_optimizations, check_copy_cost);
+criterion_group!(eval_benches, bench_eval_expr_1, bench_eval_expr_2); // fails
+criterion_group!(init_benches, bench_runtime_init); // takes 15 seg to run
 
-criterion_main!(new_parser_benches, parser_benches, internal_optimizations);
+criterion_main!(tokenizer_benches, parser_benches);
