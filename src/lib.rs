@@ -5,6 +5,7 @@
 // }
 // TODO port to Rust 2018
 
+extern crate hashbrown;
 extern crate nom;
 #[cfg(test)]
 #[macro_use]
@@ -275,7 +276,7 @@ impl Runtime {
             }
         }
 
-        eprintln!("Analyzing {}", module_name);
+//        eprintln!("Analyzing {}", module_name);
         let module = self.loaded_modules.get(module_name)
             .ok_or_else(|| LoaderError::MissingModule { module: module_name.to_string() }.wrap())?;
 
@@ -300,7 +301,7 @@ impl Runtime {
             }
         }
 
-        eprintln!("Evaluating {}", module_name);
+//        eprintln!("Evaluating {}", module_name);
         let mut interpreter = Interpreter::new();
         let runtime_module = {
             let module = self.analyzed_modules.get(module_name)

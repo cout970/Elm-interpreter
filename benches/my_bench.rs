@@ -70,6 +70,6 @@ fn bench_runtime_init(c: &mut Criterion) {
 criterion_group!(tokenizer_benches, bench_tokenize_small_file, bench_tokenize_medium_file);
 criterion_group!(parser_benches, bench_parser_small_file, bench_parser_medium_file);
 criterion_group!(eval_benches, bench_eval_expr_1, bench_eval_expr_2); // fails
-criterion_group!(init_benches, bench_runtime_init); // takes 15 seg to run
+criterion_group!(init_benches, bench_runtime_init); // takes 500 seg to run
 
-criterion_main!(tokenizer_benches, parser_benches);
+criterion_main!(tokenizer_benches, parser_benches, init_benches);

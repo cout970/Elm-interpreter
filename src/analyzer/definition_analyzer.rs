@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use analyzer::{Analyzer, unpack_types};
 use analyzer::env::Env;
@@ -54,8 +54,14 @@ impl Substitution {
     fn merge(self, b: Substitution) -> Substitution {
         let mut map = HashMap::new();
 
-        map.extend(self.0.into_iter().map(|(k, v)| (k, apply_substitution_ty(&b, &v))));
-        map.extend(b.0);
+        for (k, v) in self.0 {
+            let value = apply_substitution_ty(&b, &v);
+            map.insert(k, value);
+        }
+
+        for (k, v) in b.0 {
+            map.insert(k, v);
+        }
 
         Substitution(map)
     }
