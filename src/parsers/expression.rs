@@ -401,23 +401,23 @@ mod tests {
     #[test]
     fn check_lambda() {
         test_parser_result(parse_expr, "\\x -> x", Expr::Lambda(
-            (0, 0),
-            vec![Pattern::Var((0, 0), "x".s())],
-            Box::new(Expr::Ref((0, 0), "x".s())),
+            (0, 7),
+            vec![Pattern::Var((1, 2), "x".s())],
+            Box::new(Expr::Ref((6, 7), "x".s())),
         ));
     }
 
     #[test]
     fn check_case() {
         test_parser_result(parse_expr, "case x of\n  [] -> 0\n  _ -> 1", Expr::Case(
-            (0, 0),
-            Box::new(Expr::Ref((0, 0), "x".s())),
+            (0, 28),
+            Box::new(Expr::Ref((5, 6), "x".s())),
             vec![(
-                     Pattern::List((0, 0), vec![]),
-                     Expr::Literal((0, 0), Literal::Int(0))
+                     Pattern::List((12, 14), vec![]),
+                     Expr::Literal((18, 19), Literal::Int(0))
                  ), (
-                     Pattern::Wildcard((0, 0)),
-                     Expr::Literal((0, 0), Literal::Int(1))
+                     Pattern::Wildcard((22, 23)),
+                     Expr::Literal((27, 28), Literal::Int(1))
                  )],
         ));
     }
@@ -451,7 +451,6 @@ mod tests {
             vec!["+".s(), "+".s(), "+".s()],
         ));
     }
-
 
     #[test]
     fn check_binop_chain_multiline() {
@@ -584,14 +583,16 @@ mod tests {
 
     #[test]
     fn check_case_indentation() {
-        test_parser_result(parse_expr, "\
+        let code = "\
 case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        model - 1\
-        ", Expr::Case(
-            (0, 0),
-            Box::new(Expr::Ref((0, 0), "msg".s())),
+        ";
+
+        test_parser_result(parse_expr, code, Expr::Case(
+            (0, 81),
+            Box::new(Expr::Ref((5, 8), "msg".s())),
             vec![
                 (
-                    Pattern::Adt((0, 0), "Increment".s(), vec![]),
+                    Pattern::Adt((16, 25), "Increment".s(), vec![]),
                     Expr::OpChain(
                         (0, 0),
                         vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
@@ -599,7 +600,7 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     )
                 ),
                 (
-                    Pattern::Adt((0, 0), "Decrement".s(), vec![]),
+                    Pattern::Adt((51, 60), "Decrement".s(), vec![]),
                     Expr::OpChain(
                         (0, 0),
                         vec![Expr::Ref((0, 0), "model".s()), Expr::Literal((0, 0), Literal::Int(1))],
@@ -661,7 +662,6 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
      * format guidelines of elm
      **/
     #[test]
-    #[ignore]
     fn check_infix_minus_edge_case() {
         test_parser_result(parse_expr, "1-2", Expr::OpChain(
             (0, 0),
@@ -737,30 +737,30 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     header: None,
                     name: "row".s(),
                     patterns: vec![
-                        Pattern::Var((0, 0), "x".s())
+                        Pattern::Var((14, 15), "x".s())
                     ],
                     expr: Expr::OpChain(
-                        (0, 0),
+                        (27, 81),
                         vec![
                             Expr::Application(
-                                (0, 0),
+                                (27, 41),
                                 Box::from(Expr::Application(
-                                    (0, 0),
-                                    Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "range".s())),
-                                    Box::from(Expr::Literal((0, 0), Literal::Int(0))),
+                                    (27, 41),
+                                    Box::from(Expr::QualifiedRef((27, 38), vec!["List".s()], "range".s())),
+                                    Box::from(Expr::Literal((38, 39), Literal::Int(0))),
                                 )),
-                                Box::from(Expr::Ref((0, 0), "x".s())),
+                                Box::from(Expr::Ref((40, 41), "x".s())),
                             ),
                             Expr::Application(
-                                (0, 0),
-                                Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "map".s())),
+                                (54, 81),
+                                Box::from(Expr::QualifiedRef((54, 63), vec!["List".s()], "map".s())),
                                 Box::from(Expr::Lambda(
-                                    (0, 0),
-                                    vec![Pattern::Var((0, 0), "y".s())],
+                                    (64, 80),
+                                    vec![Pattern::Var((65, 66), "y".s())],
                                     Box::from(Expr::Application(
-                                        (0, 0),
-                                        Box::from(Expr::Ref((0, 0), "Cell".s())),
-                                        Box::from(Expr::Ref((0, 0), "Dirt".s())),
+                                        (70, 79),
+                                        Box::from(Expr::Ref((70, 75), "Cell".s())),
+                                        Box::from(Expr::Ref((75, 80), "Dirt".s())),
                                     )),
                                 )),
                             )
@@ -772,31 +772,31 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     header: None,
                     name: "column".s(),
                     patterns: vec![
-                        Pattern::Var((0, 0), "x".s()),
-                        Pattern::Var((0, 0), "y".s())
+                        Pattern::Var((95, 96), "x".s()),
+                        Pattern::Var((97, 98), "y".s())
                     ],
                     expr: Expr::OpChain(
-                        (0, 0),
+                        (111, 161),
                         vec![
                             Expr::Application(
-                                (0, 0),
+                                (111, 125),
                                 Box::from(Expr::Application(
-                                    (0, 0),
-                                    Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "range".s())),
-                                    Box::from(Expr::Literal((0, 0), Literal::Int(0))),
+                                    (111, 125),
+                                    Box::from(Expr::QualifiedRef((111, 122), vec!["List".s()], "range".s())),
+                                    Box::from(Expr::Literal((122, 123), Literal::Int(0))),
                                 )),
-                                Box::from(Expr::Ref((0, 0), "y".s())),
+                                Box::from(Expr::Ref((124, 125), "y".s())),
                             ),
                             Expr::Application(
-                                (0, 0),
-                                Box::from(Expr::QualifiedRef((0, 0), vec!["List".s()], "map".s())),
+                                (139, 161),
+                                Box::from(Expr::QualifiedRef((139, 148), vec!["List".s()], "map".s())),
                                 Box::from(Expr::Lambda(
-                                    (0, 0),
-                                    vec![Pattern::Var((0, 0), "s".s())],
+                                    (149, 160),
+                                    vec![Pattern::Var((150, 151), "s".s())],
                                     Box::from(Expr::Application(
-                                        (0, 0),
-                                        Box::from(Expr::Ref((0, 0), "row".s())),
-                                        Box::from(Expr::Ref((0, 0), "x".s())),
+                                        (155, 160),
+                                        Box::from(Expr::Ref((155, 158), "row".s())),
+                                        Box::from(Expr::Ref((159, 160), "x".s())),
                                     )),
                                 )),
                             )
@@ -805,22 +805,22 @@ case msg of\n    Increment ->\n        model + 1\n    Decrement ->\n        mode
                     ),
                 })
             ],
-            Box::from(Expr::Record((0, 0), vec![
+            Box::from(Expr::Record((172, 228), vec![
                 (
                     "cells".s(),
                     Expr::Application(
-                        (0, 0),
+                        (183, 199),
                         Box::from(Expr::Application(
-                            (0, 0),
-                            Box::from(Expr::Ref((0, 0), "column".s())),
-                            Box::from(Expr::Ref((0, 0), "size".s())),
+                            (183, 199),
+                            Box::from(Expr::Ref((183, 189), "column".s())),
+                            Box::from(Expr::Ref((190, 194), "size".s())),
                         )),
-                        Box::from(Expr::Ref((0, 0), "size".s())),
+                        Box::from(Expr::Ref((195, 199), "size".s())),
                     )
                 ),
                 (
                     "entities".s(),
-                    Expr::List((0, 0), vec![])
+                    Expr::List((219, 227), vec![])
                 )
             ],
             )),

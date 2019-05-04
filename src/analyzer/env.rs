@@ -10,6 +10,7 @@ pub struct Env {
     type_alias: HashMap<String, TypeAlias>,
     canonical_type_names: HashMap<String, String>,
     generator: NameSequence,
+    number_gen: NameSequence,
     save: Vec<(u32, u32)>,
 }
 
@@ -20,6 +21,7 @@ impl Env {
             type_alias: HashMap::new(),
             canonical_type_names: HashMap::new(),
             generator: NameSequence::new(),
+            number_gen: NameSequence::new(),
             save: vec![],
         }
     }
@@ -59,15 +61,15 @@ impl Env {
     }
 
     pub fn next_number_type(&mut self) -> Type {
-        Type::Var(self.generator.next_with_prefix("number"))
+        Type::Var(self.number_gen.next_with_prefix("number"))
     }
 
     pub fn next_comparable_type(&mut self) -> Type {
-        Type::Var(self.generator.next_with_prefix("comparable"))
+        Type::Var(self.number_gen.next_with_prefix("comparable"))
     }
 
     pub fn next_appendable_type(&mut self) -> Type {
-        Type::Var(self.generator.next_with_prefix("appendable"))
+        Type::Var(self.number_gen.next_with_prefix("appendable"))
     }
 
     pub fn block<T, F, E>(&mut self, mut func: F) -> Result<T, E>

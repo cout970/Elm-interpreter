@@ -1,4 +1,4 @@
-use nom::Err as NomErr;
+use nom::{Err as NomErr, is_space};
 use nom::verbose_errors::Context;
 
 use ast::{Float, Int};
@@ -133,10 +133,27 @@ impl Tokenizer {
 
         match result {
             Ok((rest, tk)) => {
+                // Unary minus exception
+                let mut replace_tk = false;
+                if let Token::BinaryOperator(op) = &tk {
+                    if op == "-" {
+                        let after_space = self.pos == 0 || is_space(self.code.as_bytes()[(self.pos - 1)]);
+                        let before_space = is_space(rest[0]);
+
+                        // space     (-) space      -> binary
+                        // not-space (-) space      -> binary
+                        // space     (-) not-space  -> unary
+                        // not-space (-) not-space  -> binary
+                        replace_tk = after_space && !before_space;
+                    }
+                };
+
+                let final_tk = if replace_tk { Token::PrefixMinus } else { tk };
+
                 let real = self.code.as_bytes().len();
                 let consumed = (real - start as usize) - rest.len();
                 self.pos += consumed;
-                Ok(((start, self.pos as u32), tk))
+                Ok(((start, self.pos as u32), final_tk))
             }
             Err(e) => {
                 let result = match e {
@@ -346,8 +363,17 @@ mod tests {
         let tokens = Test::tokens(code).map(|info| info.token.clone());
         assert_eq!(tokens, vec![
             LeftParen, BinaryOperator("+".s()), RightParen, Comma,
-            LeftParen, PrefixMinus, RightParen, Comma,
+            LeftParen, BinaryOperator("-".s()), RightParen, Comma,
             LeftParen, BinaryOperator("*".s()), RightParen, Eof
+        ]);
+    }
+
+    #[test]
+    fn unary_minus() {
+        let code = "n-1";
+        let tokens = Test::tokens(code).map(|info| info.token.clone());
+        assert_eq!(tokens, vec![
+            Id("n".s()), BinaryOperator("-".s()), LitInt(1), Eof
         ]);
     }
 

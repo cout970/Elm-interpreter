@@ -89,7 +89,8 @@ impl Runtime {
         }
 
         /* DEBUG ONLY
-        // Load from elm-core source files (to get nice error messages when debugging, just download the git repo and update the path)
+        // Load from elm-core source files.
+        // (To get nice error messages when debugging, download the git repo and update the path)
         for name in ELM_CORE_MODULES.iter() {
             let path = format!("/Data/Dev/Elm/core/src/{}.elm", name);
             run.include_file(&path).unwrap();
@@ -103,7 +104,18 @@ impl Runtime {
         }
 
         // Import the default modules into the current environment
-        run.analyzer.get_default_imports(&run.analyzed_modules).expect("Default imports cannot be included");
+        let imports = run.analyzer.get_default_imports(&run.analyzed_modules)
+            .expect("Default imports cannot be included");
+
+        for import in &imports {
+            let module = run.runtime_modules.get(&import.source)
+                .expect("Module not found");
+
+            let value = module.definitions.get(&import.source_name)
+                .expect("Definition not found");
+
+            run.interpreter.stack.add(&import.destine_name, value.clone());
+        };
 
         run
     }
@@ -380,7 +392,9 @@ mod test {
     fn test_closure() {
         let mut i = Runtime::new();
         i.eval_statement("genClosure x = \\y -> x + y").expect("1\n");
+        eprintln!("genClosure : {}", i.eval_expr("genClosure").unwrap().get_type());
         i.eval_statement("addFive = genClosure 5").expect("2\n");
+        eprintln!("addFive : {}", i.eval_expr("addFive").unwrap().get_type());
         i.eval_statement("result = addFive 3").expect("3\n");
         let result = i.eval_expr("result").expect("Expect expression to execute correctly");
         assert_eq!(Value::Number(8), result);

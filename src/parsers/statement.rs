@@ -133,7 +133,7 @@ mod tests {
         test_parser(parse_statement, "func\n x\n =\n x");
         test_parser(parse_statement, "func (a, b) = a + b");
 
-        test_parser(parse_statement, "type Dict k v \n= RBNode_elm_builtin NColor k v (Dict k v) (Dict k v)\n| RBEmpty_elm_builtin");
+        test_parser(parse_statement, "type Dict k v \n = RBNode_elm_builtin NColor k v (Dict k v) (Dict k v)\n | RBEmpty_elm_builtin");
     }
 
     #[test]
@@ -158,14 +158,14 @@ mod tests {
     fn check_adt() {
         test_parser_result(parse_statement, "type Boolean = True | False", Statement::Adt(
             "Boolean".s(), vec![],
-            vec![((0, 0), "True".s(), vec![]), ((0, 0), "False".s(), vec![])],
+            vec![((15, 19), "True".s(), vec![]), ((22, 27), "False".s(), vec![])],
         ));
     }
 
     #[test]
     fn check_port() {
         test_parser_result(parse_statement, "port js_function : Int -> Int", Statement::Port(
-            (0, 0),
+            (0, 29),
             "js_function".s(),
             Type::Fun(
                 Box::new(Type::Tag("Int".s(), vec![])),

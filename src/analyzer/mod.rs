@@ -10,7 +10,7 @@ use loader::LoadedModule;
 use source::SourceCode;
 use types::*;
 
-mod statement_analizer;
+mod statement_analyzer;
 mod import_analyzer;
 mod definition_analyzer;
 mod env;
@@ -252,7 +252,7 @@ mod tests {
     fn check_identity() {
         let (def, mut analyzer) = from_code_def("id arg1 = arg1");
 
-        assert_eq!(format_type(&mut analyzer, &def), "a -> a");
+        assert_eq!(format_type(&mut analyzer, &def), "b -> b");
     }
 
     #[test]
@@ -306,7 +306,7 @@ mod tests {
     fn check_variable_separation() {
         let (def, mut analyzer) = from_code_def("my a b = [a, b]");
 
-        assert_eq!(format_type(&mut analyzer, &def), "a -> a -> List a");
+        assert_eq!(format_type(&mut analyzer, &def), "c -> c -> List c");
     }
 
     #[test]
@@ -318,7 +318,7 @@ mod tests {
             Box::from(Type::Var("a".s())),
         ));
 
-        assert_eq!(format_type(&mut analyzer, &def), "( a -> a, b -> b )");
+        assert_eq!(format_type(&mut analyzer, &def), "( c -> c, d -> d )");
     }
 
 //    #[test]

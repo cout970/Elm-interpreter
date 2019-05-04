@@ -142,7 +142,7 @@ impl TypedExpr {
     }
 }
 
-
+// TODO refactor
 pub fn expr_type(expr: &TypedExpr) -> Type {
     expr.get_type()
 }

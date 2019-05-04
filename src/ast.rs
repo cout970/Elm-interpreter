@@ -1,6 +1,7 @@
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 use util::transmute_float_to_int;
@@ -111,7 +112,7 @@ pub struct Definition {
 }
 
 // A pattern that represents 1 or more function arguments
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Pattern {
     Var(Span, String),
     Adt(Span, String, Vec<Pattern>),
@@ -299,6 +300,108 @@ impl PartialEq for Expr {
             Expr::Ref(_, a) => {
                 if let Expr::Ref(_, a2) = other { a == a2 } else { false }
             }
+        }
+    }
+}
+
+impl PartialEq for Pattern {
+    fn eq(&self, other: &Pattern) -> bool {
+        match self {
+            Pattern::Var(_, a) => {
+                if let Pattern::Var(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::Adt(_, a, b) => {
+                if let Pattern::Adt(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+            Pattern::Wildcard(_) => {
+                if let Pattern::Wildcard(_) = other { true } else { false }
+            }
+            Pattern::Unit(_) => {
+                if let Pattern::Unit(_) = other { true } else { false }
+            }
+            Pattern::Tuple(_, a) => {
+                if let Pattern::Tuple(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::List(_, a) => {
+                if let Pattern::List(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::BinaryOp(_, a, b, c) => {
+                if let Pattern::BinaryOp(_, a2, b2, c2) = other { a == a2 && b == b2 && c == c2 } else { false }
+            }
+            Pattern::Record(_, a) => {
+                if let Pattern::Record(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::LitInt(_, a) => {
+                if let Pattern::LitInt(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::LitString(_, a) => {
+                if let Pattern::LitString(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::LitChar(_, a) => {
+                if let Pattern::LitChar(_, a2) = other { a == a2 } else { false }
+            }
+            Pattern::Alias(_, a, b) => {
+                if let Pattern::Alias(_, a2, b2) = other { a == a2 && b == b2 } else { false }
+            }
+        }
+    }
+}
+
+//impl PartialEq for Type {
+//    fn eq(&self, other: &Type) -> bool {
+//        fuzzy_eq_type(&mut HashMap::new(), self, other)
+//    }
+//}
+
+fn fuzzy_eq_type(vars: &mut HashMap<String, String>, this: &Type, other: &Type) -> bool {
+    match this {
+        Type::Unit => if let Type::Unit = other { true } else { false },
+        Type::Var(a) => {
+            if let Type::Var(a2) = other {
+                // TODO
+//                match vars.get(a).cloned() {
+//                    None => {
+//                        vars.insert(a.clone(), a2.clone());
+//                        true
+//                    },
+//                    Some(alt_a2) => {
+//                        a2 == &alt_a2
+//                    },
+//                }
+
+                a == a2 || (a.starts_with("number") && a2.starts_with("number"))
+            } else {
+                false
+            }
+        }
+        Type::Tag(a, b) => {
+            if let Type::Tag(a2, b2) = other {
+                a == a2 && b.iter().zip(b2).all(|(t0, t1)| fuzzy_eq_type(vars, t0, t1))
+            } else { false }
+        }
+        Type::Fun(a, b) => {
+            if let Type::Fun(a2, b2) = other {
+                fuzzy_eq_type(vars, a.as_ref(), a2.as_ref()) && fuzzy_eq_type(vars, b.as_ref(), b2.as_ref())
+            } else { false }
+        }
+        Type::Tuple(a) => {
+            if let Type::Tuple(a2) = other {
+                a.iter().zip(a2).all(|(t0, t1)| fuzzy_eq_type(vars, t0, t1))
+            } else { false }
+        }
+        Type::Record(a) => {
+            if let Type::Record(a2) = other {
+                a.iter().zip(a2).all(|((n0, t0), (n1, t1))| {
+                    n0 == n1 && fuzzy_eq_type(vars, t0, t1)
+                })
+            } else { false }
+        }
+        Type::RecExt(a, b) => {
+            if let Type::RecExt(a2, b2) = other {
+                a == a2 && b.iter().zip(b2).all(|((n0, t0), (n1, t1))| {
+                    n0 == n1 && fuzzy_eq_type(vars, t0, t1)
+                })
+            } else { false }
         }
     }
 }

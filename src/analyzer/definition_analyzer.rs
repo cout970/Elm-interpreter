@@ -255,8 +255,8 @@ fn infer_definition_type(env: &mut Env, fun: &Definition) -> Result<TypedDefinit
         let substitution = match unify_constraints(&constraints) {
             Ok(sub) => sub,
             Err(e) => {
-//                // Debug
-//                eprintln!("\nFunc {}:\n  type: {}\n", &fun.name, safe_ty);
+////                // Debug
+//                eprintln!("\nFunc {}:\n", &fun.name);
 //                for pat in &annotated_patterns {
 //                    eprintln!("  pattern:\n{}\n", pat);
 //                }
@@ -434,8 +434,11 @@ fn annotate_expr(env: &mut Env, expr: &Expr) -> Result<TypedExpr, TypeError> {
                     TypeError::MissingDefinition { span: *span, name: name.to_string() }
                 })?;
 
-
-            let ty = update_type_variables(env, &mut HashMap::new(), ty);
+            let ty = if let Type::Var(_) = &ty {
+                ty
+            } else {
+                update_type_variables(env, &mut HashMap::new(), ty)
+            };
             TypedExpr::Ref(*span, ty, name.clone())
         }
         Expr::Literal(span, lit) => {
@@ -704,17 +707,12 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
             }
         }
         TypedExpr::RecordUpdate(_, ty, rec, exprs) => {
-            // TODO change RecExt to use TypeExpr instead of String
-            let name: String = if let Type::Var(a) = expr_type(rec) {
-                a
-            } else {
-                unreachable!()
-            };
-
-            res.push(Constraint::new(expr.get_span(), ty, &Type::RecExt(
-                name,
-                exprs.map(|(s, e)| (s.clone(), expr_type(e))),
-            )));
+            // TODO record must have at least the attributes to update
+//            res.push(Constraint::new(expr.get_span(), ty, &Type::RecExt(
+//                format!("record"),
+//                exprs.map(|(s, e)| (s.clone(), expr_type(e))),
+//            )));
+            res.push(Constraint::new(rec.get_span(), ty, &rec.get_type()));
 
             collect_expr_constraints(res, rec);
             for (_, expr) in exprs {
@@ -757,18 +755,26 @@ fn collect_expr_constraints(res: &mut Vec<Constraint>, expr: &TypedExpr) {
             collect_expr_constraints(res, b);
             collect_expr_constraints(res, c);
         }
-        TypedExpr::Case(_, _, expr, cases) => {
+        TypedExpr::Case(span, ty, expr, cases) => {
             collect_expr_constraints(res, expr);
             for (pat, expr) in cases {
                 collect_pattern_constraints(res, pat);
                 collect_expr_constraints(res, expr);
+
+                res.push(Constraint::new(*span, ty, &expr.get_type()));
             }
         }
-        TypedExpr::Lambda(_, _, pat, expr) => {
-            // todo lambda type constraint
+        TypedExpr::Lambda(span, ty, pat, expr) => {
+            let mut chain = vec![];
+
             for pat in pat {
+                chain.push(pat.get_type());
                 collect_pattern_constraints(res, pat);
             }
+
+            chain.push(expr.get_type());
+            res.push(Constraint::new(*span, ty, &type_fun(chain)));
+
             collect_expr_constraints(res, expr);
         }
         TypedExpr::Application(_, ty, a, b) => {
@@ -804,19 +810,16 @@ fn unify_constraints(constraints: &[Constraint]) -> Result<Substitution, TypeErr
 
 fn unify_one(constraint: &Constraint) -> Result<Substitution, TypeError> {
     let res = match constraint.as_pair() {
-        (Type::Unit, Type::Unit) => Substitution::empty(),
-        (Type::Var(a), other) | (other, Type::Var(a)) => {
-            match unify_var(a, other) {
-                Ok(ok) => ok,
-                Err(_) => {
-                    return Err(TypeError::RecursiveTypeDefinition {
-                        span: constraint.span,
-                        var: a.to_string(),
-                        ty: other.clone(),
-                    });
-                }
-            }
+        (Type::Var(a), Type::Var(b)) if b.starts_with("number") && !a.starts_with("number") => {
+            unify_var(constraint, a, &constraint.right)?
         }
+        (Type::Var(a), Type::Var(b)) if a.starts_with("number") && !b.starts_with("number") => {
+            unify_var(constraint, b, &constraint.left)?
+        }
+        (Type::Var(a), other) | (other, Type::Var(a)) => {
+            unify_var(constraint, a, other)?
+        }
+        (Type::Unit, Type::Unit) => Substitution::empty(),
         (Type::Tag(n1, param1), Type::Tag(n2, param2))
         if n1 == n2 && param1.len() == param2.len() => {
             let c = param1.iter().zip(param2)
@@ -893,15 +896,55 @@ fn unify_one(constraint: &Constraint) -> Result<Substitution, TypeError> {
     Ok(res)
 }
 
-fn unify_var(var: &str, ty: &Type) -> Result<Substitution, ()> {
+enum UnifyError {
+    Recursive,
+    Incompatible,
+}
+
+/// Attempts to create a Substitution for a variable
+fn unify_var(constraint: &Constraint, var: &str, ty: &Type) -> Result<Substitution, TypeError> {
     if var == "_" {
         return Ok(Substitution::empty());
     }
+
+    if var.starts_with("number") {
+        return match ty {
+            Type::Var(var2) if var == var2 => {
+                Ok(Substitution::empty())
+            }
+            Type::Var(var2) if var2.starts_with("number") => {
+                Ok(Substitution::var_pair(var, ty))
+            }
+            Type::Tag(name, _) if name == "Int" || name == "Float" => {
+                Ok(Substitution::var_pair(var, ty))
+            }
+            _ => {
+                return Err(TypeError::TypeMatchingError {
+                    span: constraint.span,
+                    expected: constraint.left.clone(),
+                    found: constraint.right.clone(),
+                });
+            }
+        };
+    }
+
     match ty {
-        Type::Var(var2) if var == var2 => Ok(Substitution::empty()),
-        Type::Var(_) => Ok(Substitution::var_pair(var, ty)),
-        _ if occurs(var, ty) => Err(()),
-        _ => Ok(Substitution::var_pair(var, ty)),
+        Type::Var(var2) if var == var2 => {
+            Ok(Substitution::empty())
+        }
+        Type::Var(_) => {
+            Ok(Substitution::var_pair(var, ty))
+        }
+        _ if occurs(var, ty) => {
+            return Err(TypeError::RecursiveTypeDefinition {
+                span: constraint.span,
+                var: var.to_string(),
+                ty: ty.clone(),
+            });
+        }
+        _ => {
+            Ok(Substitution::var_pair(var, ty))
+        }
     }
 }
 
@@ -1214,9 +1257,7 @@ fn vec_pair_map<ENV, F, A, B, E, S>(env: &mut ENV, vec: &Vec<(S, A)>, mut func: 
 
 #[cfg(test)]
 mod tests {
-    use constructors::type_number;
-    use constructors::type_of;
-    use constructors::type_string;
+    use constructors::{type_number_num, type_of, type_string};
     use test_utils::Test;
     use util::StringConversion;
 
@@ -1231,6 +1272,17 @@ mod tests {
         let typed_expr = infer_definition_type(&mut env, &expr).unwrap();
 
         assert_eq!(type_of("Int"), typed_expr.header.clone());
+    }
+
+    #[test]
+    fn test_infer_type_of_closure() {
+        let expr = Test::definition("genClosure x = (\\y -> x + y)");
+        let mut env = Env::new();
+        env.set("+", type_of("Int -> Int -> Int"));
+
+        let typed_expr = infer_definition_type(&mut env, &expr).unwrap();
+
+        assert_eq!(type_of("Int -> Int -> Int"), typed_expr.header.clone());
     }
 
     #[test]
@@ -1253,9 +1305,9 @@ mod tests {
 
         let typed_expr = infer_definition_type(&mut env, &expr);
 
-        assert_eq!(Err(TypeError::ArgumentsDoNotMatch {
-            span: (0, 0),
-            expected: type_of("Float"),
+        assert_eq!(Err(TypeError::TypeMatchingError {
+            span: (15, 23),
+            expected: type_of("number3"),
             found: type_of("Bool"),
         }), typed_expr);
     }
@@ -1272,8 +1324,19 @@ mod tests {
     }
 
     fn analyze_expression(analyzer: &mut Analyzer, expr: &Expr) -> Result<Type, TypeError> {
-        let expr = analyzer.analyze_expression(expr).unwrap();
-        Ok(expr_type(&expr))
+        let res = analyzer.analyze_expression(expr);
+        match res {
+            Ok(expr) => {
+                eprintln!("Expr:\n{}", expr);
+                Ok(expr_type(&expr))
+            }
+            Err(ElmError::Analyser(_, err)) => {
+                Err(err)
+            }
+            Err(err) => {
+                panic!("Error: {}", err);
+            }
+        }
     }
 
     #[test]
@@ -1281,20 +1344,12 @@ mod tests {
         let (expr, mut analyzer) = Test::expr_analyzer("{ x | a = 0 }");
 
         // Type of x
-        let record_type = Type::Record(vec![
-            ("a".s(), Type::Var("number".s())),
-            ("b".s(), Type::Var("number".s())),
-        ]);
-
-        // Type of expr
-        let result_type = Type::RecExt("x".s(), vec![
-            ("a".s(), Type::Var("number".s()))
-        ]);
+        let record_type = type_of("{ a: number, b: number }");
 
         analyzer.add_port("x", record_type.clone());
 
         let result = analyze_expression(&mut analyzer, &expr);
-        assert_eq!(result, Ok(result_type));
+        assert_eq!(result, Ok(record_type));
     }
 
     #[test]
@@ -1309,12 +1364,12 @@ mod tests {
         let (expr, mut analyzer) = Test::expr_analyzer("case 0 of\n 0 -> 1\n _ -> \"b\"");
 
         assert_eq!(
-            analyze_expression(&mut analyzer, &expr),
-            Err(TypeError::CaseBranchDontMatchReturnType {
-                span: (24, 27),
-                expected: type_number(),
+            Err(TypeError::TypeMatchingError {
+                span: (0, 27),
+                expected: type_number_num(1),
                 found: type_string(),
-            })
+            }),
+            analyze_expression(&mut analyzer, &expr)
         );
     }
 }

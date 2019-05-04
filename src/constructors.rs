@@ -36,6 +36,10 @@ pub fn type_number() -> Type {
     Type::Var(String::from("number"))
 }
 
+pub fn type_number_num(num: u32) -> Type {
+    Type::Var(format!("number{}", num))
+}
+
 pub fn type_bool() -> Type {
     Type::Tag(String::from("Bool"), vec![])
 }
