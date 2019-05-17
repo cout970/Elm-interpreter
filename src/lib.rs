@@ -84,7 +84,7 @@ impl Runtime {
 
         // Load from packed modules
         for name in ELM_CORE_MODULES.iter() {
-            let path = format!("{}/{}.pck", resource_path("packed_modules/core"), name);
+            let path = format!("{}/{}.json", resource_path("packed_modules/core"), name);
             run.include_packed_module(&path).unwrap();
         }
 

@@ -224,6 +224,7 @@ fn strip_fun_args(args: usize, ty: &Type) -> &Type {
 #[cfg(test)]
 mod tests {
     use ast::Statement;
+    use constructors::type_of;
     use test_utils::Test;
     use util::{build_fun_type, StringConversion};
 
@@ -319,6 +320,16 @@ mod tests {
         ));
 
         assert_eq!(format_type(&mut analyzer, &def), "( c -> c, d -> d )");
+    }
+
+    #[test]
+    fn check_list() {
+        let (expr, mut analyzer) = Test::expr_analyzer("[1, 2, 3.5]");
+
+        assert_eq!(
+            type_of("List Float"),
+            analyzer.analyze_expression(&expr).unwrap().get_type(),
+        );
     }
 
 //    #[test]
