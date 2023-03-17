@@ -204,6 +204,6 @@ pub fn resource_path(path: &str) -> String {
     d.to_string_lossy().to_string()
 }
 
-pub fn transmute_float_to_int(x: f32) -> i32 {
-    unsafe { transmute::<f32, i32>(x) }
+pub unsafe fn transmute_float_to_int(x: f32) -> i32 {
+    transmute::<f32, i32>(x) 
 }

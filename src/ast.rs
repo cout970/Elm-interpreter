@@ -414,7 +414,7 @@ impl Hash for Literal {
             Literal::Int(i) => { state.write_i32(*i) }
             Literal::Float(i) => {
                 // Floats have edge cases for hash computation, I ignore those cases for simplicity
-                state.write_i32(transmute_float_to_int(*i))
+                state.write_i32(unsafe { transmute_float_to_int(*i) })
             }
             Literal::String(i) => { i.hash(state) }
             Literal::Char(i) => { state.write_u32(*i as u32) }
