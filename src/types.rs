@@ -139,7 +139,7 @@ impl Hash for Value {
             Value::Unit => { state.write_i32(0) }
             Value::Number(i) => { state.write_i32(*i) }
             Value::Int(i) => { state.write_i32(*i) }
-            Value::Float(i) => { state.write_i32(transmute_float_to_int(*i)) }
+            Value::Float(i) => { state.write_i32(unsafe { transmute_float_to_int(*i) }) }
             Value::String(i) => { i.hash(state) }
             Value::Char(i) => { state.write_u32(*i as u32) }
             Value::List(i) => { i.hash(state) }
